@@ -201,7 +201,7 @@ export default function GrowthFeedbackPage() {
       {/* New Ticket Modal */}
       {showNew && (
         <div className="fixed inset-0 bg-white/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-surface-raised rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-raised rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-primary">New Feedback Ticket</h2>
               <button onClick={() => setShowNew(false)} className="text-text-tertiary hover:text-text-secondary p-1">
@@ -249,7 +249,7 @@ export default function GrowthFeedbackPage() {
       {/* Resolve Modal */}
       {showResolve && (
         <div className="fixed inset-0 bg-white/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-surface-raised rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-raised rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <h2 className="text-lg font-bold text-text-primary mb-4">Resolve Ticket</h2>
             <textarea
               autoFocus
