@@ -1,0 +1,158 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { CreateHandoverNoteDto } from './dto/kitchen.dto';
+export declare class KitchenService {
+    private prisma;
+    private alerts;
+    constructor(prisma: PrismaService, alerts: AlertsService);
+    getLiveOrders(branchId: string, station?: string, page?: number, limit?: number): Promise<({
+        items: ({
+            menuItem: {
+                name: string;
+                branchId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                categoryId: string;
+                description: string | null;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                available: boolean;
+                dayparts: string[];
+            };
+        } & {
+            id: string;
+            menuItemId: string;
+            quantity: number;
+            notes: string | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal;
+            unitCost: import("@prisma/client/runtime/library").Decimal;
+            orderId: string;
+        })[];
+    } & {
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        notes: string | null;
+        channel: import("@prisma/client").$Enums.OrderChannel;
+        paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
+        customerId: string | null;
+        guestName: string | null;
+        status: import("@prisma/client").$Enums.OrderStatus;
+        paymentLabel: string | null;
+        receiptUrl: string | null;
+        total: import("@prisma/client/runtime/library").Decimal;
+        foodCost: import("@prisma/client/runtime/library").Decimal;
+        paidAt: Date | null;
+    })[]>;
+    private isValidOrderStatus;
+    updateOrderStatus(orderId: string, status: string): Promise<{
+        items: ({
+            menuItem: {
+                name: string;
+                branchId: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                categoryId: string;
+                description: string | null;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                available: boolean;
+                dayparts: string[];
+            };
+        } & {
+            id: string;
+            menuItemId: string;
+            quantity: number;
+            notes: string | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal;
+            unitCost: import("@prisma/client/runtime/library").Decimal;
+            orderId: string;
+        })[];
+    } & {
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        notes: string | null;
+        channel: import("@prisma/client").$Enums.OrderChannel;
+        paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
+        customerId: string | null;
+        guestName: string | null;
+        status: import("@prisma/client").$Enums.OrderStatus;
+        paymentLabel: string | null;
+        receiptUrl: string | null;
+        total: import("@prisma/client/runtime/library").Decimal;
+        foodCost: import("@prisma/client/runtime/library").Decimal;
+        paidAt: Date | null;
+    }>;
+    getPrepList(branchId: string, date: string, shift?: string, page?: number, limit?: number): Promise<{
+        menuItemId: string;
+        menuItem: string;
+        totalQuantity: number;
+    }[]>;
+    createShortageRequest(ingredientId: string, branchId: string, reason?: string): Promise<{
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        quantity: import("@prisma/client/runtime/library").Decimal;
+        ingredientId: string;
+        type: import("@prisma/client").$Enums.MovementType;
+        reason: string | null;
+        referenceId: string | null;
+    }>;
+    logWaste(ingredientId: string, branchId: string, quantity: number, reason?: string): Promise<{
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        quantity: import("@prisma/client/runtime/library").Decimal;
+        ingredientId: string;
+        type: import("@prisma/client").$Enums.MovementType;
+        reason: string | null;
+        referenceId: string | null;
+    }>;
+    getWasteLogs(branchId: string, page?: number, limit?: number): Promise<({
+        ingredient: {
+            name: string;
+            id: string;
+            unit: string;
+        };
+    } & {
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        quantity: import("@prisma/client/runtime/library").Decimal;
+        ingredientId: string;
+        type: import("@prisma/client").$Enums.MovementType;
+        reason: string | null;
+        referenceId: string | null;
+    })[]>;
+    getHandoverNotes(date?: string, shift?: string, page?: number, limit?: number): Promise<({
+        user: {
+            name: string;
+            role: import("@prisma/client").$Enums.Role;
+            id: string;
+        };
+    } & {
+        shift: import("@prisma/client").$Enums.ShiftSlot;
+        id: string;
+        createdAt: Date;
+        userId: string;
+        content: string;
+        date: Date;
+    })[]>;
+    createHandoverNote(userId: string, dto: CreateHandoverNoteDto): Promise<{
+        shift: import("@prisma/client").$Enums.ShiftSlot;
+        id: string;
+        createdAt: Date;
+        userId: string;
+        content: string;
+        date: Date;
+    }>;
+    getStationLoad(branchId: string, page?: number, limit?: number): Promise<{
+        station: string;
+        count: number;
+    }[]>;
+}
