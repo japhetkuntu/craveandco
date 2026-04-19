@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const hasOverflow = mobileOverflowItems.length > 0;
 
   return (
-    <div className="min-h-[calc(var(--vh,1vh)*100)] bg-surface-base">
+    <div className="min-h-full bg-surface-base">
       {/* Desktop Sidebar */}
       <aside
         className={cn(
