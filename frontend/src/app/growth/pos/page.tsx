@@ -526,7 +526,7 @@ export default function GrowthPOSPage() {
   }
 
   return (
-    <div className="h-[calc(var(--vh,1vh)*100-5rem)] lg:h-[calc(var(--vh,1vh)*100-3rem)] flex flex-col min-h-0 pb-20 lg:pb-0">
+    <div className="min-h-[calc(var(--vh,1vh)*100-5rem)] lg:min-h-[calc(var(--vh,1vh)*100-3rem)] flex flex-col min-h-0 pb-20 lg:pb-0">
       {/* Top Bar */}
       <div className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-sm flex items-center justify-between gap-3 pb-3 border-b border-border-subtle">
         <div className="flex items-center gap-3">
@@ -752,7 +752,7 @@ export default function GrowthPOSPage() {
           </div>
 
           {/* Cart Section */}
-          <div className="lg:w-80 xl:w-96 bg-surface-raised lg:border-l border-t lg:border-t-0 border-border-subtle flex flex-col min-h-0 max-h-[calc(var(--vh,1vh)*45)] lg:max-h-none overflow-hidden">
+          <div className="lg:w-80 xl:w-96 bg-surface-raised lg:border-l border-t lg:border-t-0 border-border-subtle flex flex-col min-h-0 overflow-hidden">
             {/* Cart Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <div className="flex items-center gap-2">
