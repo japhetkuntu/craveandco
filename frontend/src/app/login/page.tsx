@@ -32,7 +32,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-base px-4">
+    <div className="min-h-[calc(var(--vh,1vh)*100)] flex items-center justify-center bg-surface-base px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gold">Crave & Co</h1>

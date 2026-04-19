@@ -79,8 +79,16 @@ export async function api<T = any>(
     }
 
     const body = await res.json().catch(() => ({}));
-    const message = body.message || res.statusText || `API error ${res.status}`;
-    throw new Error(`${path} - ${message}`);
+    let message =
+      typeof body.message === 'string'
+        ? body.message
+        : res.statusText || `API error ${res.status}`;
+
+    if (!message && body.message) {
+      message = JSON.stringify(body.message);
+    }
+
+    throw new Error(message);
   }
 
   const text = await res.text();

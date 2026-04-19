@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   description: "Restaurant management portal for Crave and Co",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

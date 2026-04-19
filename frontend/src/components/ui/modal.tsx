@@ -66,7 +66,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
           // Mobile: bottom sheet, Desktop: centered modal
           'rounded-t-2xl sm:rounded-2xl',
           'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-250',
-          'max-h-[90vh] overflow-hidden',
+          'max-h-[calc(var(--vh,1vh)*90)] overflow-hidden',
           sizes[size],
         )}
       >
@@ -85,7 +85,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-4.5rem)]">{children}</div>
+        <div className="overflow-y-auto max-h-[calc(var(--vh,1vh)*90-4.5rem)]">{children}</div>
 
         {/* Footer */}
         {footer && (
