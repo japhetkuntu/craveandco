@@ -12,11 +12,11 @@ function ViewportHeightProvider({ children }: { children: ReactNode }) {
 
     setVh();
     window.addEventListener('resize', setVh);
-    window.visualViewport?.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', setVh);
 
     return () => {
       window.removeEventListener('resize', setVh);
-      window.visualViewport?.removeEventListener('resize', setVh);
+      window.removeEventListener('orientationchange', setVh);
     };
   }, []);
 
