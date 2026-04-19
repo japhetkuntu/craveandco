@@ -526,7 +526,7 @@ export default function GrowthPOSPage() {
   }
 
   return (
-    <div className="min-h-[calc(var(--vh,1vh)*100-5rem)] lg:min-h-[calc(var(--vh,1vh)*100-3rem)] flex flex-col min-h-0 pb-20 lg:pb-0">
+    <div className="min-h-full flex flex-col min-h-0 pb-20 lg:pb-0">
       {/* Top Bar */}
       <div className="sticky top-0 z-30 bg-surface-base/95 backdrop-blur-sm flex items-center justify-between gap-3 pb-3 border-b border-border-subtle">
         <div className="flex items-center gap-3">
