@@ -122,6 +122,8 @@ export default function GrowthDashboardPage() {
 
   return (
     <div className="space-y-6">
+
+      
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
