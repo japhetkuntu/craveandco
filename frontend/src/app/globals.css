@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Core Brand */
+  --color-gold: #C9A646;
+  --color-gold-light: #D4B85C;
+  --color-gold-dark: #A8882E;
+  --color-gold-muted: rgba(201, 166, 70, 0.15);
+
+  /* Surfaces */
+  --color-surface-base: #FBF4E6;
+  --color-surface-raised: #FFF8E9;
+  --color-surface-overlay: rgba(255, 255, 255, 0.94);
+  --color-surface-elevated: #F7E4C2;
+  --color-surface-input: #FFF6E4;
+  --color-surface-input-focus: #FBE7BF;
+
+  /* Text */
+  --color-text-primary: #1B160A;
+  --color-text-secondary: #6F5C3B;
+  --color-text-tertiary: #9C8A65;
+  --color-text-inverse: #FFFFFF;
+
+  /* Semantic */
+  --color-success: #2ECC71;
+  --color-success-muted: rgba(46, 204, 113, 0.15);
+  --color-warning: #F39C12;
+  --color-warning-muted: rgba(243, 156, 18, 0.15);
+  --color-error: #E74C3C;
+  --color-error-muted: rgba(231, 76, 60, 0.15);
+  --color-info: #3498DB;
+  --color-info-muted: rgba(52, 152, 219, 0.15);
+
+  /* Borders */
+  --color-border-default: #E3D6AF;
+  --color-border-subtle: #F3E8C9;
+  --color-border-strong: #C9A646;
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(201, 166, 70, 0.12);
+  --shadow-md: 0 4px 12px rgba(201, 166, 70, 0.18);
+  --shadow-lg: 0 8px 24px rgba(201, 166, 70, 0.22);
+  --shadow-gold: 0 0 0 1px rgba(201, 166, 70, 0.3), 0 4px 12px rgba(201, 166, 70, 0.15);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+body {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(201, 166, 70, 0.3);
+  color: #FFFFFF;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 166, 70, 0.35);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 166, 70, 0.55);
+}
+
+.focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-surface-base), 0 0 0 4px var(--color-gold);
+}
