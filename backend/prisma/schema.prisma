@@ -201,6 +201,7 @@ model MenuItem {
 
   recipeItems  RecipeItem[]
   orderItems   OrderItem[]
+  options      Json?
 
   @@index([branchId, categoryId])
   @@map("menu_items")
@@ -374,6 +375,7 @@ model OrderItem {
   unitPrice        Decimal                      @db.Decimal(10, 2)
   unitCost         Decimal                      @db.Decimal(10, 2) @default(0)
   notes            String?
+  selectedOptions  Json?
   ingredientCosts  OrderItemIngredientCost[]
 
   @@index([menuItemId])

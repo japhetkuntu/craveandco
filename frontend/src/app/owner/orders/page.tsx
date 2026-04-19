@@ -25,6 +25,7 @@ interface Order {
     quantity: number;
     unitPrice: number;
     unitCost: number;
+    selectedOptions?: { optionId: string; optionName?: string; values: string[]; labels?: string[] }[];
     ingredientCosts?: {
       ingredientName: string;
       ingredientUnit: string;
@@ -317,6 +318,15 @@ export default function OwnerOrdersPage() {
                                         <span className="font-semibold">{item.quantity}x {item.menuItem?.name}</span>
                                         <span>{formatCurrency(item.unitPrice * item.quantity)}</span>
                                       </div>
+                                      {item.selectedOptions?.length ? (
+                                        <div className="space-y-1 text-xs text-text-secondary">
+                                          {item.selectedOptions.map((selected) => (
+                                            <p key={selected.optionId}>
+                                              {selected.optionName || selected.optionId}: {selected.labels?.length ? selected.labels.join(', ') : selected.values.join(', ')}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      ) : null}
                                       <div className="flex flex-wrap justify-between gap-3 text-xs text-text-secondary">
                                         <span>Unit cost {formatCurrency(item.unitCost)}</span>
                                         <span>Food cost {formatCurrency(item.unitCost * item.quantity)}</span>

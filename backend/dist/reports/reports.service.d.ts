@@ -24,6 +24,7 @@ export declare class ReportsService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: import("@prisma/client/runtime/library").JsonValue | null;
             } | undefined;
             totalQuantity: number;
         }[];

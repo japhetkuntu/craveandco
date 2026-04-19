@@ -1,0 +1,17 @@
+{
+  "name": "Crave & Co Portal",
+  "short_name": "CraveCo",
+  "description": "Restaurant management portal for Crave and Co",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#d39e37",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

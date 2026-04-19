@@ -1,4 +1,23 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsArray } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class MenuItemOptionValueDto {
+  @IsString() label: string;
+  @IsOptional() @IsNumber() priceAdjustment?: number;
+  @IsOptional() @IsString() id?: string;
+}
+
+class MenuItemOptionDto {
+  @IsString() name: string;
+  @IsOptional() @IsString() label?: string;
+  @IsBoolean() required: boolean;
+  @IsBoolean() multiple: boolean;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MenuItemOptionValueDto)
+  values: MenuItemOptionValueDto[];
+  @IsOptional() @IsString() id?: string;
+}
 
 export class CreateMenuItemDto {
   @IsString() categoryId: string;
@@ -8,6 +27,11 @@ export class CreateMenuItemDto {
   @IsOptional() @IsString() imageUrl?: string;
   @IsOptional() @IsBoolean() available?: boolean;
   @IsOptional() @IsArray() dayparts?: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MenuItemOptionDto)
+  options?: MenuItemOptionDto[];
 }
 
 export class UpdateMenuItemDto {
@@ -17,6 +41,11 @@ export class UpdateMenuItemDto {
   @IsOptional() @IsString() imageUrl?: string;
   @IsOptional() @IsBoolean() available?: boolean;
   @IsOptional() @IsArray() dayparts?: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MenuItemOptionDto)
+  options?: MenuItemOptionDto[];
 }
 
 export class CreateCategoryDto {

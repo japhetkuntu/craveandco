@@ -32,7 +32,7 @@ let OrdersService = class OrdersService {
             where: { id: { in: menuItemIds } },
             include: { recipeItems: { include: { ingredient: true } } },
         });
-        const priceMap = new Map(menuItems.map((m) => [m.id, Number(m.price)]));
+        const menuItemsMap = new Map(menuItems.map((m) => [m.id, m]));
         const ingredientCostsMap = new Map(menuItems.map((m) => [
             m.id,
             m.recipeItems.map((ri) => ({
@@ -48,16 +48,55 @@ let OrdersService = class OrdersService {
             m.id,
             (ingredientCostsMap.get(m.id) || []).reduce((sum, cost) => sum + cost.totalCost, 0),
         ]));
-        return { priceMap, costMap, ingredientCostsMap };
+        return { menuItemsMap, ingredientCostsMap, costMap };
     }
-    calculateTotals(items, priceMap, costMap) {
-        const total = items.reduce((sum, item) => sum + (priceMap.get(item.menuItemId) || 0) * item.quantity, 0);
+    getSelectedOptionAdjustment(menuItem, selectedOptions) {
+        if (!menuItem?.options || !Array.isArray(selectedOptions))
+            return 0;
+        const optionMap = new Map((menuItem.options || []).map((opt) => [opt.id, opt]));
+        return selectedOptions.reduce((sum, selected) => {
+            const option = optionMap.get(selected.optionId);
+            if (!option || !Array.isArray(option.values) || !Array.isArray(selected.values))
+                return sum;
+            const valueMap = new Map((option.values || []).map((value) => [value.id, value]));
+            return sum + selected.values.reduce((valueSum, valueId) => {
+                const value = valueMap.get(valueId);
+                return valueSum + (Number(value?.priceAdjustment || 0));
+            }, 0);
+        }, 0);
+    }
+    calculateMenuItemPrice(menuItem, selectedOptions) {
+        const basePrice = Number(menuItem?.price || 0);
+        return Number((basePrice + this.getSelectedOptionAdjustment(menuItem, selectedOptions)).toFixed(2));
+    }
+    normalizeSelectedOptions(menuItem, selectedOptions) {
+        if (!Array.isArray(selectedOptions) || !menuItem?.options)
+            return selectedOptions;
+        const optionMap = new Map((menuItem.options || []).map((opt) => [opt.id, opt]));
+        return selectedOptions.map((selected) => {
+            const option = optionMap.get(selected.optionId);
+            const valueMap = new Map((option?.values || []).map((value) => [value.id, value]));
+            const labels = (selected.values || []).map((valueId) => valueMap.get(valueId)?.label || valueId);
+            return {
+                optionId: selected.optionId,
+                optionName: option?.name,
+                values: selected.values,
+                labels,
+            };
+        });
+    }
+    calculateTotals(items, menuItemsMap, costMap) {
+        const total = items.reduce((sum, item) => {
+            const menuItem = menuItemsMap.get(item.menuItemId);
+            const unitPrice = this.calculateMenuItemPrice(menuItem, item.selectedOptions);
+            return sum + unitPrice * item.quantity;
+        }, 0);
         const foodCost = items.reduce((sum, item) => sum + (costMap.get(item.menuItemId) || 0) * item.quantity, 0);
         return { total, foodCost };
     }
     async create(dto) {
-        const { priceMap, costMap, ingredientCostsMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
-        const { total, foodCost } = this.calculateTotals(dto.items, priceMap, costMap);
+        const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
+        const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
         return this.prisma.order.create({
             data: {
                 branchId: dto.branchId,
@@ -69,23 +108,27 @@ let OrdersService = class OrdersService {
                 total,
                 foodCost,
                 items: {
-                    create: dto.items.map((item) => ({
-                        menuItemId: item.menuItemId,
-                        quantity: item.quantity,
-                        unitPrice: priceMap.get(item.menuItemId) || 0,
-                        unitCost: costMap.get(item.menuItemId) || 0,
-                        notes: item.notes,
-                        ingredientCosts: {
-                            create: (ingredientCostsMap.get(item.menuItemId) || []).map((cost) => ({
-                                ingredientId: cost.ingredientId,
-                                ingredientName: cost.ingredientName,
-                                ingredientUnit: cost.ingredientUnit,
-                                quantity: cost.quantity,
-                                unitCost: cost.unitCost,
-                                totalCost: cost.totalCost,
-                            })),
-                        },
-                    })),
+                    create: dto.items.map((item) => {
+                        const menuItem = menuItemsMap.get(item.menuItemId);
+                        return {
+                            menuItemId: item.menuItemId,
+                            quantity: item.quantity,
+                            unitPrice: this.calculateMenuItemPrice(menuItem, item.selectedOptions),
+                            unitCost: costMap.get(item.menuItemId) || 0,
+                            notes: item.notes,
+                            selectedOptions: this.normalizeSelectedOptions(menuItem, item.selectedOptions),
+                            ingredientCosts: {
+                                create: (ingredientCostsMap.get(item.menuItemId) || []).map((cost) => ({
+                                    ingredientId: cost.ingredientId,
+                                    ingredientName: cost.ingredientName,
+                                    ingredientUnit: cost.ingredientUnit,
+                                    quantity: cost.quantity,
+                                    unitCost: cost.unitCost,
+                                    totalCost: cost.totalCost,
+                                })),
+                            },
+                        };
+                    }),
                 },
             },
             include: this.orderInclude,
@@ -122,8 +165,8 @@ let OrdersService = class OrdersService {
         if (order.status !== client_1.OrderStatus.NEW) {
             throw new common_1.BadRequestException('Can only update items on NEW orders');
         }
-        const { priceMap, costMap, ingredientCostsMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
-        const { total, foodCost } = this.calculateTotals(dto.items, priceMap, costMap);
+        const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
+        const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
         await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
         return this.prisma.order.update({
             where: { id },
@@ -131,23 +174,27 @@ let OrdersService = class OrdersService {
                 total,
                 foodCost,
                 items: {
-                    create: dto.items.map((item) => ({
-                        menuItemId: item.menuItemId,
-                        quantity: item.quantity,
-                        unitPrice: priceMap.get(item.menuItemId) || 0,
-                        unitCost: costMap.get(item.menuItemId) || 0,
-                        notes: item.notes,
-                        ingredientCosts: {
-                            create: (ingredientCostsMap.get(item.menuItemId) || []).map((cost) => ({
-                                ingredientId: cost.ingredientId,
-                                ingredientName: cost.ingredientName,
-                                ingredientUnit: cost.ingredientUnit,
-                                quantity: cost.quantity,
-                                unitCost: cost.unitCost,
-                                totalCost: cost.totalCost,
-                            })),
-                        },
-                    })),
+                    create: dto.items.map((item) => {
+                        const menuItem = menuItemsMap.get(item.menuItemId);
+                        return {
+                            menuItemId: item.menuItemId,
+                            quantity: item.quantity,
+                            unitPrice: this.calculateMenuItemPrice(menuItem, item.selectedOptions),
+                            unitCost: costMap.get(item.menuItemId) || 0,
+                            notes: item.notes,
+                            selectedOptions: this.normalizeSelectedOptions(menuItem, item.selectedOptions),
+                            ingredientCosts: {
+                                create: (ingredientCostsMap.get(item.menuItemId) || []).map((cost) => ({
+                                    ingredientId: cost.ingredientId,
+                                    ingredientName: cost.ingredientName,
+                                    ingredientUnit: cost.ingredientUnit,
+                                    quantity: cost.quantity,
+                                    unitCost: cost.unitCost,
+                                    totalCost: cost.totalCost,
+                                })),
+                            },
+                        };
+                    }),
                 },
             },
             include: this.orderInclude,
@@ -167,14 +214,16 @@ let OrdersService = class OrdersService {
         if (!menuItem)
             throw new common_1.NotFoundException('Menu item not found');
         const unitCost = menuItem.recipeItems.reduce((sum, ri) => sum + Number(ri.quantity) * Number(ri.ingredient.currentCost), 0);
+        const unitPrice = this.calculateMenuItemPrice(menuItem, dto.selectedOptions);
         await this.prisma.orderItem.create({
             data: {
                 orderId: id,
                 menuItemId: dto.menuItemId,
                 quantity: dto.quantity,
-                unitPrice: menuItem.price,
+                unitPrice,
                 unitCost,
                 notes: dto.notes,
+                selectedOptions: this.normalizeSelectedOptions(menuItem, dto.selectedOptions),
                 ingredientCosts: {
                     create: menuItem.recipeItems.map((ri) => ({
                         ingredientId: ri.ingredientId,

@@ -9,11 +9,28 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { ChefHat, Clock, ArrowRight, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
+interface MenuOptionValue {
+  id: string;
+  label: string;
+}
+
+interface MenuOption {
+  id: string;
+  name: string;
+  values: MenuOptionValue[];
+}
+
+interface SelectedOption {
+  optionId: string;
+  values: string[];
+}
+
 interface OrderItem {
   id: string;
   quantity: number;
   notes?: string;
-  menuItem: { name: string };
+  selectedOptions?: SelectedOption[];
+  menuItem: { name: string; options?: MenuOption[] };
 }
 
 interface Order {
@@ -24,6 +41,19 @@ interface Order {
   notes?: string;
   items: OrderItem[];
 }
+
+const formatSelectedOptions = (menuItem: OrderItem['menuItem'], selectedOptions?: SelectedOption[]) => {
+  if (!selectedOptions?.length || !menuItem?.options?.length) return [];
+  const optionMap = new Map(menuItem.options.map((option) => [option.id, option]));
+  return selectedOptions.flatMap((selected) => {
+    const option = optionMap.get(selected.optionId);
+    if (!option) return [];
+    const labels = option.values
+      .filter((value) => selected.values.includes(value.id))
+      .map((value) => value.label);
+    return labels.length ? [`${option.name}: ${labels.join(', ')}`] : [];
+  });
+};
 
 const statusFlow = ORDER_STATUS_FLOW;
 
@@ -244,18 +274,29 @@ function KitchenOrderCard({
 
       <ul className="space-y-1.5 my-3">
         {order.items.map((item) => (
-          <li key={item.id} className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2">
-              <span className="bg-gold-muted text-gold text-xs font-bold rounded-lg px-1.5 py-0.5 min-w-[24px] text-center">
-                {item.quantity}
-              </span>
-              <span className="text-sm font-medium text-text-primary">{item.menuItem.name}</span>
+          <li key={item.id} className="space-y-2 rounded-2xl border border-border-subtle bg-surface-base p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2">
+                <span className="bg-gold-muted text-gold text-xs font-bold rounded-lg px-1.5 py-0.5 min-w-[24px] text-center">
+                  {item.quantity}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">{item.menuItem.name}</p>
+                  {item.selectedOptions?.length ? (
+                    <div className="text-[10px] text-text-secondary space-y-1 mt-1">
+                      {formatSelectedOptions(item.menuItem, item.selectedOptions).map((label) => (
+                        <p key={label}>{label}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              {item.notes && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md italic flex-shrink-0">
+                  {item.notes}
+                </span>
+              )}
             </div>
-            {item.notes && (
-              <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md italic flex-shrink-0">
-                {item.notes}
-              </span>
-            )}
           </li>
         ))}
       </ul>

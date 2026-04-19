@@ -1,8 +1,13 @@
 import { OrderChannel, PaymentMethod } from '@prisma/client';
+export declare class SelectedOptionDto {
+    optionId: string;
+    values: string[];
+}
 export declare class CreateOrderItemDto {
     menuItemId: string;
     quantity: number;
     notes?: string;
+    selectedOptions?: SelectedOptionDto[];
 }
 export declare class CreateOrderDto {
     branchId: string;
@@ -30,4 +35,5 @@ export declare class AddOrderItemDto {
     menuItemId: string;
     quantity: number;
     notes?: string;
+    selectedOptions?: SelectedOptionDto[];
 }

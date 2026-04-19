@@ -11,6 +11,62 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateCategoryDto = exports.CreateCategoryDto = exports.UpdateMenuItemDto = exports.CreateMenuItemDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+class MenuItemOptionValueDto {
+    label;
+    priceAdjustment;
+    id;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MenuItemOptionValueDto.prototype, "label", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], MenuItemOptionValueDto.prototype, "priceAdjustment", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MenuItemOptionValueDto.prototype, "id", void 0);
+class MenuItemOptionDto {
+    name;
+    label;
+    required;
+    multiple;
+    values;
+    id;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MenuItemOptionDto.prototype, "name", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MenuItemOptionDto.prototype, "label", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], MenuItemOptionDto.prototype, "required", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], MenuItemOptionDto.prototype, "multiple", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MenuItemOptionValueDto),
+    __metadata("design:type", Array)
+], MenuItemOptionDto.prototype, "values", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MenuItemOptionDto.prototype, "id", void 0);
 class CreateMenuItemDto {
     categoryId;
     name;
@@ -19,6 +75,7 @@ class CreateMenuItemDto {
     imageUrl;
     available;
     dayparts;
+    options;
 }
 exports.CreateMenuItemDto = CreateMenuItemDto;
 __decorate([
@@ -54,6 +111,13 @@ __decorate([
     (0, class_validator_1.IsArray)(),
     __metadata("design:type", Array)
 ], CreateMenuItemDto.prototype, "dayparts", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MenuItemOptionDto),
+    __metadata("design:type", Array)
+], CreateMenuItemDto.prototype, "options", void 0);
 class UpdateMenuItemDto {
     name;
     description;
@@ -61,6 +125,7 @@ class UpdateMenuItemDto {
     imageUrl;
     available;
     dayparts;
+    options;
 }
 exports.UpdateMenuItemDto = UpdateMenuItemDto;
 __decorate([
@@ -93,6 +158,13 @@ __decorate([
     (0, class_validator_1.IsArray)(),
     __metadata("design:type", Array)
 ], UpdateMenuItemDto.prototype, "dayparts", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MenuItemOptionDto),
+    __metadata("design:type", Array)
+], UpdateMenuItemDto.prototype, "options", void 0);
 class CreateCategoryDto {
     name;
     sortOrder;

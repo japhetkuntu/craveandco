@@ -2,6 +2,13 @@ import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsArray, ValidateNe
 import { Type } from 'class-transformer';
 import { OrderChannel, PaymentMethod } from '@prisma/client';
 
+export class SelectedOptionDto {
+  @IsString() optionId: string;
+  @IsArray()
+  @IsString({ each: true })
+  values: string[];
+}
+
 export class CreateOrderItemDto {
   @IsString()
   menuItemId: string;
@@ -13,6 +20,12 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectedOptionDto)
+  selectedOptions?: SelectedOptionDto[];
 }
 
 export class CreateOrderDto {
@@ -89,4 +102,10 @@ export class AddOrderItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectedOptionDto)
+  selectedOptions?: SelectedOptionDto[];
 }

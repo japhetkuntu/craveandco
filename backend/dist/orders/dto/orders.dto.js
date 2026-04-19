@@ -9,14 +9,29 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AddOrderItemDto = exports.PayOrderDto = exports.UpdateOrderItemsDto = exports.UpdateOrderStatusDto = exports.CreateOrderDto = exports.CreateOrderItemDto = void 0;
+exports.AddOrderItemDto = exports.PayOrderDto = exports.UpdateOrderItemsDto = exports.UpdateOrderStatusDto = exports.CreateOrderDto = exports.CreateOrderItemDto = exports.SelectedOptionDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const client_1 = require("@prisma/client");
+class SelectedOptionDto {
+    optionId;
+    values;
+}
+exports.SelectedOptionDto = SelectedOptionDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SelectedOptionDto.prototype, "optionId", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], SelectedOptionDto.prototype, "values", void 0);
 class CreateOrderItemDto {
     menuItemId;
     quantity;
     notes;
+    selectedOptions;
 }
 exports.CreateOrderItemDto = CreateOrderItemDto;
 __decorate([
@@ -33,6 +48,13 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateOrderItemDto.prototype, "notes", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => SelectedOptionDto),
+    __metadata("design:type", Array)
+], CreateOrderItemDto.prototype, "selectedOptions", void 0);
 class CreateOrderDto {
     branchId;
     channel;
@@ -132,6 +154,7 @@ class AddOrderItemDto {
     menuItemId;
     quantity;
     notes;
+    selectedOptions;
 }
 exports.AddOrderItemDto = AddOrderItemDto;
 __decorate([
@@ -148,4 +171,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], AddOrderItemDto.prototype, "notes", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => SelectedOptionDto),
+    __metadata("design:type", Array)
+], AddOrderItemDto.prototype, "selectedOptions", void 0);
 //# sourceMappingURL=orders.dto.js.map

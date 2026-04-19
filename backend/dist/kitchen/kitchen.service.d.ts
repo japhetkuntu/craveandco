@@ -19,12 +19,14 @@ export declare class KitchenService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: import("@prisma/client/runtime/library").JsonValue | null;
             };
         } & {
             id: string;
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
             unitPrice: import("@prisma/client/runtime/library").Decimal;
             unitCost: import("@prisma/client/runtime/library").Decimal;
             orderId: string;
@@ -61,12 +63,14 @@ export declare class KitchenService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: import("@prisma/client/runtime/library").JsonValue | null;
             };
         } & {
             id: string;
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
             unitPrice: import("@prisma/client/runtime/library").Decimal;
             unitCost: import("@prisma/client/runtime/library").Decimal;
             orderId: string;

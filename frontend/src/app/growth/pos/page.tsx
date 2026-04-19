@@ -11,22 +11,44 @@ import {
 
 /* ─── Types ─────────────────────────────────────────── */
 
+interface MenuOptionValue {
+  id: string;
+  label: string;
+  priceAdjustment?: number;
+}
+
+interface MenuOption {
+  id: string;
+  name: string;
+  required: boolean;
+  multiple: boolean;
+  values: MenuOptionValue[];
+}
+
 interface MenuItem {
   id: string;
   name: string;
   price: number;
   available: boolean;
   category: { id: string; name: string };
+  options?: MenuOption[];
 }
 
 interface Category { id: string; name: string; }
 
+interface SelectedOption {
+  optionId: string;
+  values: string[];
+}
+
 interface CartItem {
+  key: string;
   menuItemId: string;
   name: string;
   price: number;
   quantity: number;
   notes?: string;
+  selectedOptions?: SelectedOption[];
 }
 
 interface PaymentType {
@@ -57,7 +79,16 @@ interface Order {
   createdAt: string;
   guestName?: string;
   customer?: Customer;
-  items: { id: string; menuItemId: string; menuItem: { name: string }; quantity: number; unitPrice: number; notes?: string }[];
+  notes?: string;
+  items: {
+    id: string;
+    menuItemId: string;
+    menuItem: { name: string };
+    quantity: number;
+    unitPrice: number;
+    notes?: string;
+    selectedOptions?: SelectedOption[];
+  }[];
 }
 
 /* ─── Component ─────────────────────────────────────── */
@@ -76,10 +107,13 @@ export default function GrowthPOSPage() {
   const [activeCategory, setActiveCategory] = useState('');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedVariantItem, setSelectedVariantItem] = useState<MenuItem | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<SelectedOption[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
   const [useLoyaltyDiscount, setUseLoyaltyDiscount] = useState(false);
   const [guestName, setGuestName] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
   const [receiptReference, setReceiptReference] = useState('');
   const [printReceipt, setPrintReceipt] = useState(true);
   const [channel, setChannel] = useState<string>('DINE_IN');
@@ -103,6 +137,91 @@ export default function GrowthPOSPage() {
     orderId?: string;
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const getOptionAdjustment = (item: MenuItem, selectedOptions?: SelectedOption[]) => {
+    if (!item.options?.length || !selectedOptions?.length) return 0;
+    const optionMap = new Map(item.options.map((option) => [option.id, option]));
+    return selectedOptions.reduce((sum, selected) => {
+      const option = optionMap.get(selected.optionId);
+      if (!option || !Array.isArray(selected.values)) return sum;
+      const valueMap = new Map(option.values.map((value) => [value.id, value]));
+      return sum + selected.values.reduce((valueSum, valueId) => {
+        const value = valueMap.get(valueId);
+        return valueSum + (Number(value?.priceAdjustment || 0));
+      }, 0);
+    }, 0);
+  };
+
+  const formatSelectedOptions = (item: MenuItem, selectedOptions?: SelectedOption[]) => {
+    if (!selectedOptions?.length || !item.options?.length) return [];
+    const optionMap = new Map(item.options.map((option) => [option.id, option]));
+    return selectedOptions.flatMap((selected) => {
+      const option = optionMap.get(selected.optionId);
+      if (!option) return [];
+      const valueMap = new Map(option.values.map((value) => [value.id, value.label]));
+      const labels = selected.values.map((valueId) => valueMap.get(valueId)).filter(Boolean);
+      return labels.length ? [`${option.name}: ${labels.join(', ')}`] : [];
+    });
+  };
+
+  const optionKey = (options?: SelectedOption[]) =>
+    options
+      ? options
+          .map((option) => ({
+            optionId: option.optionId,
+            values: [...option.values].sort(),
+          }))
+          .sort((a, b) => a.optionId.localeCompare(b.optionId))
+          .map((option) => `${option.optionId}:${option.values.join(',')}`)
+          .join('|')
+      : '';
+
+  const openVariantSelector = (item: MenuItem) => {
+    setSelectedVariantItem(item);
+    setSelectedOptions((item.options || []).map((option) => ({ optionId: option.id, values: [] })));
+  };
+
+  const closeVariantSelector = () => {
+    setSelectedVariantItem(null);
+    setSelectedOptions([]);
+  };
+
+  const toggleSelectedOptionValue = (optionId: string, valueId: string, multiple: boolean) => {
+    setSelectedOptions((current) =>
+      current.map((option) => {
+        if (option.optionId !== optionId) return option;
+        const values = option.values || [];
+        if (multiple) {
+          return values.includes(valueId)
+            ? { ...option, values: values.filter((id) => id !== valueId) }
+            : { ...option, values: [...values, valueId] };
+        }
+        return { ...option, values: values.includes(valueId) ? [] : [valueId] };
+      }),
+    );
+  };
+
+  const isVariantSelectionValid = selectedVariantItem
+    ? selectedVariantItem.options?.every((option) => {
+        const selection = selectedOptions.find((selected) => selected.optionId === option.id);
+        return !option.required || (selection?.values?.length ?? 0) > 0;
+      }) ?? true
+    : true;
+
+  const confirmVariantSelection = () => {
+    if (!selectedVariantItem) return;
+    if (!isVariantSelectionValid) return;
+    addToCart(selectedVariantItem, selectedOptions);
+    closeVariantSelector();
+  };
+
+  const openItem = (item: MenuItem) => {
+    if (item.options?.length) {
+      openVariantSelector(item);
+      return;
+    }
+    addToCart(item);
+  };
 
   /* ─── Data fetching ─── */
 
@@ -161,28 +280,45 @@ export default function GrowthPOSPage() {
 
   /* ─── Cart operations ─── */
 
-  const addToCart = (item: MenuItem) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.menuItemId === item.id);
+  const addToCart = (item: MenuItem, options?: SelectedOption[]) => {
+    setCart((prev) => {
+      const optionSignature = optionKey(options);
+      const itemKey = `${item.id}-${optionSignature}`;
+      const existing = prev.find((c) => c.key === itemKey);
+      const unitPrice = Number(item.price) + getOptionAdjustment(item, options);
       if (existing) {
-        return prev.map(c => c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+        return prev.map((c) =>
+          c.key === itemKey ? { ...c, quantity: c.quantity + 1 } : c,
+        );
       }
-      return [...prev, { menuItemId: item.id, name: item.name, price: Number(item.price), quantity: 1 }];
+      return [
+        ...prev,
+        {
+          key: itemKey,
+          menuItemId: item.id,
+          name: item.name,
+          price: Number(unitPrice.toFixed(2)),
+          quantity: 1,
+          selectedOptions: options,
+        },
+      ];
     });
   };
 
-  const updateQuantity = (menuItemId: string, delta: number) => {
-    setCart(prev =>
-      prev.map(c => {
-        if (c.menuItemId !== menuItemId) return c;
-        const newQty = c.quantity + delta;
-        return newQty > 0 ? { ...c, quantity: newQty } : c;
-      }).filter(c => c.quantity > 0),
+  const updateQuantity = (itemKey: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((c) => {
+          if (c.key !== itemKey) return c;
+          const newQty = c.quantity + delta;
+          return newQty > 0 ? { ...c, quantity: newQty } : c;
+        })
+        .filter((c) => c.quantity > 0),
     );
   };
 
-  const removeFromCart = (menuItemId: string) => {
-    setCart(prev => prev.filter(c => c.menuItemId !== menuItemId));
+  const removeFromCart = (itemKey: string) => {
+    setCart((prev) => prev.filter((c) => c.key !== itemKey));
   };
 
   const cartTotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
@@ -367,15 +503,18 @@ export default function GrowthPOSPage() {
 
   const loadOrderInternal = (order: Order) => {
     setActiveOrderId(order.id);
-    setCart(order.items.map(i => ({
+    setCart(order.items.map((i) => ({
+      key: `${i.menuItemId}-${optionKey(i.selectedOptions)}`,
       menuItemId: i.menuItemId,
       name: i.menuItem?.name || '',
       price: Number(i.unitPrice),
       quantity: i.quantity,
       notes: i.notes,
+      selectedOptions: i.selectedOptions,
     })));
     setSelectedCustomer(order.customer || null);
     setGuestName(order.guestName || '');
+    setOrderNotes(order.notes || '');
     setView('pos');
     setConfirmAction(null);
   };
@@ -389,12 +528,19 @@ export default function GrowthPOSPage() {
         channel,
         customerId: selectedCustomer?.id,
         guestName: selectedCustomer ? undefined : guestName.trim() || undefined,
-        items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, notes: c.notes })),
+        notes: orderNotes.trim() || undefined,
+        items: cart.map(c => ({
+          menuItemId: c.menuItemId,
+          quantity: c.quantity,
+          notes: c.notes,
+          selectedOptions: c.selectedOptions,
+        })),
       }, token);
       setActiveOrderId(order.id);
       setCart([]);
       setSelectedCustomer(order.customer || selectedCustomer || null);
       setGuestName('');
+      setOrderNotes('');
       setUseLoyaltyDiscount(false);
       await fetchData();
       showAlert('success', 'Order created. Ready for payment.');
@@ -725,7 +871,7 @@ export default function GrowthPOSPage() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => addToCart(item)}
+                    onClick={() => openItem(item)}
                     className={`relative flex min-h-[100px] sm:min-h-[115px] md:min-h-[125px] flex-col justify-between overflow-hidden bg-surface-raised rounded-[22px] border border-border-subtle p-3 sm:p-4 text-left transition-all duration-200 hover:border-gold hover:shadow-lg active:-translate-y-0.5 ${
                       inCart ? 'border-gold shadow-sm ring-1 ring-gold' : ''
                     }`}
@@ -819,21 +965,30 @@ export default function GrowthPOSPage() {
               ) : (
                 <div className="py-2">
                   {cart.map(item => (
-                    <div key={item.menuItemId} className="flex items-center gap-2 px-4 py-2 hover:bg-surface-base transition-colors">
+                    <div key={`${item.menuItemId}-${optionKey(item.selectedOptions)}`} className="flex items-center gap-2 px-4 py-2 hover:bg-surface-base transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-text-primary truncate">{item.name}</p>
-                        <p className="text-[10px] text-text-tertiary">{formatCurrency(item.price)} each</p>
+                        {item.selectedOptions?.length ? (
+                          <div className="text-[10px] text-text-secondary space-y-1">
+                            {formatSelectedOptions(menuItems.find((menu) => menu.id === item.menuItemId) as MenuItem, item.selectedOptions).map((label) => (
+                              <p key={label}>{label}</p>
+                            ))}
+                            <p>{formatCurrency(item.price)} each</p>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-text-tertiary">{formatCurrency(item.price)} each</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => updateQuantity(item.menuItemId, -1)}
+                          onClick={() => updateQuantity(item.key, -1)}
                           className="w-6 h-6 rounded-lg bg-surface-elevated hover:bg-surface-elevated flex items-center justify-center transition-colors"
                         >
                           <Minus size={12} />
                         </button>
                         <span className="w-6 text-center text-xs font-bold text-text-primary">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.menuItemId, 1)}
+                          onClick={() => updateQuantity(item.key, 1)}
                           className="w-6 h-6 rounded-lg bg-gold-muted hover:bg-gold-muted text-gold flex items-center justify-center transition-colors"
                         >
                           <Plus size={12} />
@@ -841,7 +996,7 @@ export default function GrowthPOSPage() {
                       </div>
                       <p className="text-xs font-bold text-text-primary w-16 text-right">{formatCurrency(item.price * item.quantity)}</p>
                       <button
-                        onClick={() => removeFromCart(item.menuItemId)}
+                        onClick={() => removeFromCart(item.key)}
                         className="text-text-tertiary hover:text-error transition-colors"
                       >
                         <Trash2 size={12} />
@@ -853,7 +1008,14 @@ export default function GrowthPOSPage() {
             </div>
 
             {/* Cart Footer */}
-            <div className="border-t border-border-subtle px-4 py-3 space-y-2 bg-surface-base/50">
+            <div className="space-y-3 border-t border-border-subtle px-4 py-3 bg-surface-base/50">
+              <label className="block text-xs font-semibold text-text-secondary">Order notes</label>
+              <textarea
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                placeholder="Allergies, delivery instructions, or special requests"
+                className="w-full min-h-[90px] rounded-3xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none resize-none"
+              />
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-text-secondary">Total</span>
                 <span className="text-lg font-bold text-text-primary">{formatCurrency(cartTotal)}</span>
@@ -1084,6 +1246,82 @@ export default function GrowthPOSPage() {
       )}
 
       {/* ─── New Customer Modal ─── */}
+      {selectedVariantItem && (
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-end lg:items-center justify-center p-0 lg:p-4">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(100vh-4rem)] overflow-hidden shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+              <div>
+                <h2 className="text-lg font-bold text-text-primary">{selectedVariantItem.name}</h2>
+                <p className="text-sm text-text-secondary">Choose the variation options for this item.</p>
+              </div>
+              <button onClick={closeVariantSelector} className="text-text-tertiary hover:text-text-secondary p-2">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4 border-b border-border-subtle bg-surface-base">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-text-secondary">Base price</p>
+                  <p className="text-lg font-semibold text-text-primary">{formatCurrency(Number(selectedVariantItem.price))}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-text-secondary">Current selection</p>
+                  <p className="text-lg font-semibold text-text-primary">{formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}</p>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-y-auto p-6 space-y-5 flex-1">
+              {selectedVariantItem.options?.map((option) => {
+                const selected = selectedOptions.find((s) => s.optionId === option.id);
+                const selectedValues = selected?.values || [];
+                return (
+                  <div key={option.id} className="space-y-3 rounded-3xl border border-border-default bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-text-primary">{option.name}</p>
+                        <p className="text-xs text-text-secondary">{option.required ? 'Required' : 'Optional'} • {option.multiple ? 'Multiple selections' : 'Single selection'}</p>
+                      </div>
+                      {selectedValues.length > 0 ? (
+                        <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">
+                          {selectedValues.length} selected
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      {option.values.map((value) => {
+                        const isSelected = selectedValues.includes(value.id);
+                        return (
+                          <button
+                            key={value.id}
+                            type="button"
+                            onClick={() => toggleSelectedOptionValue(option.id, value.id, option.multiple)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isSelected ? 'border-gold bg-gold-muted text-text-primary' : 'border-border-default bg-surface-raised text-text-secondary'}`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span>{value.label}</span>
+                              {value.priceAdjustment ? <span className="text-xs text-text-secondary">+{formatCurrency(value.priceAdjustment)}</span> : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-border-subtle px-6 py-4 bg-white">
+              <button
+                type="button"
+                onClick={confirmVariantSelection}
+                disabled={!isVariantSelectionValid}
+                className="w-full rounded-2xl bg-gold py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Add to cart • {formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showNewCustomer && (
         <div className="fixed inset-0 bg-white/50 z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
           <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(100vh-4rem)] overflow-y-auto">

@@ -50,6 +50,7 @@ let MenuService = class MenuService {
                 ...dto,
                 branchId,
                 available: dto.available ?? true,
+                options: dto.options,
             },
             include: { category: true },
         });
@@ -71,7 +72,7 @@ let MenuService = class MenuService {
             throw new common_1.NotFoundException('Menu item not found');
         return this.prisma.menuItem.update({
             where: { id },
-            data: dto,
+            data: { ...dto, options: dto.options },
             include: { category: true },
         });
     }

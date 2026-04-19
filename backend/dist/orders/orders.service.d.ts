@@ -6,6 +6,9 @@ export declare class OrdersService {
     constructor(prisma: PrismaService);
     private orderInclude;
     private loadMenuItemsWithCosts;
+    private getSelectedOptionAdjustment;
+    private calculateMenuItemPrice;
+    private normalizeSelectedOptions;
     private calculateTotals;
     create(dto: CreateOrderDto): Promise<{
         customer: {
@@ -43,6 +46,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -59,6 +63,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;
@@ -118,6 +123,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -134,6 +140,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;
@@ -191,6 +198,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -207,6 +215,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;
@@ -264,6 +273,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -280,6 +290,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;
@@ -337,6 +348,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -353,6 +365,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;
@@ -420,6 +433,7 @@ export declare class OrdersService {
                 imageUrl: string | null;
                 available: boolean;
                 dayparts: string[];
+                options: Prisma.JsonValue | null;
             };
             ingredientCosts: {
                 id: string;
@@ -436,6 +450,7 @@ export declare class OrdersService {
             menuItemId: string;
             quantity: number;
             notes: string | null;
+            selectedOptions: Prisma.JsonValue | null;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
             orderId: string;

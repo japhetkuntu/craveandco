@@ -48,6 +48,7 @@ export class MenuService {
         ...dto,
         branchId,
         available: dto.available ?? true,
+        options: dto.options as any,
       },
       include: { category: true },
     });
@@ -71,7 +72,7 @@ export class MenuService {
     if (!item) throw new NotFoundException('Menu item not found');
     return this.prisma.menuItem.update({
       where: { id },
-      data: dto,
+      data: { ...dto, options: dto.options as any },
       include: { category: true },
     });
   }

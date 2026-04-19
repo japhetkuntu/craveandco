@@ -9,6 +9,21 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
 
+interface MenuOptionValue {
+  id: string;
+  label: string;
+  priceAdjustment?: number;
+}
+
+interface MenuOption {
+  id: string;
+  name: string;
+  label?: string;
+  required: boolean;
+  multiple: boolean;
+  values: MenuOptionValue[];
+}
+
 interface MenuItem {
   id: string;
   name: string;
@@ -16,6 +31,7 @@ interface MenuItem {
   price: number;
   available: boolean;
   category: { id: string; name: string };
+  options?: MenuOption[];
 }
 
 interface Category {
@@ -58,9 +74,11 @@ export default function OwnerMenuPage() {
     price: 0,
     categoryId: '',
   });
+  const [newItemOptions, setNewItemOptions] = useState<MenuOption[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [editItemData, setEditItemData] = useState({ name: '', description: '', price: 0 });
+  const [editItemOptions, setEditItemOptions] = useState<MenuOption[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([]);
@@ -74,6 +92,27 @@ export default function OwnerMenuPage() {
   const [recipeImportSourceId, setRecipeImportSourceId] = useState('');
   const [recipeForm, setRecipeForm] = useState({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
+
+  const createOption = () => ({
+    id: `opt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: '',
+    label: '',
+    required: false,
+    multiple: false,
+    values: [
+      {
+        id: `val-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        label: '',
+        priceAdjustment: 0,
+      },
+    ],
+  });
+
+  const createValue = () => ({
+    id: `val-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label: '',
+    priceAdjustment: 0,
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -213,6 +252,75 @@ export default function OwnerMenuPage() {
     setRecipeError('');
   };
 
+  const updateOption = (options: MenuOption[], index: number, next: Partial<MenuOption>) => {
+    return options.map((option, idx) => (idx === index ? { ...option, ...next } : option));
+  };
+
+  const updateOptionValue = (
+    options: MenuOption[],
+    optionIndex: number,
+    valueIndex: number,
+    next: Partial<MenuOptionValue>,
+  ) => {
+    return options.map((option, idx) => {
+      if (idx !== optionIndex) return option;
+      return {
+        ...option,
+        values: option.values.map((value, vIdx) => (vIdx === valueIndex ? { ...value, ...next } : value)),
+      };
+    });
+  };
+
+  const addNewItemOption = () => {
+    setNewItemOptions((current) => [...current, createOption()]);
+  };
+
+  const removeNewItemOption = (index: number) => {
+    setNewItemOptions((current) => current.filter((_, idx) => idx !== index));
+  };
+
+  const addNewItemOptionValue = (index: number) => {
+    setNewItemOptions((current) =>
+      current.map((option, idx) =>
+        idx !== index ? option : { ...option, values: [...option.values, createValue()] },
+      ),
+    );
+  };
+
+  const removeNewItemOptionValue = (optionIndex: number, valueIndex: number) => {
+    setNewItemOptions((current) =>
+      current.map((option, idx) => {
+        if (idx !== optionIndex) return option;
+        return { ...option, values: option.values.filter((_, vIdx) => vIdx !== valueIndex) };
+      }),
+    );
+  };
+
+  const addEditItemOption = () => {
+    setEditItemOptions((current) => [...current, createOption()]);
+  };
+
+  const removeEditItemOption = (index: number) => {
+    setEditItemOptions((current) => current.filter((_, idx) => idx !== index));
+  };
+
+  const addEditItemOptionValue = (index: number) => {
+    setEditItemOptions((current) =>
+      current.map((option, idx) =>
+        idx !== index ? option : { ...option, values: [...option.values, createValue()] },
+      ),
+    );
+  };
+
+  const removeEditItemOptionValue = (optionIndex: number, valueIndex: number) => {
+    setEditItemOptions((current) =>
+      current.map((option, idx) => {
+        if (idx !== optionIndex) return option;
+        return { ...option, values: option.values.filter((_, vIdx) => vIdx !== valueIndex) };
+      }),
+    );
+  };
+
   const importRecipeItems = async () => {
     if (!token || !selectedMenuItem || !recipeImportSourceId) return;
     setRecipeImportLoading(true);
@@ -263,12 +371,14 @@ export default function OwnerMenuPage() {
       description: item.description ?? '',
       price: item.price,
     });
+    setEditItemOptions(item.options ?? []);
   };
 
   const closeEditItem = () => {
     setEditItem(null);
     setEditError('');
     setEditItemData({ name: '', description: '', price: 0 });
+    setEditItemOptions([]);
   };
 
   const handleEditItemSubmit = async (e: React.FormEvent) => {
@@ -287,6 +397,18 @@ export default function OwnerMenuPage() {
           name: editItemData.name.trim(),
           description: editItemData.description.trim(),
           price: Number(editItemData.price),
+          options: editItemOptions.map((option) => ({
+            id: option.id,
+            name: option.name.trim(),
+            label: option.label?.trim(),
+            required: option.required,
+            multiple: option.multiple,
+            values: option.values.map((value) => ({
+              id: value.id,
+              label: value.label.trim(),
+              priceAdjustment: Number(value.priceAdjustment || 0),
+            })),
+          })),
         },
         token ?? undefined,
       );
@@ -331,10 +453,23 @@ export default function OwnerMenuPage() {
           description: newItem.description.trim(),
           price: Number(newItem.price),
           categoryId: newItem.categoryId,
+          options: newItemOptions.map((option) => ({
+            id: option.id,
+            name: option.name.trim(),
+            label: option.label?.trim(),
+            required: option.required,
+            multiple: option.multiple,
+            values: option.values.map((value) => ({
+              id: value.id,
+              label: value.label.trim(),
+              priceAdjustment: Number(value.priceAdjustment || 0),
+            })),
+          })),
         },
         token ?? undefined,
       );
       setNewItem({ ...newItem, name: '', description: '', price: 0 });
+      setNewItemOptions([]);
       await fetchData();
     } catch (err: any) {
       setError(err.message || 'Failed to create menu item');
@@ -466,6 +601,115 @@ export default function OwnerMenuPage() {
                     />
                   </label>
                 </div>
+                <div className="rounded-3xl border border-border-default bg-surface-base p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Variations</h3>
+                      <p className="text-xs text-text-secondary">Add optional or required choices for this item.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addNewItemOption}
+                      className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-secondary hover:border-gold hover:text-gold"
+                    >
+                      Add Option
+                    </button>
+                  </div>
+                  {newItemOptions.length === 0 ? (
+                    <p className="text-sm text-text-tertiary">No variations configured.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {newItemOptions.map((option, optionIndex) => (
+                        <div key={option.id} className="rounded-3xl border border-slate-200 bg-white p-4 space-y-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                            <label className="block flex-1">
+                              <span className="text-sm font-medium text-text-secondary">Option name</span>
+                              <input
+                                type="text"
+                                value={option.name}
+                                onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { name: e.target.value }))}
+                                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                placeholder="Soup type, Protein style"
+                              />
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input
+                                  type="checkbox"
+                                  checked={option.required}
+                                  onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { required: e.target.checked }))}
+                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
+                                />
+                                Required
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input
+                                  type="checkbox"
+                                  checked={option.multiple}
+                                  onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { multiple: e.target.checked }))}
+                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
+                                />
+                                Multiple
+                              </label>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-semibold text-text-primary">Option values</span>
+                              <button
+                                type="button"
+                                onClick={() => addNewItemOptionValue(optionIndex)}
+                                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-2 text-sm text-text-secondary hover:border-gold hover:text-gold"
+                              >
+                                Add Value
+                              </button>
+                            </div>
+                            {option.values.map((value, valueIndex) => (
+                              <div key={value.id} className="grid gap-3 md:grid-cols-[1fr_0.8fr_0.4fr] items-end">
+                                <label className="block">
+                                  <span className="text-sm font-medium text-text-secondary">Value</span>
+                                  <input
+                                    type="text"
+                                    value={value.label}
+                                    onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
+                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                    placeholder="Light broth, Grilled, Fried"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="text-sm font-medium text-text-secondary">Extra</span>
+                                  <input
+                                    type="number"
+                                    value={value.priceAdjustment}
+                                    onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
+                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                    placeholder="0"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => removeNewItemOptionValue(optionIndex, valueIndex)}
+                                  className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeNewItemOption(optionIndex)}
+                            className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
+                          >
+                            Remove Option
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Button type="submit" loading={saving} className="w-full">
                   <Plus size={18} /> Add Menu Item
                 </Button>
@@ -531,6 +775,11 @@ export default function OwnerMenuPage() {
                 </div>
               </div>
               <p className="text-sm text-text-secondary">{item.description || 'No description added yet.'}</p>
+              {item.options?.length ? (
+                <div className="inline-flex items-center gap-2 rounded-full bg-surface-elevated px-3 py-1 text-xs text-text-secondary">
+                  <span>{item.options.length} variation{item.options.length > 1 ? 's' : ''}</span>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-gold">{formatCurrency(item.price)}</span>
                 <span
@@ -755,7 +1004,7 @@ export default function OwnerMenuPage() {
 
       {editItem && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(100vh-4rem)] overflow-hidden">
+          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Edit {editItem.name}</h2>
@@ -767,7 +1016,7 @@ export default function OwnerMenuPage() {
                 </Button>
               </div>
             </div>
-            <div className="space-y-6 overflow-y-auto p-6 max-h-[calc(90%-5.5rem)]">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               {editError && (
                 <div className="rounded-3xl bg-error-muted p-4 text-sm text-error">{editError}</div>
               )}
@@ -805,6 +1054,115 @@ export default function OwnerMenuPage() {
                     rows={4}
                   />
                 </label>
+                <div className="rounded-3xl border border-border-default bg-surface-base p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Variations</h3>
+                      <p className="text-xs text-text-secondary">Edit the option groups and values available for this menu item.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addEditItemOption}
+                      className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-secondary hover:border-gold hover:text-gold"
+                    >
+                      Add Option
+                    </button>
+                  </div>
+                  {editItemOptions.length === 0 ? (
+                    <p className="text-sm text-text-tertiary">No variations configured.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {editItemOptions.map((option, optionIndex) => (
+                        <div key={option.id} className="rounded-3xl border border-slate-200 bg-white p-4 space-y-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                            <label className="block flex-1">
+                              <span className="text-sm font-medium text-text-secondary">Option name</span>
+                              <input
+                                type="text"
+                                value={option.name}
+                                onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { name: e.target.value }))}
+                                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                placeholder="Soup type, Protein style"
+                              />
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input
+                                  type="checkbox"
+                                  checked={option.required}
+                                  onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { required: e.target.checked }))}
+                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
+                                />
+                                Required
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input
+                                  type="checkbox"
+                                  checked={option.multiple}
+                                  onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { multiple: e.target.checked }))}
+                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
+                                />
+                                Multiple
+                              </label>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-semibold text-text-primary">Option values</span>
+                              <button
+                                type="button"
+                                onClick={() => addEditItemOptionValue(optionIndex)}
+                                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-2 text-sm text-text-secondary hover:border-gold hover:text-gold"
+                              >
+                                Add Value
+                              </button>
+                            </div>
+                            {option.values.map((value, valueIndex) => (
+                              <div key={value.id} className="grid gap-3 md:grid-cols-[1fr_0.8fr_0.4fr] items-end">
+                                <label className="block">
+                                  <span className="text-sm font-medium text-text-secondary">Value</span>
+                                  <input
+                                    type="text"
+                                    value={value.label}
+                                    onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
+                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                    placeholder="Light broth, Grilled, Fried"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="text-sm font-medium text-text-secondary">Extra</span>
+                                  <input
+                                    type="number"
+                                    value={value.priceAdjustment}
+                                    onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
+                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+                                    placeholder="0"
+                                    step="0.01"
+                                    min="0"
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditItemOptionValue(optionIndex, valueIndex)}
+                                  className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeEditItemOption(optionIndex)}
+                            className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
+                          >
+                            Remove Option
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-3">
                   <Button type="submit" loading={editSaving}>
                     Save Changes

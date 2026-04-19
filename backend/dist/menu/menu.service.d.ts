@@ -24,6 +24,7 @@ export declare class MenuService {
             imageUrl: string | null;
             available: boolean;
             dayparts: string[];
+            options: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
     } & {
         name: string;
@@ -70,6 +71,7 @@ export declare class MenuService {
         imageUrl: string | null;
         available: boolean;
         dayparts: string[];
+        options: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     findItems(branchId: string, categoryId?: string, page?: number, limit?: number): Promise<({
         category: {
@@ -92,6 +94,7 @@ export declare class MenuService {
         imageUrl: string | null;
         available: boolean;
         dayparts: string[];
+        options: import("@prisma/client/runtime/library").JsonValue | null;
     })[]>;
     updateItem(id: string, dto: UpdateMenuItemDto): Promise<{
         category: {
@@ -114,6 +117,7 @@ export declare class MenuService {
         imageUrl: string | null;
         available: boolean;
         dayparts: string[];
+        options: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     deleteItem(id: string): Promise<{
         name: string;
@@ -127,6 +131,7 @@ export declare class MenuService {
         imageUrl: string | null;
         available: boolean;
         dayparts: string[];
+        options: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     toggleAvailability(id: string): Promise<{
         name: string;
@@ -140,5 +145,6 @@ export declare class MenuService {
         imageUrl: string | null;
         available: boolean;
         dayparts: string[];
+        options: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
 }
