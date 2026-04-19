@@ -29,6 +29,6 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "@playwright/test": "^1.51.1",
-    "@netlify/plugin-nextjs": "^7.0.0"
+    "@netlify/plugin-nextjs": "^5.15.9"
   }
 }
