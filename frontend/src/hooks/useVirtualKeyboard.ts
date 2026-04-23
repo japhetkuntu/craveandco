@@ -16,6 +16,14 @@ export function useVirtualKeyboard() {
 
       root.style.setProperty('--viewport-height', `${viewportHeight}px`);
       root.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
+
+      // Expose a boolean attribute so CSS can react without parsing the offset.
+      // 50px threshold avoids URL-bar collapse (~40px) being read as a keyboard.
+      if (keyboardOffset > 50) {
+        root.setAttribute('data-keyboard-open', 'true');
+      } else {
+        root.removeAttribute('data-keyboard-open');
+      }
     };
 
     const handleFocusIn = (event: FocusEvent) => {

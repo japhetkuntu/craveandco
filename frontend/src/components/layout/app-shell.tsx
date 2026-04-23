@@ -137,11 +137,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Mobile Bottom Nav */}
+      {/* Mobile Bottom Nav.
+       * When the soft keyboard is open we slide the nav off-screen instead of
+       * floating it above the keyboard. Floating it caused two layout shifts:
+       *   1. The nav jumped up the screen and overlapped the focused input.
+       *   2. <main> kept its original bottom padding, so a gap opened at the
+       *      bottom of the page on every focus event.
+       * The `data-keyboard-open` attribute is set on <html> by
+       * useVirtualKeyboard whenever visualViewport reports a keyboard offset.
+       */}
       <nav
         aria-label="Primary"
-        className="lg:hidden fixed inset-x-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bottom-nav)]"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-offset))' }}
+        data-bottom-nav
+        className="lg:hidden fixed inset-x-0 bottom-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bottom-nav)] transition-transform duration-200 ease-out"
       >
         <div className="flex justify-around py-2">
           {mobileMainItems.map((item) => {

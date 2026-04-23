@@ -74,6 +74,17 @@ html {
   scrollbar-gutter: stable;
 }
 
+/*
+ * When the soft keyboard is open (set by useVirtualKeyboard via
+ * data-keyboard-open on <html>), translate the mobile bottom nav fully
+ * off-screen instead of letting it float above the keyboard. Chasing the
+ * keyboard caused the nav to overlap focused inputs and left a gap at the
+ * bottom of <main>.
+ */
+html[data-keyboard-open='true'] [data-bottom-nav] {
+  transform: translateY(100%);
+}
+
 body {
   min-height: var(--viewport-height);
   background: var(--color-surface-base);
