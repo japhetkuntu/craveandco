@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { PaginationControls } from '@/components/ui/pagination';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Users, UserPlus, Search, Plus, X, Phone, Mail, DollarSign, TrendingUp } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Customer {
   id: string;
@@ -95,9 +96,7 @@ export default function GrowthCustomersPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

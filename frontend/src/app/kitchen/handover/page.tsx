@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Clock, Plus, Send } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface HandoverNote {
   id: string;
@@ -60,9 +61,7 @@ export default function KitchenHandoverPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

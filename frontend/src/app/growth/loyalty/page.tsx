@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { HeartHandshake, Gift, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface LoyaltySummary {
   totalEarned: number;
@@ -146,9 +147,7 @@ export default function GrowthLoyaltyPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

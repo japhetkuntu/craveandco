@@ -9,6 +9,7 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Megaphone, Plus, Send } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Campaign {
   id: string;
@@ -70,9 +71,7 @@ export default function GrowthCampaignsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

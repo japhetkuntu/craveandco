@@ -8,6 +8,7 @@ import { Card, CardContent, CardActions } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Package, AlertTriangle, Send } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface LowStockItem {
   id: string;
@@ -49,9 +50,7 @@ export default function KitchenStockPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

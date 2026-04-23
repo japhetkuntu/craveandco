@@ -6,6 +6,7 @@ import { get } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { Bell, UserX } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface ChurnCustomer {
   id: string;
@@ -31,9 +32,7 @@ export default function GrowthChurnPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

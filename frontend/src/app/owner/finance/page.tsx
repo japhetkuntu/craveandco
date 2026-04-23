@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Receipt, TrendingUp, TrendingDown, DollarSign, CheckCircle, XCircle } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface FinanceSummary {
   date: string;
@@ -111,9 +112,7 @@ export default function OwnerFinancePage() {
   };
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

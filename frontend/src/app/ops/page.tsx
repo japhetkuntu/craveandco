@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatTime } from '@/lib/utils';
+import { PageSkeleton } from '@/components/ui/skeleton';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -129,9 +130,7 @@ export default function OpsCommandCenter() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

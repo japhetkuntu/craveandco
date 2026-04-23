@@ -9,6 +9,7 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
 import { Package, AlertTriangle, Plus } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface StockItem {
   id: string;
@@ -162,9 +163,7 @@ export default function OpsInventoryPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

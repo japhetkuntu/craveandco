@@ -9,6 +9,7 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Receipt, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface WasteEntry {
   id: string;
@@ -91,9 +92,7 @@ export default function KitchenWastePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

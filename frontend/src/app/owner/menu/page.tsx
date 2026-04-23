@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface MenuOptionValue {
   id: string;
@@ -493,9 +494,7 @@ export default function OwnerMenuPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 
@@ -859,9 +858,7 @@ export default function OwnerMenuPage() {
 
               <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-surface-raised p-4">
                 {recipeLoading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-                  </div>
+                  <PageSkeleton />
                 ) : (
                   <div className="min-w-[500px]">
                     <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 text-sm font-semibold text-slate-600 pb-3 border-b border-slate-200">

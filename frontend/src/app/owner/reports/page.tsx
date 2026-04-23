@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { KPICard } from '@/components/ui/kpi-card';
 import { formatCurrency } from '@/lib/utils';
 import { BarChart3, TrendingUp, TrendingDown, ShoppingCart, Receipt, Utensils, DollarSign } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 import {
   BarChart,
   Bar,
@@ -118,9 +119,7 @@ export default function OwnerReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

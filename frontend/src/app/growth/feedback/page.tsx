@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { PaginationControls } from '@/components/ui/pagination';
 import { MessageSquare, CheckCircle, Plus, X, User } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface FeedbackTicket {
   id: string;
@@ -105,9 +106,7 @@ export default function GrowthFeedbackPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Truck, Plus } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Supplier {
   id: string;
@@ -210,9 +211,7 @@ export default function OpsPurchasingPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

@@ -75,9 +75,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="p-3 border-t border-border-subtle space-y-1">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex items-center gap-3 w-full px-3 h-10 rounded-xl text-sm font-medium text-text-tertiary hover:bg-surface-elevated hover:text-text-secondary transition-all"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            className="flex items-center gap-3 w-full px-3 h-10 rounded-xl text-sm font-medium text-text-tertiary hover:bg-surface-elevated hover:text-text-secondary transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised"
           >
-            {collapsed ? <ChevronRight size={20} /> : <><ChevronLeft size={20} /><span>Collapse</span></>}
+            {collapsed ? <ChevronRight size={20} aria-hidden="true" /> : <><ChevronLeft size={20} aria-hidden="true" /><span>Collapse</span></>}
           </button>
           <button
             onClick={() => { logout(); router.push('/login'); }}
@@ -103,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <X size={20} />
               </button>
             </div>
-            <nav className="px-3 pb-4 space-y-1">
+            <nav aria-label="More" className="px-3 pb-4 space-y-1">
               {mobileOverflowItems.map((item) => {
                 const active = pathname === item.href;
                 return (
@@ -136,7 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_-12px_rgba(0,0,0,0.08)]">
+      <nav aria-label="Primary" className="lg:hidden fixed bottom-0 inset-x-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bottom-nav)]">
         <div className="flex justify-around py-2">
           {mobileMainItems.map((item) => {
             const active = pathname === item.href;
@@ -157,6 +159,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           {hasOverflow && (
             <button
               onClick={() => setMoreOpen(true)}
+              aria-label="More navigation options"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
               className={cn(
                 'flex flex-col items-center gap-0.5 min-w-[44px] min-h-[44px] justify-center px-2 py-1 text-[10px] font-medium transition-colors',
                 moreOpen || mobileOverflowItems.some(i => pathname === i.href)
@@ -164,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : 'text-text-tertiary',
               )}
             >
-              <MoreHorizontal size={20} />
+              <MoreHorizontal size={20} aria-hidden="true" />
               More
             </button>
           )}

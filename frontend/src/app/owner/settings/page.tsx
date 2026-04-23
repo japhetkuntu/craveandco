@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Settings, CreditCard, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface PaymentType {
   id: string;
@@ -89,9 +90,7 @@ export default function OwnerSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

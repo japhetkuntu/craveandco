@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { ShoppingCart, Plus, Filter } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Order {
   id: string;
@@ -244,9 +245,7 @@ export default function OwnerOrdersPage() {
 
       {/* Orders List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-        </div>
+        <PageSkeleton />
       ) : orders.length === 0 ? (
         <p className="text-center text-text-tertiary py-12">No orders found</p>
       ) : (

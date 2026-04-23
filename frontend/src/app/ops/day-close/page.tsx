@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
 import { Clock, ShoppingCart, Receipt, DollarSign, Lock } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface DayCloseSummary {
   date: string;
@@ -58,9 +59,7 @@ export default function OpsDayClosePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 

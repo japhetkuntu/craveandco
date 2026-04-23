@@ -258,7 +258,7 @@ function KitchenOrderCard({
   const isUrgent = (Date.now() - new Date(order.createdAt).getTime()) > 15 * 60000;
 
   return (
-    <div className={`bg-surface-raised rounded-2xl border-l-4 ${colors.border} shadow-sm p-4 transition-all ${isUrgent ? 'ring-2 ring-red-100' : ''}`}>
+    <div className={`bg-surface-raised rounded-2xl border-l-4 ${colors.border} shadow-sm p-4 transition-all ${isUrgent ? 'ring-2 ring-error-muted' : ''}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="bg-surface-elevated text-text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -292,7 +292,7 @@ function KitchenOrderCard({
                 </div>
               </div>
               {item.notes && (
-                <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md italic flex-shrink-0">
+                <span className="text-[10px] text-warning bg-warning-muted px-1.5 py-0.5 rounded-md italic flex-shrink-0">
                   {item.notes}
                 </span>
               )}
@@ -310,13 +310,14 @@ function KitchenOrderCard({
       {nextStatus && (
         <button
           onClick={() => onAdvance(order.id, order.status)}
-          className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.97] ${
+          aria-label={`Advance order ${order.id.slice(-4).toUpperCase()} to ${nextStatus.replace('_', ' ').toLowerCase()}`}
+          className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised ${
             order.status === 'NEW'
-              ? 'bg-amber-500 text-white hover:bg-amber-600'
-              : 'bg-success text-white hover:bg-success'
+              ? 'bg-warning text-text-inverse hover:brightness-110 focus-visible:ring-warning'
+              : 'bg-success text-text-inverse hover:brightness-110 focus-visible:ring-success'
           }`}
         >
-          Move to {nextStatus.replace('_', ' ')} <ArrowRight size={16} />
+          Move to {nextStatus.replace('_', ' ')} <ArrowRight size={16} aria-hidden="true" />
         </button>
       )}
     </div>

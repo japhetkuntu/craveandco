@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { ClipboardList } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface PrepItem {
   menuItemId: string;
@@ -37,9 +38,7 @@ export default function KitchenPrepPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
-      </div>
+      <PageSkeleton />
     );
   }
 
