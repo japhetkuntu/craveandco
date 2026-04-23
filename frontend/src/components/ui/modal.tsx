@@ -56,14 +56,32 @@ export function Modal({
     }
     document.addEventListener('keydown', handleKey);
 
-    // Focus first focusable element inside the panel
+    /*
+     * Focus management:
+     *  - Desktop: focus the first interactive element (input or button) to enable keyboard nav.
+     *  - Mobile (coarse pointer): NEVER focus an input on mount — that opens the soft keyboard
+     *    mid-animation and visibly distorts the bottom-sheet slide-in. Focus the panel itself,
+     *    or the first non-input control. The user can tap the field when ready.
+     */
+    const isCoarsePointer =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(pointer: coarse)').matches;
+
     const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
-    if (focusable?.length) {
-      focusable[0].focus();
+
+    const initialFocus = isCoarsePointer
+      ? Array.from(focusable ?? []).find(
+          (el) => !el.matches('input, select, textarea, [contenteditable]'),
+        )
+      : focusable?.[0];
+
+    if (initialFocus) {
+      // Defer until after the slide-in animation begins so layout is stable.
+      window.requestAnimationFrame(() => initialFocus.focus({ preventScroll: true }));
     } else {
-      panelRef.current?.focus();
+      panelRef.current?.focus({ preventScroll: true });
     }
 
     // Lock body scroll without layout shift
@@ -88,6 +106,7 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
+      style={{ height: 'var(--viewport-height, 100dvh)' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
@@ -105,7 +124,8 @@ export function Modal({
           'relative w-full bg-surface-raised border border-border-default shadow-[var(--shadow-modal)]',
           // Mobile: bottom sheet, full-bleed, rounded top. Desktop: centered card.
           'rounded-t-2xl sm:rounded-2xl',
-          'flex flex-col max-h-[92vh] sm:max-h-[85vh]',
+          // Use dynamic viewport so the panel doesn't resize when the soft keyboard opens.
+          'flex flex-col max-h-[92dvh] sm:max-h-[85dvh]',
           'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:motion-safe:slide-in-from-bottom-2 motion-safe:duration-250',
           SIZES[size],
         )}

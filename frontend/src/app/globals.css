@@ -70,6 +70,8 @@ body {
 
 html {
   min-height: var(--viewport-height);
+  /* Reserve scrollbar gutter so locking body scroll on modal open doesn't jump layout */
+  scrollbar-gutter: stable;
 }
 
 body {
