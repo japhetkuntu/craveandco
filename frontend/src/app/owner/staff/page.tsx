@@ -248,7 +248,7 @@ export default function OwnerStaffPage() {
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-auto">
-          <div className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-text-primary">Add new staff member</h2>

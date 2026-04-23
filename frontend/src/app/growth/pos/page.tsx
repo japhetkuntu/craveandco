@@ -1099,7 +1099,7 @@ export default function GrowthPOSPage() {
       {/* ─── Payment Modal ─── */}
       {showPayment && (
         <div className="fixed inset-0 bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-y-auto">
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-text-primary">Select Payment</h2>
@@ -1193,7 +1193,7 @@ export default function GrowthPOSPage() {
       {/* ─── Customer Search Modal ─── */}
       {showCustomerSearch && (
         <div className="fixed inset-0 bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100vh)-4rem)] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
               <h2 className="text-lg font-bold text-text-primary">Select Customer</h2>
               <button onClick={() => { setShowCustomerSearch(false); setCustomerSearch(''); }} className="text-text-tertiary hover:text-text-secondary p-2">
@@ -1248,7 +1248,7 @@ export default function GrowthPOSPage() {
       {/* ─── New Customer Modal ─── */}
       {selectedVariantItem && (
         <div className="fixed inset-0 bg-black/40 z-[70] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(100vh-4rem)] overflow-hidden shadow-xl flex flex-col">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-hidden shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <div>
                 <h2 className="text-lg font-bold text-text-primary">{selectedVariantItem.name}</h2>
@@ -1324,7 +1324,7 @@ export default function GrowthPOSPage() {
       )}
       {showNewCustomer && (
         <div className="fixed inset-0 bg-white/50 z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-y-auto">
             <h2 className="text-lg font-bold text-text-primary mb-4">New Customer</h2>
             <div className="space-y-3">
               <input

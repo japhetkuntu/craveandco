@@ -138,7 +138,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {/* Mobile Bottom Nav */}
-      <nav aria-label="Primary" className="lg:hidden fixed bottom-0 inset-x-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bottom-nav)]">
+      <nav
+        aria-label="Primary"
+        className="lg:hidden fixed inset-x-0 bg-surface-raised border-t border-border-subtle z-50 pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bottom-nav)]"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-offset))' }}
+      >
         <div className="flex justify-around py-2">
           {mobileMainItems.map((item) => {
             const active = pathname === item.href;

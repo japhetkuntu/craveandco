@@ -2,24 +2,11 @@
 
 import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/ui/toast';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode } from 'react';
+import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard';
 
 function ViewportHeightProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    const setVh = () => {
-      document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
-    };
-
-    setVh();
-    window.addEventListener('resize', setVh);
-    window.addEventListener('orientationchange', setVh);
-
-    return () => {
-      window.removeEventListener('resize', setVh);
-      window.removeEventListener('orientationchange', setVh);
-    };
-  }, []);
-
+  useVirtualKeyboard();
   return <>{children}</>;
 }
 
