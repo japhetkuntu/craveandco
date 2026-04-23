@@ -250,9 +250,13 @@ export default function GrowthPOSPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if (view === 'pos' && searchInputRef.current) {
-      searchInputRef.current.focus();
+    if (view !== 'pos' || !searchInputRef.current) return;
+    // Skip on touch devices: focusing a search input on mount opens the soft keyboard
+    // and shifts the entire POS layout. Counter staff on tablets can tap to focus.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) {
+      return;
     }
+    searchInputRef.current.focus();
   }, [view]);
 
   useEffect(() => {
@@ -1059,7 +1063,7 @@ export default function GrowthPOSPage() {
       )}
 
       {confirmAction && (
-        <div className="fixed inset-0 bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
           <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -1098,8 +1102,8 @@ export default function GrowthPOSPage() {
 
       {/* ─── Payment Modal ─── */}
       {showPayment && (
-        <div className="fixed inset-0 bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-y-auto">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-text-primary">Select Payment</h2>
@@ -1192,8 +1196,8 @@ export default function GrowthPOSPage() {
 
       {/* ─── Customer Search Modal ─── */}
       {showCustomerSearch && (
-        <div className="fixed inset-0 bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100vh)-4rem)] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100dvh)-4rem)] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
               <h2 className="text-lg font-bold text-text-primary">Select Customer</h2>
               <button onClick={() => { setShowCustomerSearch(false); setCustomerSearch(''); }} className="text-text-tertiary hover:text-text-secondary p-2">
@@ -1204,7 +1208,6 @@ export default function GrowthPOSPage() {
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
                 <input
-                  autoFocus
                   type="text"
                   value={customerSearch}
                   onChange={e => setCustomerSearch(e.target.value)}
@@ -1247,8 +1250,8 @@ export default function GrowthPOSPage() {
 
       {/* ─── New Customer Modal ─── */}
       {selectedVariantItem && (
-        <div className="fixed inset-0 bg-black/40 z-[70] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-hidden shadow-xl flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-black/40 z-[70] flex items-end lg:items-center justify-center p-0 lg:p-4">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <div>
                 <h2 className="text-lg font-bold text-text-primary">{selectedVariantItem.name}</h2>
@@ -1323,12 +1326,11 @@ export default function GrowthPOSPage() {
         </div>
       )}
       {showNewCustomer && (
-        <div className="fixed inset-0 bg-white/50 z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-y-auto">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
+          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
             <h2 className="text-lg font-bold text-text-primary mb-4">New Customer</h2>
             <div className="space-y-3">
               <input
-                autoFocus
                 type="text"
                 value={newCustomerName}
                 onChange={e => setNewCustomerName(e.target.value)}

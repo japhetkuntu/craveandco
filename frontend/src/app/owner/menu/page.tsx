@@ -798,8 +798,8 @@ export default function OwnerMenuPage() {
       </div>
 
       {selectedMenuItem && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-hidden">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Recipe for {selectedMenuItem.name}</h2>
@@ -1000,8 +1000,8 @@ export default function OwnerMenuPage() {
       )}
 
       {editItem && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100vh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Edit {editItem.name}</h2>

@@ -49,21 +49,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
             {...props}
           />
-          {success && !error && (
+        {success && !error && (
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-success">
               <Check size={18} />
             </span>
           )}
         </div>
-        {error && (
-          <p id={errorId} className="flex items-center gap-1.5 text-sm text-error" role="alert">
-            <AlertCircle size={14} className="shrink-0" />
-            {error}
-          </p>
-        )}
-        {hint && !error && (
-          <p id={hintId} className="text-sm text-text-tertiary">{hint}</p>
-        )}
+        {/*
+         * Stable height slot for validation/hint text.
+         * Prevents the input row from growing when an error appears —
+         * a focused input that pushes siblings down on first keystroke is
+         * a major source of mobile layout shift inside modals/forms.
+         */}
+        <div className="min-h-[1.25rem]">
+          {error && (
+            <p id={errorId} className="flex items-center gap-1.5 text-sm text-error" role="alert">
+              <AlertCircle size={14} className="shrink-0" />
+              {error}
+            </p>
+          )}
+          {hint && !error && (
+            <p id={hintId} className="text-sm text-text-tertiary">{hint}</p>
+          )}
+        </div>
       </div>
     );
   }
