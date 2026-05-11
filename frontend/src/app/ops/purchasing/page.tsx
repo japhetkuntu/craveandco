@@ -3,15 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
-import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { buildQueryString, formatCurrency, printPurchaseOrderInvoice } from '@/lib/utils';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/utils';
-import { Truck, Plus } from 'lucide-react';
+import { Truck, Plus, X, Phone, Mail } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Supplier {
@@ -51,6 +49,14 @@ interface Ingredient {
   unit: string;
 }
 
+// Human-readable status context
+const PO_STATUS_HELP: Record<string, string> = {
+  DRAFT: 'Not sent yet — review and send when ready',
+  SENT: 'Sent to supplier — waiting for delivery',
+  RECEIVED: 'Delivery received and stock updated',
+  CANCELLED: 'This order was cancelled',
+};
+
 export default function OpsPurchasingPage() {
   const { token, user } = useAuth();
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -58,9 +64,9 @@ export default function OpsPurchasingPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersPage, setOrdersPage] = useState(0);
-  const [ordersLimit, setOrdersLimit] = useState(10);
+  const [ordersLimit] = useState(10);
   const [suppliersPage, setSuppliersPage] = useState(0);
-  const [suppliersLimit, setSuppliersLimit] = useState(10);
+  const [suppliersLimit] = useState(10);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
@@ -72,51 +78,38 @@ export default function OpsPurchasingPage() {
     items: [{ id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }],
   });
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!token) return;
     setLoading(true);
-    Promise.all([
+    const [o, s, ing] = await Promise.all([
       get(`/api/v1/purchase-orders${buildQueryString({ page: ordersPage, limit: ordersLimit })}`, token),
       get(`/api/v1/suppliers${buildQueryString({ page: suppliersPage, limit: suppliersLimit })}`, token),
       get('/api/v1/inventory/ingredients', token),
-    ])
-      .then(([o, s, ing]) => {
-        setOrders(o);
-        setSuppliers(s);
-        setIngredients(ing);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [token, ordersPage, ordersLimit, suppliersPage, suppliersLimit]);
+    ]);
+    setOrders(o);
+    setSuppliers(s);
+    setIngredients(ing);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadData().catch(console.error); }, [token, ordersPage, suppliersPage]);
 
   const handleReceive = async (po: PurchaseOrder) => {
     if (!token) return;
-    try {
-      const body = {
-        items: po.items.map((item) => ({
-          purchaseOrderItemId: item.id,
-          receivedQty: Number(item.quantity),
-        })),
-      };
-      await post(`/api/v1/purchase-orders/${po.id}/receive`, body, token);
-      setOrders((prev) =>
-        prev.map((o) => (o.id === po.id ? { ...o, status: 'RECEIVED' } : o)),
-      );
-    } catch (err) {
-      console.error(err);
-    }
+    await post(`/api/v1/purchase-orders/${po.id}/receive`, {
+      items: po.items.map((item) => ({ purchaseOrderItemId: item.id, receivedQty: Number(item.quantity) })),
+    }, token);
+    setOrders((prev) => prev.map((o) => (o.id === po.id ? { ...o, status: 'RECEIVED' } : o)));
   };
 
   const handleSendOrder = async (po: PurchaseOrder) => {
     if (!token) return;
-    try {
-      await patch(`/api/v1/purchase-orders/${po.id}/send`, {}, token);
-      setOrders((prev) =>
-        prev.map((o) => (o.id === po.id ? { ...o, status: 'SENT' } : o)),
-      );
-    } catch (err) {
-      console.error(err);
-    }
+    await patch(`/api/v1/purchase-orders/${po.id}/send`, {}, token);
+    setOrders((prev) => prev.map((o) => (o.id === po.id ? { ...o, status: 'SENT' } : o)));
+  };
+
+  const handlePrintInvoice = (po: PurchaseOrder) => {
+    printPurchaseOrderInvoice(po);
   };
 
   const addOrderItem = () => {
@@ -126,20 +119,16 @@ export default function OpsPurchasingPage() {
     }));
   };
 
-  const updateOrderItem = (index: number, key: 'ingredientId' | 'quantity' | 'unitCost', value: string) => {
+  const updateOrderItem = (index: number, key: keyof NewOrderItem, value: string) => {
     setNewOrder((prev) => ({
       ...prev,
-      items: prev.items.map((item, idx) =>
-        idx === index ? { ...item, [key]: value } : item,
-      ),
+      items: prev.items.map((item, idx) => idx === index ? { ...item, [key]: value } : item),
     }));
   };
 
   const removeOrderItem = (index: number) => {
-    setNewOrder((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, idx) => idx !== index),
-    }));
+    if (newOrder.items.length === 1) return; // keep at least one
+    setNewOrder((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== index) }));
   };
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
@@ -150,21 +139,9 @@ export default function OpsPurchasingPage() {
       await post('/api/v1/suppliers', newSupplier, token);
       setShowCreateSupplier(false);
       setNewSupplier({ name: '', phone: '', email: '' });
-      const nextSuppliersPage = 0;
-      setSuppliersPage(nextSuppliersPage);
-      setLoading(true);
-      const [o, s] = await Promise.all([
-        get(`/api/v1/purchase-orders${buildQueryString({ page: ordersPage, limit: ordersLimit })}`, token),
-        get(`/api/v1/suppliers${buildQueryString({ page: nextSuppliersPage, limit: suppliersLimit })}`, token),
-      ]);
-      setOrders(o);
-      setSuppliers(s);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCreatingSupplier(false);
-      setLoading(false);
-    }
+      await loadData();
+    } catch (err) { console.error(err); }
+    finally { setCreatingSupplier(false); }
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -186,158 +163,177 @@ export default function OpsPurchasingPage() {
       }, token);
       setShowCreateOrder(false);
       setNewOrder({ supplierId: '', notes: '', items: [{ id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }] });
-      const nextOrdersPage = 0;
-      setOrdersPage(nextOrdersPage);
-      setLoading(true);
-      const [o, s] = await Promise.all([
-        get(`/api/v1/purchase-orders${buildQueryString({ page: nextOrdersPage, limit: ordersLimit })}`, token),
-        get(`/api/v1/suppliers${buildQueryString({ page: suppliersPage, limit: suppliersLimit })}`, token),
-      ]);
-      setOrders(o);
-      setSuppliers(s);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCreatingOrder(false);
-      setLoading(false);
-    }
+      await loadData();
+    } catch (err) { console.error(err); }
+    finally { setCreatingOrder(false); }
   };
 
   const orderTotal = newOrder.items.reduce((sum, item) => {
-    const quantity = Number(item.quantity) || 0;
-    const unitCost = Number(item.unitCost) || 0;
-    return sum + quantity * unitCost;
+    return sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0);
   }, 0);
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  const pendingOrders = orders.filter((o) => o.status === 'DRAFT' || o.status === 'SENT');
+
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
             <Truck className="text-gold" /> Purchasing
           </h1>
-          <p className="text-sm text-text-secondary mt-1">Create suppliers, manage purchase orders, and keep procurement running smoothly.</p>
+          {pendingOrders.length > 0 ? (
+            <p className="text-sm text-warning font-medium mt-1">
+              {pendingOrders.length} order{pendingOrders.length > 1 ? 's' : ''} in progress
+            </p>
+          ) : (
+            <p className="text-sm text-text-secondary mt-1">Manage suppliers and stock orders</p>
+          )}
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="secondary" onClick={() => setShowCreateSupplier(true)}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button variant="secondary" size="sm" onClick={() => setShowCreateSupplier(true)}>
             Add Supplier
           </Button>
-          <Button onClick={() => setShowCreateOrder(true)}>
-            <Plus size={16} /> New Purchase Order
+          <Button size="sm" onClick={() => setShowCreateOrder(true)}>
+            <Plus size={15} /> New Order
           </Button>
         </div>
       </div>
 
-      {/* Suppliers */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Suppliers ({suppliers.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {suppliers.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No suppliers added</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {suppliers.map((s) => (
-                <div key={s.id} className="rounded-3xl border border-border-default bg-surface-base p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-text-primary">{s.name}</h3>
-                    <span className="rounded-full bg-gold-muted px-2 py-1 text-xs font-medium text-gold">Supplier</span>
-                  </div>
-                  <p className="mt-2 text-sm text-text-secondary">{s.phone || 'No phone provided'}</p>
-                  {s.email ? <p className="mt-1 text-sm text-text-secondary">{s.email}</p> : null}
-                </div>
-              ))}
-            </div>
-          )}
-          <PaginationControls
-            page={suppliersPage}
-            limit={suppliersLimit}
-            onPageChange={setSuppliersPage}
-            onLimitChange={(value) => { setSuppliersLimit(value); setSuppliersPage(0); }}
-            hasMore={suppliers.length === suppliersLimit}
-          />
-        </CardContent>
-      </Card>
-
       {/* Purchase Orders */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Purchase Orders</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Purchase Orders</p></div>
+        <div className="p-4">
           {orders.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No purchase orders</p>
+            <div className="py-8 text-center">
+              <p className="text-sm text-text-secondary">No purchase orders yet</p>
+              <button
+                onClick={() => setShowCreateOrder(true)}
+                className="mt-3 text-sm text-gold font-semibold hover:underline"
+              >
+                + Create your first order
+              </button>
+            </div>
           ) : (
             <>
               <div className="space-y-3">
                 {orders.map((po) => (
-                  <div
-                  key={po.id}
-                  className="p-4 bg-surface-base rounded-xl space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={po.status} />
-                      <span className="text-sm font-medium text-text-primary">{po.supplier?.name}</span>
+                  <div key={po.id} className="rounded-2xl border border-border-subtle bg-surface-elevated p-4 space-y-3">
+                    {/* Header row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusBadge status={po.status} />
+                        <span className="text-sm font-semibold text-text-primary">{po.supplier?.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-text-primary">{formatCurrency(po.totalAmount)}</span>
                     </div>
-                    <span className="text-sm font-bold text-text-primary">
-                      {formatCurrency(po.totalAmount)}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    {po.items?.map((item, i) => (
-                      <p key={i} className="text-xs text-text-secondary">
-                        {item.ingredient?.name}: {item.quantity} @ {formatCurrency(item.unitCost)}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-tertiary">
-                      {new Date(po.createdAt).toLocaleDateString('en-GH')}
-                    </span>
-                    {po.status === 'DRAFT' && (
-                      <Button size="sm" onClick={() => handleSendOrder(po)}>
-                        Send Order
-                      </Button>
+
+                    {/* Status helper */}
+                    <p className="text-xs text-text-secondary">{PO_STATUS_HELP[po.status] ?? po.status}</p>
+
+                    {/* Items */}
+                    {po.items?.length > 0 && (
+                      <ul className="space-y-0.5">
+                        {po.items.map((item, i) => (
+                          <li key={i} className="text-xs text-text-secondary">
+                            {item.ingredient?.name}: {item.quantity} × {formatCurrency(item.unitCost)}
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                    {po.status === 'SENT' && (
-                      user?.role === 'OWNER' ? (
-                        <Button size="sm" onClick={() => handleReceive(po)}>
-                          Mark Received
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                      <span className="text-xs text-text-tertiary">
+                        {new Date(po.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button size="sm" variant="secondary" onClick={() => handlePrintInvoice(po)}>
+                          Print Invoice
                         </Button>
-                      ) : (
-                        <span className="text-xs text-text-secondary">
-                          Waiting for owner receipt confirmation
-                        </span>
-                      )
-                    )}
+                        {po.status === 'DRAFT' && (
+                          <Button size="sm" onClick={() => handleSendOrder(po)}>
+                            Send to Supplier
+                          </Button>
+                        )}
+                        {po.status === 'SENT' && user?.role === 'OWNER' && (
+                          <Button size="sm" onClick={() => handleReceive(po)}>
+                            Mark as Received
+                          </Button>
+                        )}
+                        {po.status === 'SENT' && user?.role !== 'OWNER' && (
+                          <span className="text-xs text-text-tertiary italic">Awaiting owner confirmation</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                <PaginationControls
+                  page={ordersPage}
+                  limit={ordersLimit}
+                  onPageChange={setOrdersPage}
+                  onLimitChange={() => {}}
+                  hasMore={orders.length === ordersLimit}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Suppliers */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Suppliers</p>
+            <button onClick={() => setShowCreateSupplier(true)} className="text-sm text-gold font-semibold hover:underline flex items-center gap-1">
+              <Plus size={14} /> Add
+            </button>
+          </div>
+        </div>
+        <div className="p-4">
+          {suppliers.length === 0 ? (
+            <p className="text-sm text-text-tertiary text-center py-6">No suppliers added yet</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {suppliers.map((s) => (
+                <div key={s.id} className="rounded-2xl border border-border-subtle bg-surface-elevated p-4">
+                  <p className="text-sm font-semibold text-text-primary">{s.name}</p>
+                  {s.phone && (
+                    <p className="text-xs text-text-secondary mt-1 flex items-center gap-1.5">
+                      <Phone size={11} /> {s.phone}
+                    </p>
+                  )}
+                  {s.email && (
+                    <p className="text-xs text-text-secondary mt-0.5 flex items-center gap-1.5">
+                      <Mail size={11} /> {s.email}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
-            <PaginationControls
-              page={ordersPage}
-              limit={ordersLimit}
-              onPageChange={setOrdersPage}
-              onLimitChange={(value) => { setOrdersLimit(value); setOrdersPage(0); }}
-              hasMore={orders.length === ordersLimit}
-            />
-          </>
           )}
-        </CardContent>
-      </Card>
+          <div className="mt-3">
+            <PaginationControls
+              page={suppliersPage}
+              limit={suppliersLimit}
+              onPageChange={setSuppliersPage}
+              onLimitChange={() => {}}
+              hasMore={suppliers.length === suppliersLimit}
+            />
+          </div>
+        </div>
+      </div>
 
+      {/* Add Supplier Modal */}
       <Modal
         open={showCreateSupplier}
         onClose={() => setShowCreateSupplier(false)}
-        title="Add New Supplier"
+        title="Add a Supplier"
         footer={
           <>
             <Button variant="secondary" onClick={() => setShowCreateSupplier(false)}>Cancel</Button>
@@ -347,18 +343,20 @@ export default function OpsPurchasingPage() {
       >
         <form className="space-y-4" onSubmit={handleCreateSupplier}>
           <Input
-            label="Supplier Name"
+            label="Supplier name"
+            placeholder="e.g. Fresh Farms Ltd"
             required
             value={newSupplier.name}
             onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
           />
           <Input
-            label="Phone"
+            label="Phone number"
+            placeholder="e.g. 0244 123 456"
             value={newSupplier.phone}
             onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
           />
           <Input
-            label="Email"
+            label="Email address (optional)"
             type="email"
             value={newSupplier.email}
             onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
@@ -366,6 +364,7 @@ export default function OpsPurchasingPage() {
         </form>
       </Modal>
 
+      {/* Create Purchase Order Modal */}
       <Modal
         open={showCreateOrder}
         onClose={() => setShowCreateOrder(false)}
@@ -374,80 +373,103 @@ export default function OpsPurchasingPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setShowCreateOrder(false)}>Cancel</Button>
-            <Button loading={creatingOrder} onClick={handleCreateOrder}>Create Order</Button>
+            <Button loading={creatingOrder} disabled={!newOrder.supplierId} onClick={handleCreateOrder}>
+              Save Order
+            </Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={handleCreateOrder}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">Supplier</label>
-              <select
-                value={newOrder.supplierId}
-                onChange={(e) => setNewOrder({ ...newOrder, supplierId: e.target.value })}
-                className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-text-primary"
-                required
-              >
-                <option value="">Select supplier</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                ))}
-              </select>
-            </div>
-            <Input
-              label="Notes"
-              value={newOrder.notes}
-              onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
-            />
+        <form className="space-y-5" onSubmit={handleCreateOrder}>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Which supplier?</label>
+            <select
+              value={newOrder.supplierId}
+              onChange={(e) => setNewOrder({ ...newOrder, supplierId: e.target.value })}
+              className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+              required
+            >
+              <option value="">Choose a supplier...</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-4">
-            {newOrder.items.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-1 gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto] items-end">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary">Ingredient</label>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">What are you ordering?</label>
+            <div className="space-y-3">
+              {newOrder.items.map((item, index) => (
+                <div key={item.id} className="rounded-xl border border-border-subtle bg-surface-elevated p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-text-secondary">Item {index + 1}</span>
+                    {newOrder.items.length > 1 && (
+                      <button type="button" onClick={() => removeOrderItem(index)} className="text-text-tertiary hover:text-error transition-colors">
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={item.ingredientId}
                     onChange={(e) => updateOrderItem(index, 'ingredientId', e.target.value)}
-                    className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-text-primary"
+                    className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
                     required
                   >
-                    <option value="">Choose ingredient</option>
-                    {ingredients.map((ingredient) => (
-                      <option key={ingredient.id} value={ingredient.id}>{ingredient.name} ({ingredient.unit})</option>
+                    <option value="">Choose ingredient...</option>
+                    {ingredients.map((ing) => (
+                      <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
                     ))}
                   </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 10"
+                        value={item.quantity}
+                        onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
+                        step="0.01"
+                        className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Cost per unit (GH₵)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 5.00"
+                        value={item.unitCost}
+                        onChange={(e) => updateOrderItem(index, 'unitCost', e.target.value)}
+                        step="0.01"
+                        className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
-                <Input
-                  label="Quantity"
-                  type="number"
-                  step="0.01"
-                  value={item.quantity}
-                  onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
-                  required
-                />
-                <Input
-                  label="Unit cost"
-                  type="number"
-                  step="0.01"
-                  value={item.unitCost}
-                  onChange={(e) => updateOrderItem(index, 'unitCost', e.target.value)}
-                  required
-                />
-                <Button variant="secondary" type="button" onClick={() => removeOrderItem(index)}>
-                  Remove
-                </Button>
-              </div>
-            ))}
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addOrderItem}
+              className="mt-3 text-sm text-gold font-semibold hover:underline flex items-center gap-1"
+            >
+              <Plus size={14} /> Add another item
+            </button>
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <Button type="button" variant="secondary" onClick={addOrderItem}>Add item</Button>
-            <div className="text-right text-sm text-text-secondary">
-              <div>Total estimate</div>
-              <div className="text-lg font-semibold text-text-primary">{formatCurrency(orderTotal)}</div>
+          <Input
+            label="Notes (optional)"
+            placeholder="e.g. Deliver before 8am"
+            value={newOrder.notes}
+            onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
+          />
+
+          {orderTotal > 0 && (
+            <div className="rounded-xl bg-surface-elevated border border-border-subtle p-3 flex justify-between items-center">
+              <span className="text-sm text-text-secondary">Estimated total</span>
+              <span className="text-base font-bold text-text-primary">{formatCurrency(orderTotal)}</span>
             </div>
-          </div>
+          )}
         </form>
       </Modal>
     </div>

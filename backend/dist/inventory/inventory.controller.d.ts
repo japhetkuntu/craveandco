@@ -58,8 +58,8 @@ export declare class InventoryController {
         id: string;
         createdAt: Date;
         quantity: import("@prisma/client/runtime/library").Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     }>;
@@ -79,8 +79,8 @@ export declare class InventoryController {
         id: string;
         createdAt: Date;
         quantity: import("@prisma/client/runtime/library").Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     })[]>;

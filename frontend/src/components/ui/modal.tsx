@@ -84,11 +84,17 @@ export function Modal({
       panelRef.current?.focus({ preventScroll: true });
     }
 
-    // Lock body scroll without layout shift
+    // Lock body scroll in a way that works better on mobile Safari.
     const previousOverflow = document.body.style.overflow;
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
     const previousPaddingRight = document.body.style.paddingRight;
+    const scrollY = window.scrollY;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${scrollbarWidth}px`;
     }
@@ -96,8 +102,11 @@ export function Modal({
     return () => {
       document.removeEventListener('keydown', handleKey);
       document.body.style.overflow = previousOverflow;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
       document.body.style.paddingRight = previousPaddingRight;
       previouslyFocusedRef.current?.focus?.();
+      window.scrollTo(0, scrollY);
     };
   }, [open]);
 
@@ -125,10 +134,11 @@ export function Modal({
           // Mobile: bottom sheet, full-bleed, rounded top. Desktop: centered card.
           'rounded-t-2xl sm:rounded-2xl',
           // Use dynamic viewport so the panel doesn't resize when the soft keyboard opens.
-          'flex flex-col max-h-[92dvh] sm:max-h-[85dvh]',
+          'flex flex-col max-h-[92dvh] sm:max-h-[85dvh] min-h-0 overflow-hidden',
           'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:motion-safe:slide-in-from-bottom-2 motion-safe:duration-250',
           SIZES[size],
         )}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Mobile drag-handle affordance */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true">
@@ -163,7 +173,12 @@ export function Modal({
         )}
 
         {/* Content (scrolls) */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-4">{children}</div>
+        <div
+          className="flex-1 overflow-y-auto px-5 sm:px-6 pb-4"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+        >
+          {children}
+        </div>
 
         {/* Footer — sticky at panel bottom on every viewport */}
         {footer && (

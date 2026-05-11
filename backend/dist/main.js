@@ -91,17 +91,7 @@ async function bootstrap() {
     const corsOrigin = process.env.CORS_ORIGIN ||
         'http://localhost:3000,https://crave-and-co-portal.netlify.app,https://staff.reservease.com';
     const allowedOrigins = corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean);
-    app.enableCors({
-        origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            }
-            else {
-                callback(new Error(`Origin ${origin} is not allowed by CORS`));
-            }
-        },
-        credentials: true,
-    });
+    app.enableCors();
     const swaggerConfig = new swagger_1.DocumentBuilder()
         .setTitle('Crave Portal API')
         .setDescription('API documentation for Crave and Co portal')

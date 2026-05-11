@@ -28,10 +28,13 @@ let FeedbackController = class FeedbackController {
     create(dto) {
         return this.feedback.create(dto);
     }
-    findAll(status, page = '0', limit = '10') {
+    getStats() {
+        return this.feedback.getStats();
+    }
+    findAll(status, search, page = '0', limit = '10') {
         const pageNumber = (0, pagination_1.normalizePage)(page);
         const limitNumber = (0, pagination_1.normalizeLimit)(limit);
-        return this.feedback.findAll(status, pageNumber, limitNumber);
+        return this.feedback.findAll(status, search, pageNumber, limitNumber);
     }
     resolve(id, dto) {
         return this.feedback.resolve(id, dto);
@@ -46,12 +49,19 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], FeedbackController.prototype, "create", null);
 __decorate([
+    (0, common_1.Get)('tickets/stats'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], FeedbackController.prototype, "getStats", null);
+__decorate([
     (0, common_1.Get)('tickets'),
     __param(0, (0, common_1.Query)('status')),
-    __param(1, (0, common_1.Query)('page')),
-    __param(2, (0, common_1.Query)('limit')),
+    __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('page')),
+    __param(3, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:paramtypes", [String, String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], FeedbackController.prototype, "findAll", null);
 __decorate([

@@ -4,6 +4,12 @@ export declare class CreateCustomerDto {
     email?: string;
     birthday?: string;
 }
+export declare class UpdateCustomerDto {
+    name?: string;
+    phone?: string;
+    email?: string;
+    birthday?: string;
+}
 export declare class CreateSegmentDto {
     name: string;
     lastSeenBefore?: string;

@@ -40,11 +40,18 @@ let CustomersController = class CustomersController {
             limit: limitNumber,
         });
     }
+    getUpcomingBirthdays(days = '7') {
+        const daysNum = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30);
+        return this.customers.getUpcomingBirthdays(daysNum);
+    }
     getDashboard() {
         return this.customers.getDashboard();
     }
     findById(id) {
         return this.customers.findById(id);
+    }
+    update(id, dto) {
+        return this.customers.update(id, dto);
     }
 };
 exports.CustomersController = CustomersController;
@@ -69,6 +76,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Get)('upcoming-birthdays'),
+    __param(0, (0, common_1.Query)('days')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getUpcomingBirthdays", null);
+__decorate([
     (0, common_1.Get)('dashboard'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -81,6 +95,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findById", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, customers_dto_1.UpdateCustomerDto]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "update", null);
 exports.CustomersController = CustomersController = __decorate([
     (0, common_1.Controller)('api/v1/customers'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

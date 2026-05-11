@@ -37,8 +37,12 @@ export class OpsController {
   }
 
   @Post('day-close')
-  dayClose(@CurrentUser('branchId') branchId: string, @CurrentUser('userId') userId: string) {
-    return this.ops.dayClose(branchId, userId);
+  dayClose(
+    @CurrentUser('branchId') branchId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() body: { openingFloat?: number; cashCounted?: number; notes?: string },
+  ) {
+    return this.ops.dayClose(branchId, userId, Number(body?.openingFloat ?? 0), Number(body?.cashCounted ?? 0), body?.notes);
   }
 
   @Get('day-close-summary')
@@ -70,9 +74,10 @@ export class OpsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('userId') userId?: string,
+    @Query('role') roleFilter?: string,
   ) {
     const effectiveUserId = role === 'OWNER' || role === 'OPERATIONS_MANAGER' ? userId : currentUserId;
-    return this.ops.getChecklistHistory(branchId, effectiveUserId, from, to);
+    return this.ops.getChecklistHistory(branchId, effectiveUserId, roleFilter, from, to);
   }
 
   @Post('checklists')

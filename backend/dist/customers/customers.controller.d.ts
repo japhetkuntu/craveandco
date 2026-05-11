@@ -1,5 +1,5 @@
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
 export declare class CustomersController {
     private customers;
     constructor(customers: CustomersService);
@@ -43,6 +43,7 @@ export declare class CustomersController {
         firstSeenAt: Date;
         lastSeenAt: Date;
     }[]>;
+    getUpcomingBirthdays(days?: string): Promise<any[]>;
     getDashboard(): Promise<{
         total: number;
         newThisWeek: number;
@@ -74,6 +75,7 @@ export declare class CustomersController {
             status: import("@prisma/client").$Enums.OrderStatus;
             paymentLabel: string | null;
             receiptUrl: string | null;
+            promotionId: string | null;
             total: import("@prisma/client/runtime/library").Decimal;
             foodCost: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
@@ -109,4 +111,17 @@ export declare class CustomersController {
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
     } | null>;
+    update(id: string, dto: UpdateCustomerDto): Promise<{
+        email: string | null;
+        name: string;
+        phone: string | null;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        birthday: Date | null;
+        firstSeenAt: Date;
+        lastSeenAt: Date;
+        totalSpend: import("@prisma/client/runtime/library").Decimal;
+        visitCount: number;
+    }>;
 }

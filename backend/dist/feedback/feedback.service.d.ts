@@ -28,7 +28,13 @@ export declare class FeedbackService {
         resolution: string | null;
         resolvedAt: Date | null;
     }>;
-    findAll(status?: string, page?: number, limit?: number): Promise<({
+    getStats(): Promise<{
+        open: number;
+        inProgress: number;
+        resolved: number;
+        total: number;
+    }>;
+    findAll(status?: string, search?: string, page?: number, limit?: number): Promise<({
         customer: {
             email: string | null;
             name: string;

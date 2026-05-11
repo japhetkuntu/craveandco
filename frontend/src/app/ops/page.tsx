@@ -1,24 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { get, post } from '@/lib/api';
-import { KPICard } from '@/components/ui/kpi-card';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { get } from '@/lib/api';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
-import { formatTime } from '@/lib/utils';
+import { formatTime, formatCurrency, formatDateTime } from '@/lib/utils';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import {
-  LayoutDashboard,
   ShoppingCart,
   CheckCircle,
   Package,
   Users,
   AlertTriangle,
   Lock,
-  DollarSign,
-  Truck,
+  TrendingUp,
+  Clock,
 } from 'lucide-react';
 
 interface CommandCenterData {
@@ -47,56 +45,75 @@ interface TimelineOrder {
   updatedAt: string;
 }
 
-export default function OpsCommandCenter() {
+function StatTile({
+  icon,
+  label,
+  value,
+  helper,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  helper?: string;
+  tone?: 'green' | 'yellow' | 'red' | 'default';
+}) {
+  const bg = {
+    green: 'bg-success-muted border-success/30',
+    yellow: 'bg-warning-muted border-warning/30',
+    red: 'bg-error-muted border-error/30',
+    default: 'bg-surface-raised border-border-subtle',
+  }[tone ?? 'default'];
+
+  const textColor = {
+    green: 'text-success',
+    yellow: 'text-warning',
+    red: 'text-error',
+    default: 'text-text-primary',
+  }[tone ?? 'default'];
+
+  return (
+    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${bg}`}>
+      <div className={`flex items-center gap-2 text-sm font-semibold ${textColor}`}>
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className={`min-w-0 text-3xl font-bold font-mono ${textColor} whitespace-normal break-words`}>{value}</p>
+      {helper && <p className="text-xs text-text-secondary leading-snug">{helper}</p>}
+    </div>
+  );
+}
+
+export default function OpsDashboard() {
   const { token } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<CommandCenterData | null>(null);
   const [timeline, setTimeline] = useState<TimelineOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [closing, setClosing] = useState(false);
-  const [dayCloseSuccess, setDayCloseSuccess] = useState(false);
-  const [dayCloseMessage, setDayCloseMessage] = useState<string | null>(null);
-  const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year' | 'custom'>('day');
-  const [fromDate, setFromDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [view, setView] = useState<'today' | 'week' | 'month'>('today');
 
-  const formatISO = (date: Date) => date.toISOString().split('T')[0];
-
-  const applyPreset = (preset: 'day' | 'week' | 'month' | 'year' | 'custom') => {
+  const dateRange = () => {
     const now = new Date();
-    let start = new Date(now);
-    let end = new Date(now);
-
-    switch (preset) {
-      case 'week': {
-        const dayOfWeek = now.getDay();
-        const mondayOffset = (dayOfWeek + 6) % 7;
-        start.setDate(now.getDate() - mondayOffset);
-        break;
-      }
-      case 'month':
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'year':
-        start = new Date(now.getFullYear(), 0, 1);
-        break;
-      case 'day':
-      default:
-        start = new Date(now);
-        break;
+    const today = now.toISOString().split('T')[0];
+    if (view === 'today') return { from: today, to: today };
+    if (view === 'week') {
+      const day = now.getDay();
+      const offset = (day + 6) % 7;
+      const start = new Date(now);
+      start.setDate(now.getDate() - offset);
+      return { from: start.toISOString().split('T')[0], to: today };
     }
-
-    setRangePreset(preset);
-    setFromDate(formatISO(start));
-    setToDate(formatISO(end));
+    return { from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, to: today };
   };
 
-  const fetchCommandCenter = async () => {
+  const fetchData = async () => {
     if (!token) return;
     setLoading(true);
+    const { from, to } = dateRange();
     try {
       const [cmd, tl] = await Promise.all([
-        get(`/api/v1/ops/command-center?from=${fromDate}&to=${toDate}`, token),
-        get(`/api/v1/ops/service-timeline?from=${fromDate}&to=${toDate}`, token),
+        get(`/api/v1/ops/command-center?from=${from}&to=${to}`, token),
+        get(`/api/v1/ops/service-timeline?from=${from}&to=${to}`, token),
       ]);
       setData(cmd);
       setTimeline(tl);
@@ -108,199 +125,219 @@ export default function OpsCommandCenter() {
   };
 
   useEffect(() => {
-    fetchCommandCenter();
-  }, [token, fromDate, toDate]);
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, view]);
 
-  const handleDayClose = async () => {
-    if (!token) return;
-    setClosing(true);
-    setDayCloseMessage(null);
-    try {
-      await post('/api/v1/ops/day-close', {}, token);
-      setDayCloseSuccess(true);
-      setDayCloseMessage('Day close completed successfully. Review the ops day-close report for details.');
-      await fetchCommandCenter();
-    } catch (err) {
-      console.error(err);
-      setDayCloseMessage('Unable to close the day. Please try again.');
-    } finally {
-      setClosing(false);
-    }
+  const handleDayClose = () => {
+    router.push('/ops/day-close');
   };
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
+
+  const today = new Date().toLocaleDateString('en-GH', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+
+  const completionRate = data?.completionRate ?? 0;
+  const activeOrders = data?.activeOrders ?? 0;
+  const lowStock = data?.lowStockCount ?? 0;
+  const openAlerts = data?.openAlerts ?? 0;
+
+  const needsAttention: string[] = [];
+  if (openAlerts > 0) needsAttention.push(`${openAlerts} unread alert${openAlerts > 1 ? 's' : ''} — check Alerts`);
+  if (lowStock > 0) needsAttention.push(`${lowStock} item${lowStock > 1 ? 's' : ''} running low — check Inventory`);
+  if ((data?.pendingPurchaseOrders ?? 0) > 0) needsAttention.push(`${data!.pendingPurchaseOrders} purchase request${data!.pendingPurchaseOrders > 1 ? 's' : ''} waiting — check Purchasing`);
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <LayoutDashboard className="text-gold" /> Operations Command Center
-          </h1>
-          <p className="text-sm text-text-secondary mt-1">
-            {fromDate === toDate ? new Date(fromDate).toLocaleDateString('en-GH', { weekday: 'long', month: 'long', day: 'numeric' }) : `${new Date(fromDate).toLocaleDateString('en-GH')} – ${new Date(toDate).toLocaleDateString('en-GH')}`}
-          </p>
+          <h1 className="text-2xl font-bold text-text-primary">Good morning 👋</h1>
+          <p className="text-sm text-text-secondary mt-1">{today}</p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex flex-wrap gap-2">
-            {(['day', 'week', 'month', 'year', 'custom'] as const).map((preset) => (
-              <Button
-                key={preset}
-                variant={rangePreset === preset ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => applyPreset(preset)}
-              >
-                {preset === 'day' ? 'Day' : preset === 'week' ? 'Week' : preset === 'month' ? 'Month' : preset === 'year' ? 'Year' : 'Custom'}
-              </Button>
+        {/* View toggle */}
+        <div className="flex gap-1 bg-surface-raised rounded-2xl p-1 w-fit">
+          {(['today', 'week', 'month'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                view === v ? 'bg-gold text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {v === 'today' ? 'Today' : v === 'week' ? 'This Week' : 'This Month'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Needs Attention banner */}
+      {needsAttention.length > 0 && (
+        <div className="rounded-2xl bg-warning-muted border border-warning/30 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={18} className="text-warning shrink-0" />
+            <span className="font-semibold text-warning text-sm">Needs your attention</span>
+          </div>
+          <ul className="space-y-1">
+            {needsAttention.map((item) => (
+              <li key={item} className="text-sm text-text-primary flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* All-clear banner */}
+      {needsAttention.length === 0 && (
+        <div className="rounded-2xl bg-success-muted border border-success/30 p-4 flex items-center gap-3">
+          <CheckCircle size={20} className="text-success shrink-0" />
+          <span className="text-sm font-semibold text-success">Everything looks good — no issues right now!</span>
+        </div>
+      )}
+
+      {/* Key Numbers */}
+      <div>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-text-tertiary mb-3">Key Numbers</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatTile
+            icon={<ShoppingCart size={18} />}
+            label="Active Orders"
+            value={activeOrders}
+            helper={activeOrders > 0 ? 'Orders still being prepared' : 'No active orders right now'}
+            tone={activeOrders > 10 ? 'yellow' : 'default'}
+          />
+          <StatTile
+            icon={<CheckCircle size={18} />}
+            label="Completed"
+            value={`${completionRate}%`}
+            helper="Orders fully served"
+            tone={completionRate >= 80 ? 'green' : 'yellow'}
+          />
+          <StatTile
+            icon={<TrendingUp size={18} />}
+            label="Revenue"
+            value={formatCurrency(data?.customerRevenue ?? 0)}
+            helper={view === 'today' ? 'Earned today' : view === 'week' ? 'Earned this week' : 'Earned this month'}
+            tone="default"
+          />
+          <StatTile
+            icon={<Users size={18} />}
+            label="Staff on Duty"
+            value={data?.staffOnDuty ?? 0}
+            helper={(data?.staffOnDuty ?? 0) > 0 ? 'Currently clocked in' : 'No staff clocked in'}
+            tone={(data?.staffOnDuty ?? 0) > 0 ? 'green' : 'yellow'}
+          />
+          <StatTile
+            icon={<Package size={18} />}
+            label="Low Stock Items"
+            value={lowStock}
+            helper={lowStock > 0 ? 'Ingredients below reorder level' : 'All stock levels okay'}
+            tone={lowStock > 0 ? 'yellow' : 'green'}
+          />
+          <StatTile
+            icon={<AlertTriangle size={18} />}
+            label="Open Alerts"
+            value={openAlerts}
+            helper={openAlerts > 0 ? 'Issues that need your review' : 'No open issues'}
+            tone={openAlerts > 0 ? 'red' : 'green'}
+          />
+          <StatTile
+            icon={<ShoppingCart size={18} />}
+            label="Total Orders"
+            value={data?.totalOrders ?? 0}
+            helper={view === 'today' ? 'Orders placed today' : view === 'week' ? 'Orders this week' : 'Orders this month'}
+            tone="default"
+          />
+          <StatTile
+            icon={<TrendingUp size={18} />}
+            label="Avg. Order Value"
+            value={formatCurrency(data?.avgOrderValue ?? 0)}
+            helper="Average value per order"
+            tone="default"
+          />
+        </div>
+      </div>
+
+      {/* Action Items from backend */}
+      {(data?.actionItems?.length ?? 0) > 0 && (
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-text-tertiary mb-3">Action Items</h2>
+          <div className="space-y-2">
+            {data!.actionItems!.map((item) => (
+              <div key={item} className="rounded-2xl bg-surface-raised border border-border-subtle p-4 flex items-center gap-3">
+                <AlertTriangle size={16} className="text-warning shrink-0" />
+                <span className="text-sm text-text-primary flex-1">{item}</span>
+                <span className="text-xs bg-warning-muted text-warning px-2 py-0.5 rounded-full font-semibold">Action needed</span>
+              </div>
             ))}
           </div>
-          {rangePreset === 'custom' && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <label className="text-sm text-text-secondary">
-                From
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="ml-2 rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
-                />
-              </label>
-              <label className="text-sm text-text-secondary">
-                To
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="ml-2 rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
-                />
-              </label>
-            </div>
-          )}
-          <Button variant="danger" onClick={handleDayClose} loading={closing} disabled={closing || dayCloseSuccess}>
-            <Lock size={16} /> Close Day
+        </div>
+      )}
+
+      {/* Recent Orders */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Recent Orders</h2>
+          <a href="/ops/orders" className="text-xs text-gold font-semibold hover:underline">See all orders →</a>
+        </div>
+        {timeline.length === 0 ? (
+          <div className="rounded-2xl bg-surface-raised border border-border-subtle p-8 text-center">
+            <Clock size={32} className="mx-auto text-text-tertiary mb-2" />
+            <p className="text-sm text-text-secondary">No orders yet {view === 'today' ? 'today' : 'in this period'}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {timeline.slice(0, 8).map((order) => (
+              <div key={order.id} className="flex items-center justify-between p-3 bg-surface-raised rounded-xl border border-border-subtle">
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={order.status} />
+                  <span className="text-sm text-text-secondary capitalize">{order.channel.toLowerCase()}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-bold text-text-primary">{formatCurrency(order.total)}</span>
+                  <span className="text-xs text-text-tertiary">{formatDateTime(order.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+            {timeline.length > 8 && (
+              <p className="text-xs text-center text-text-tertiary pt-1">
+                + {timeline.length - 8} more — <a href="/ops/orders" className="text-gold font-semibold hover:underline">view all</a>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Close Day */}
+      <div className="rounded-2xl bg-surface-raised border border-border-subtle p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-text-primary flex items-center gap-2">
+              <Lock size={16} className="text-text-secondary" />
+              End of Day
+            </h3>
+            <p className="text-sm text-text-secondary mt-1">
+              Count the cash, record the balance, and close today&apos;s operations.
+            </p>
+            <p className="text-xs text-warning font-medium mt-1">Only do this once, at the very end of the day.</p>
+          </div>
+          <Button
+            variant="danger"
+            onClick={handleDayClose}
+            className="shrink-0"
+          >
+            <Lock size={16} />
+            Close Day
           </Button>
         </div>
       </div>
-      {dayCloseMessage ? (
-        <div className={`rounded-3xl p-4 ${dayCloseSuccess ? 'bg-success-muted text-success' : 'bg-error-muted text-error'}`}>
-          {dayCloseMessage}
-        </div>
-      ) : null}
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Active Orders"
-          value={data?.activeOrders || 0}
-          icon={<ShoppingCart size={20} />}
-          severity={(data?.activeOrders || 0) > 10 ? 'warning' : 'healthy'}
-        />
-        <KPICard
-          title="Total Orders"
-          value={data?.totalOrders || 0}
-          icon={<ShoppingCart size={20} />}
-        />
-        <KPICard
-          title="Avg Order Value"
-          value={data?.avgOrderValue || 0}
-          isCurrency
-          icon={<DollarSign size={20} />}
-        />
-        <KPICard
-          title="Completion Rate"
-          value={`${data?.completionRate || 0}%`}
-          icon={<CheckCircle size={20} />}
-          severity={(data?.completionRate || 0) >= 80 ? 'healthy' : 'warning'}
-        />
-        <KPICard
-          title="Low Stock Items"
-          value={data?.lowStockCount || 0}
-          icon={<Package size={20} />}
-          severity={(data?.lowStockCount || 0) > 0 ? 'warning' : 'healthy'}
-        />
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Customer Orders"
-          value={data?.customerOrders || 0}
-          icon={<Users size={20} />}
-          severity={(data?.customerOrders || 0) > 10 ? 'warning' : 'healthy'}
-        />
-        <KPICard
-          title="Revenue Today"
-          value={data?.customerRevenue || 0}
-          isCurrency
-          icon={<DollarSign size={20} />}
-        />
-        <KPICard
-          title="Purchase Requests"
-          value={data?.pendingPurchaseOrders || 0}
-          icon={<Truck size={20} />}
-          severity={(data?.pendingPurchaseOrders || 0) > 0 ? 'warning' : 'healthy'}
-        />
-        <KPICard
-          title="Staff On Duty"
-          value={data?.staffOnDuty || 0}
-          icon={<Users size={20} />}
-          severity={(data?.staffOnDuty || 0) > 0 ? 'healthy' : 'warning'}
-        />
-      </div>
-
-      {/* Service Timeline */}
-      {data?.actionItems?.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Command Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {data.actionItems.map((item) => (
-                <div key={item} className="rounded-3xl bg-surface-base p-4 flex items-center justify-between gap-4">
-                  <span className="text-sm text-text-primary">{item}</span>
-                  <span className="text-xs text-text-secondary">Action required</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {timeline.length === 0 ? (
-            <p className="text-sm text-text-tertiary py-4 text-center">No orders today yet</p>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {timeline.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between p-3 bg-surface-base rounded-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <StatusBadge status={order.status} />
-                    <span className="text-sm text-text-secondary">{order.channel}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-text-primary">
-                      GH₵ {Number(order.total).toFixed(2)}
-                    </span>
-                    <span className="text-xs text-text-tertiary">{formatTime(order.createdAt)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

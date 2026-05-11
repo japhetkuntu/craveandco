@@ -1,10 +1,24 @@
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
 import { Prisma } from '@prisma/client';
 export declare class CustomersService {
     private prisma;
     constructor(prisma: PrismaService);
+    private parseBirthday;
     create(dto: CreateCustomerDto): Promise<{
+        email: string | null;
+        name: string;
+        phone: string | null;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        birthday: Date | null;
+        firstSeenAt: Date;
+        lastSeenAt: Date;
+        totalSpend: Prisma.Decimal;
+        visitCount: number;
+    }>;
+    update(id: string, dto: UpdateCustomerDto): Promise<{
         email: string | null;
         name: string;
         phone: string | null;
@@ -73,6 +87,7 @@ export declare class CustomersService {
             status: import("@prisma/client").$Enums.OrderStatus;
             paymentLabel: string | null;
             receiptUrl: string | null;
+            promotionId: string | null;
             total: Prisma.Decimal;
             foodCost: Prisma.Decimal;
             paidAt: Date | null;
@@ -121,6 +136,7 @@ export declare class CustomersService {
         totalSpend: Prisma.Decimal;
         visitCount: number;
     }[]>;
+    getUpcomingBirthdays(days?: number): Promise<any[]>;
     getDashboard(): Promise<{
         total: number;
         newThisWeek: number;

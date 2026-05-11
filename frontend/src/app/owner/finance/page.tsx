@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { KPICard } from '@/components/ui/kpi-card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { formatCurrency } from '@/lib/utils';
-import { Receipt, TrendingUp, TrendingDown, DollarSign, CheckCircle, XCircle } from 'lucide-react';
+import { Receipt, TrendingUp, TrendingDown, DollarSign, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface FinanceSummary {
@@ -110,184 +110,159 @@ export default function OwnerFinancePage() {
       setCreatingExpense(false);
     }
   };
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-6 pb-8">
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Receipt className="text-gold" /> Finance
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Receipt className="text-[var(--color-gold)]" /> Finance
           </h1>
-          <p className="text-sm text-text-secondary mt-1">Track cash, expenses, and approval workflows for your branch.</p>
+          <p className="text-sm text-text-secondary mt-0.5">Today&apos;s cash, expenses and approvals</p>
         </div>
-        <Button variant="secondary" onClick={() => setShowCreateExpense((prev) => !prev)}>
-          {showCreateExpense ? 'Cancel Request' : 'Create Expense Request'}
+        <Button onClick={() => setShowCreateExpense(true)}>
+          <Plus size={16} /> Log Expense
         </Button>
       </div>
 
-      {showCreateExpense && (
-        <Card>
-          <CardHeader>
-            <CardTitle>New Expense Request</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreateExpense} className="grid gap-4 md:grid-cols-3">
-              <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                Category
-                <input
-                  type="text"
-                  value={newExpense.category}
-                  onChange={(e) => setNewExpense((prev) => ({ ...prev, category: e.target.value }))}
-                  required
-                  className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                Amount
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense((prev) => ({ ...prev, amount: e.target.value }))}
-                  required
-                  className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-text-secondary md:col-span-3">
-                Description
-                <input
-                  type="text"
-                  value={newExpense.description}
-                  onChange={(e) => setNewExpense((prev) => ({ ...prev, description: e.target.value }))}
-                  className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
-                />
-              </label>
-              <div className="md:col-span-3 flex justify-end">
-                <Button type="submit" loading={creatingExpense}>
-                  Submit Expense Request
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Daily Summary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KPICard
-          title="Today's Sales"
-          value={formatCurrency(summary?.totalSales || 0)}
-          icon={<TrendingUp size={20} />}
-          severity="healthy"
-        />
-        <KPICard
-          title="Today's Expenses"
-          value={formatCurrency(summary?.totalExpenses || 0)}
-          icon={<TrendingDown size={20} />}
-          severity={(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'critical' : 'warning'}
-        />
-        <KPICard
-          title="Net"
-          value={formatCurrency(summary?.netCash || 0)}
-          icon={<DollarSign size={20} />}
-          severity={(summary?.netCash || 0) >= 0 ? 'healthy' : 'critical'}
-        />
+      {/* Summary tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl border bg-success-muted border-success/30 p-4 flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-success"><TrendingUp size={18} /><span>Today&apos;s Sales</span></div>
+          <p className="text-3xl font-bold font-mono text-success whitespace-normal break-words">{formatCurrency(summary?.totalSales || 0)}</p>
+          <p className="text-xs text-text-secondary">Total revenue collected today</p>
+        </div>
+        <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'bg-error-muted border-error/30' : 'bg-warning-muted border-warning/30'}`}>
+          <div className={`flex items-center gap-2 text-sm font-semibold ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'text-error' : 'text-warning'}`}><TrendingDown size={18} /><span>Today&apos;s Expenses</span></div>
+          <p className={`text-3xl font-bold font-mono whitespace-normal break-words ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'text-error' : 'text-warning'}`}>{formatCurrency(summary?.totalExpenses || 0)}</p>
+          <p className="text-xs text-text-secondary">All approved and pending expenses</p>
+        </div>
+        <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(summary?.netCash || 0) >= 0 ? 'bg-success-muted border-success/30' : 'bg-error-muted border-error/30'}`}>
+          <div className={`flex items-center gap-2 text-sm font-semibold ${(summary?.netCash || 0) >= 0 ? 'text-success' : 'text-error'}`}><DollarSign size={18} /><span>Net Cash</span></div>
+          <p className={`text-3xl font-bold font-mono whitespace-normal break-words ${(summary?.netCash || 0) >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(summary?.netCash || 0)}</p>
+          <p className="text-xs text-text-secondary">Sales minus expenses</p>
+        </div>
       </div>
 
+      {/* Reconciliation */}
       {summary?.reconciliation && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Cash Reconciliation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Expected Cash</p>
-                <p className="mt-2 text-xl font-semibold text-text-primary">{formatCurrency(summary.reconciliation.expectedCash)}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Actual Cash</p>
-                <p className="mt-2 text-xl font-semibold text-text-primary">{formatCurrency(summary.reconciliation.actualCash)}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Variance</p>
-                <p className={`mt-2 text-xl font-semibold ${summary.reconciliation.variance >= 0 ? 'text-success' : 'text-error'}`}>
-                  {formatCurrency(summary.reconciliation.variance)}
+        <div className="rounded-3xl border border-border-default bg-surface-raised p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Cash Reconciliation</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Expected Cash', value: summary.reconciliation.expectedCash },
+              { label: 'Actual Cash', value: summary.reconciliation.actualCash },
+              { label: 'Variance', value: summary.reconciliation.variance },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-2xl bg-surface-elevated border border-border-subtle p-3 text-center">
+                <p className="text-xs text-text-tertiary">{label}</p>
+                <p className={`text-xl font-bold font-mono mt-1 ${label === 'Variance' ? (value >= 0 ? 'text-success' : 'text-error') : 'text-text-primary'}`}>
+                  {formatCurrency(value)}
                 </p>
               </div>
-            </div>
-            {summary.reconciliation.notes && (
-              <p className="mt-4 text-sm text-text-secondary">Notes: {summary.reconciliation.notes}</p>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+          {summary.reconciliation.notes && (
+            <p className="text-sm text-text-secondary">Note: {summary.reconciliation.notes}</p>
+          )}
+        </div>
       )}
 
-      {/* Expenses */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Expenses</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Expenses list */}
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary mb-3">Expense Records</p>
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
           {expenses.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No expenses recorded</p>
+            <div className="flex flex-col items-center gap-2 py-12 text-center">
+              <Receipt size={32} className="text-text-tertiary opacity-50" />
+              <p className="text-sm font-semibold text-text-secondary">No expenses recorded yet</p>
+            </div>
           ) : (
-            <>
-              <div className="space-y-3">
-                {expenses.map((exp) => (
-                  <div
-                    key={exp.id}
-                    className="flex items-center justify-between p-3 bg-surface-base rounded-xl"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{exp.description}</p>
-                      <p className="text-xs text-text-tertiary mt-0.5">
-                        by {exp.user?.name} · {new Date(exp.createdAt).toLocaleDateString('en-GH')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-text-primary">
-                        {formatCurrency(exp.amount)}
-                      </span>
-                      {exp.approved === null ? (
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="secondary" onClick={() => handleApprove(exp.id)}>
-                            <CheckCircle size={16} className="text-success" /> Approve
-                          </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleReject(exp.id)}>
-                            <XCircle size={16} className="text-error" /> Reject
-                          </Button>
-                        </div>
-                      ) : (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            exp.approved ? 'bg-success-muted text-success' : 'bg-error-muted text-error'
-                          }`}
-                        >
-                          {exp.approved ? 'Approved' : 'Rejected'}
-                        </span>
-                      )}
-                    </div>
+            <div className="divide-y divide-border-subtle">
+              {expenses.map((exp) => (
+                <div key={exp.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-text-primary">{exp.description || exp.category || '—'}</p>
+                    <p className="text-sm text-text-secondary mt-0.5">
+                      by <span className="font-medium">{exp.user?.name}</span> · {new Date(exp.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
                   </div>
-                ))}
-              </div>
-              <PaginationControls
-                page={page}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(value) => { setLimit(value); setPage(0); }}
-                hasMore={expenses.length === limit}
-              />
-            </>
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
+                    <span className="text-xl font-bold font-mono text-text-primary whitespace-normal break-words">
+                      {formatCurrency(exp.amount)}
+                    </span>
+                    {exp.approved === null ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => handleApprove(exp.id)}>
+                          <CheckCircle size={14} className="text-success" /> Approve
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => handleReject(exp.id)}>
+                          <XCircle size={14} /> Reject
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${exp.approved ? 'bg-success-muted text-success' : 'bg-error-muted text-error'}`}>
+                        {exp.approved ? 'Approved' : 'Rejected'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+          <div className="px-4 pb-4 pt-2">
+            <PaginationControls
+              page={page}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={(value) => { setLimit(value); setPage(0); }}
+              hasMore={expenses.length === limit}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Log Expense Modal */}
+      <Modal
+        open={showCreateExpense}
+        onClose={() => { setShowCreateExpense(false); setNewExpense({ category: '', amount: '', description: '' }); }}
+        title="Log Expense"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowCreateExpense(false)}>Cancel</Button>
+            <Button type="submit" form="new-expense-form" loading={creatingExpense}>Submit Expense</Button>
+          </>
+        }
+      >
+        <form id="new-expense-form" onSubmit={handleCreateExpense} className="space-y-4 pt-2">
+          <Input
+            label="Category"
+            value={newExpense.category}
+            onChange={(e) => setNewExpense(prev => ({ ...prev, category: e.target.value }))}
+            required
+            placeholder="e.g. Supplies, Utilities"
+          />
+          <Input
+            label="Amount"
+            type="number"
+            min="0"
+            step="0.01"
+            value={newExpense.amount}
+            onChange={(e) => setNewExpense(prev => ({ ...prev, amount: e.target.value }))}
+            required
+            placeholder="0.00"
+          />
+          <Input
+            label="Description (optional)"
+            value={newExpense.description}
+            onChange={(e) => setNewExpense(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="What was this expense for?"
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

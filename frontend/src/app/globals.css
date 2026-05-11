@@ -64,12 +64,14 @@
 html,
 body {
   min-height: var(--viewport-height);
+  height: 100%;
   overflow-x: hidden;
-  overscroll-behavior: none;
+  overscroll-behavior: auto;
 }
 
 html {
   min-height: var(--viewport-height);
+  height: 100%;
   /* Reserve scrollbar gutter so locking body scroll on modal open doesn't jump layout */
   scrollbar-gutter: stable;
 }
@@ -117,4 +119,28 @@ body {
 .focus-ring {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-surface-base), 0 0 0 4px var(--color-gold);
+}
+
+/*
+ * Mobile-first interaction improvements
+ *
+ * 1. Remove the 300ms tap delay on all interactive elements.
+ * 2. Remove the iOS tap highlight flash on buttons/links.
+ * 3. Force all raw input, select, and textarea to 16px minimum so iOS Safari
+ *    never zooms the viewport when a field is focused. Use 1rem so the value
+ *    still scales with user font preferences.
+ */
+button,
+[role="button"],
+a,
+label,
+select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+  font-size: max(1rem, 16px);
 }

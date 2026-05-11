@@ -168,22 +168,38 @@ export class OpsService {
     });
   }
 
-  async dayClose(branchId: string, closedBy: string) {
+  async dayClose(branchId: string, closedBy: string, openingFloat = 0, cashCounted = 0, notes?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const sales = await this.prisma.order.aggregate({
-      where: { branchId, createdAt: { gte: today, lt: tomorrow }, status: { not: OrderStatus.CANCELLED } },
-      _sum: { total: true },
-      _count: true,
-    });
+    const [sales, expenses, cashSales] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { branchId, createdAt: { gte: today, lt: tomorrow }, status: { not: OrderStatus.CANCELLED } },
+        _sum: { total: true },
+        _count: true,
+      }),
+      this.prisma.expense.aggregate({
+        where: { branchId, paidAt: { gte: today, lt: tomorrow }, approved: true },
+        _sum: { amount: true },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          branchId,
+          createdAt: { gte: today, lt: tomorrow },
+          status: { not: OrderStatus.CANCELLED },
+          paymentMethod: 'CASH',
+        },
+        _sum: { total: true },
+      }),
+    ]);
 
-    const expenses = await this.prisma.expense.aggregate({
-      where: { branchId, paidAt: { gte: today, lt: tomorrow }, approved: true },
-      _sum: { amount: true },
-    });
+    const totalSales = Number(sales._sum?.total || 0);
+    const totalExpenses = Number(expenses._sum?.amount || 0);
+    const cashSalesAmount = Number(cashSales._sum?.total || 0);
+    const expectedCash = cashSalesAmount + openingFloat;
+    const variance = cashCounted - expectedCash;
 
     const record = await this.prisma.auditLog.create({
       data: {
@@ -193,21 +209,36 @@ export class OpsService {
         module: 'OPS',
         details: {
           date: today.toISOString().split('T')[0],
-          totalSales: Number(sales._sum?.total || 0),
+          totalSales,
           orderCount: sales._count,
-          totalExpenses: Number(expenses._sum?.amount || 0),
+          totalExpenses,
+          notes: notes ?? null,
+          cashBalance: {
+            openingFloat,
+            cashSales: cashSalesAmount,
+            expectedCash,
+            cashCounted,
+            variance,
+          },
         },
       },
     });
 
     return {
       date: today.toISOString().split('T')[0],
-      totalSales: Number(sales._sum?.total || 0),
+      totalSales,
       orderCount: sales._count,
-      totalExpenses: Number(expenses._sum?.amount || 0),
+      totalExpenses,
       closedBy,
       closedAt: new Date(),
       auditId: record.id,
+      cashBalance: {
+        openingFloat,
+        cashSales: cashSalesAmount,
+        expectedCash,
+        cashCounted,
+        variance,
+      },
     };
   }
 
@@ -269,7 +300,7 @@ export class OpsService {
     return record?.details || null;
   }
 
-  async getChecklistHistory(branchId: string, userId?: string, from?: string, to?: string) {
+  async getChecklistHistory(branchId: string, userId?: string, role?: string, from?: string, to?: string) {
     const { start, end } = this.parseChecklistHistoryRange(from, to);
 
     const records = await this.prisma.auditLog.findMany({
@@ -279,6 +310,7 @@ export class OpsService {
         action: 'SAVE',
         createdAt: { gte: start, lt: end },
         ...(userId ? { userId } : {}),
+        ...(role && role !== 'ALL' ? { user: { role: role as any } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { id: true, name: true, role: true } } },

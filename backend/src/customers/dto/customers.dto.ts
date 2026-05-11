@@ -7,6 +7,13 @@ export class CreateCustomerDto {
   @IsOptional() @IsDateString() birthday?: string;
 }
 
+export class UpdateCustomerDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsDateString() birthday?: string;
+}
+
 export class CreateSegmentDto {
   @IsString() name: string;
   @IsOptional() @IsString() lastSeenBefore?: string;

@@ -89,6 +89,10 @@ export class PayOrderDto {
   @IsNumber()
   @Min(0)
   redeemPoints?: number;
+
+  @IsOptional()
+  @IsString()
+  promotionId?: string;
 }
 
 export class AddOrderItemDto {

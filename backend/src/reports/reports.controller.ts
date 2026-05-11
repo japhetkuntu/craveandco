@@ -7,7 +7,7 @@ import { ReportsService } from './reports.service';
 
 @Controller('api/v1/reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT')
+@Roles('OWNER', 'OPERATIONS_MANAGER')
 export class ReportsController {
   constructor(private reports: ReportsService) {}
 

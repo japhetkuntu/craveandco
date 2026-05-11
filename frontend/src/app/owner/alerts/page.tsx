@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, patch } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
@@ -90,138 +89,145 @@ export default function OwnerAlertsPage() {
     }
   };
 
-  const severityColor: Record<string, string> = {
-    INFO: 'bg-info-muted border-border-default',
-    WARNING: 'bg-warning-muted border-border-default',
-    CRITICAL: 'bg-error-muted border-border-default',
-  };
-
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   const totalAlerts = summary?.total ?? alerts.length;
-  const openAlerts = summary?.open ?? alerts.filter((alert) => alert.status === 'OPEN').length;
-  const acknowledgedAlerts = summary?.acknowledged ?? alerts.filter((alert) => alert.status === 'ACKNOWLEDGED').length;
-  const resolvedAlerts = summary?.resolved ?? alerts.filter((alert) => alert.status === 'RESOLVED').length;
+  const openAlerts = summary?.open ?? alerts.filter((a) => a.status === 'OPEN').length;
+  const acknowledgedAlerts = summary?.acknowledged ?? alerts.filter((a) => a.status === 'ACKNOWLEDGED').length;
+  const resolvedAlerts = summary?.resolved ?? alerts.filter((a) => a.status === 'RESOLVED').length;
+
+  const severityBg: Record<string, string> = {
+    INFO: 'bg-info-muted border-info/30',
+    WARNING: 'bg-warning-muted border-warning/30',
+    CRITICAL: 'bg-error-muted border-error/30',
+  };
+  const severityText: Record<string, string> = {
+    INFO: 'text-info',
+    WARNING: 'text-warning',
+    CRITICAL: 'text-error',
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-6 pb-8">
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Bell className="text-gold" /> Alerts
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Bell className="text-[var(--color-gold)]" /> Alerts
           </h1>
-          <p className="text-sm text-text-secondary mt-1">Filter active alerts and acknowledge or resolve them quickly.</p>
+          <p className="text-sm text-text-secondary mt-0.5">Monitor and respond to system alerts</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED'].map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => { setStatusFilter(status as 'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED'); setPage(0); }}
-              className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
-                statusFilter === status ? 'bg-gold text-white' : 'bg-surface-raised text-text-secondary hover:bg-surface-elevated'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-          <Button type="button" variant="secondary" size="sm" onClick={() => fetchAlerts()}>
-            Refresh
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={() => fetchAlerts()}>Refresh</Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-          <p className="font-semibold text-text-primary">Total alerts</p>
-          <p className="mt-2 text-2xl font-bold text-text-primary">{totalAlerts}</p>
-        </div>
-        <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-          <p className="font-semibold text-text-primary">Open</p>
-          <p className="mt-2 text-2xl font-bold text-text-primary">{openAlerts}</p>
-        </div>
-        <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-          <p className="font-semibold text-text-primary">Acknowledged</p>
-          <p className="mt-2 text-2xl font-bold text-text-primary">{acknowledgedAlerts}</p>
-        </div>
-        <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-          <p className="font-semibold text-text-primary">Resolved</p>
-          <p className="mt-2 text-2xl font-bold text-text-primary">{resolvedAlerts}</p>
-        </div>
-      </div>
-
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-            <p className="font-semibold text-text-primary">Critical</p>
-            <p className="mt-2 text-2xl font-bold text-text-primary">{summary.bySeverity.CRITICAL}</p>
-          </div>
-          <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-            <p className="font-semibold text-text-primary">Warning</p>
-            <p className="mt-2 text-2xl font-bold text-text-primary">{summary.bySeverity.WARNING}</p>
-          </div>
-          <div className="rounded-3xl bg-surface-raised p-4 text-sm">
-            <p className="font-semibold text-text-primary">Info</p>
-            <p className="mt-2 text-2xl font-bold text-text-primary">{summary.bySeverity.INFO}</p>
-          </div>
-        </div>
-      )}
-
-      {alerts.length === 0 ? (
-        <p className="text-center text-text-tertiary py-12">No alerts — all clear!</p>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className={`p-4 rounded-xl border ${severityColor[alert.severity] || 'bg-surface-base border-border-default'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <StatusBadge status={alert.status} />
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-surface-raised font-medium text-text-secondary border">
-                      {alert.severity}
-                    </span>
-                  </div>
-                  <p className="text-sm text-text-primary mt-1">{alert.message}</p>
-                  <p className="text-xs text-text-tertiary mt-1">
-                    {new Date(alert.createdAt).toLocaleString('en-GH')}
-                  </p>
-                </div>
-                {alert.status === 'OPEN' && (
-                  <div className="flex gap-1 shrink-0">
-                    <Button size="sm" variant="secondary" onClick={() => handleAcknowledge(alert.id)}>
-                      Acknowledge
-                    </Button>
-                    <Button size="sm" onClick={() => handleResolve(alert.id)}>
-                      <CheckCircle size={14} /> Resolve
-                    </Button>
-                  </div>
-                )}
-                {alert.status === 'ACKNOWLEDGED' && (
-                  <Button size="sm" onClick={() => handleResolve(alert.id)}>
-                    <CheckCircle size={14} /> Resolve
-                  </Button>
-                )}
-              </div>
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Total', value: totalAlerts, tone: undefined },
+          { label: 'Open', value: openAlerts, tone: openAlerts > 0 ? 'red' as const : 'green' as const },
+          { label: 'Acknowledged', value: acknowledgedAlerts, tone: undefined },
+          { label: 'Resolved', value: resolvedAlerts, tone: resolvedAlerts > 0 ? 'green' as const : undefined },
+        ].map(({ label, value, tone }) => {
+          const bg = tone === 'green' ? 'bg-success-muted border-success/30' : tone === 'red' ? 'bg-error-muted border-error/30' : 'bg-surface-raised border-border-subtle';
+          const tv = tone === 'green' ? 'text-success' : tone === 'red' ? 'text-error' : 'text-text-primary';
+          return (
+            <div key={label} className={`rounded-2xl border p-4 flex flex-col gap-2 ${bg}`}>
+              <p className={`text-xs font-semibold uppercase tracking-widest ${tv}`}>{label}</p>
+              <p className={`text-3xl font-bold font-mono ${tv}`}>{value}</p>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* Severity breakdown */}
+      {summary && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-error-muted border border-error/30 p-3 text-center">
+            <p className="text-xs font-semibold text-error uppercase">Critical</p>
+            <p className="text-2xl font-bold font-mono text-error mt-1">{summary.bySeverity.CRITICAL}</p>
+          </div>
+          <div className="rounded-2xl bg-warning-muted border border-warning/30 p-3 text-center">
+            <p className="text-xs font-semibold text-warning uppercase">Warning</p>
+            <p className="text-2xl font-bold font-mono text-warning mt-1">{summary.bySeverity.WARNING}</p>
+          </div>
+          <div className="rounded-2xl bg-info-muted border border-info/30 p-3 text-center">
+            <p className="text-xs font-semibold text-info uppercase">Info</p>
+            <p className="text-2xl font-bold font-mono text-info mt-1">{summary.bySeverity.INFO}</p>
+          </div>
         </div>
-        <PaginationControls
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={(value) => { setLimit(value); setPage(0); }}
-          hasMore={alerts.length === limit}
-        />
-      </>
       )}
+
+      {/* Filter pills */}
+      <div className="flex flex-wrap gap-2">
+        {(['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => { setStatusFilter(s); setPage(0); }}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              statusFilter === s
+                ? 'bg-[var(--color-gold)] text-white shadow-sm'
+                : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {s === 'ALL' ? 'All Alerts' : s.charAt(0) + s.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* Alerts list */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        {alerts.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <CheckCircle size={32} className="text-success opacity-60" />
+            <p className="text-sm font-semibold text-text-secondary">All clear — no alerts</p>
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-border-subtle">
+              {alerts.map((alert) => (
+                <div key={alert.id} className={`p-4 border-l-4 ${severityBg[alert.severity] || 'bg-surface-raised border-border-default'} border-l-current`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className={`text-xs font-bold uppercase tracking-widest ${severityText[alert.severity] || 'text-text-secondary'}`}>
+                          {alert.severity}
+                        </span>
+                        <StatusBadge status={alert.status} />
+                      </div>
+                      <p className="text-sm font-medium text-text-primary">{alert.message}</p>
+                      <p className="text-xs text-text-tertiary mt-1">
+                        {new Date(alert.createdAt).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    {alert.status !== 'RESOLVED' && (
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        {alert.status === 'OPEN' && (
+                          <Button size="sm" variant="secondary" onClick={() => handleAcknowledge(alert.id)}>
+                            Acknowledge
+                          </Button>
+                        )}
+                        <Button size="sm" onClick={() => handleResolve(alert.id)}>
+                          <CheckCircle size={14} /> Resolve
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 pb-4 pt-2">
+              <PaginationControls
+                page={page}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(value) => { setLimit(value); setPage(0); }}
+                hasMore={alerts.length === limit}
+              />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

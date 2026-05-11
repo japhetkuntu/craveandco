@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
-import { KPICard } from '@/components/ui/kpi-card';
-import { Package, AlertTriangle } from 'lucide-react';
+import { Package, AlertTriangle, Plus } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface StockItem {
@@ -45,6 +45,7 @@ export default function OwnerInventoryPage() {
   const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
   const [inventorySaving, setInventorySaving] = useState(false);
   const [inventoryError, setInventoryError] = useState('');
+  const [showItemModal, setShowItemModal] = useState(false);
 
   const totalOnHand = stock.reduce((sum, item) => sum + item.onHand, 0);
   const lowStockPercent = totalItems > 0 ? Math.round((lowStockCount / totalItems) * 100) : 0;
@@ -133,167 +134,125 @@ export default function OwnerInventoryPage() {
     void loadStock();
   }, [token, page, limit, movementPage, movementLimit]);
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
+
+  const showForm = !!editingIngredientId || false;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-        <Package className="text-gold" /> Inventory
-      </h1>
+    <div className="space-y-6 pb-8">
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Total Items" value={totalItems} icon={<Package size={20} />} />
-        <KPICard title="Low Stock" value={lowStockCount} icon={<AlertTriangle size={20} />} severity={lowStockCount > 0 ? 'critical' : 'healthy'} />
-        <KPICard title="Total Quantity" value={totalOnHand} icon={<Package size={20} />} />
-        <KPICard title="Low Stock %" value={`${lowStockPercent}%`} icon={<AlertTriangle size={20} />} severity={lowStockPercent > 20 ? 'warning' : 'healthy'} />
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Package className="text-[var(--color-gold)]" /> Inventory
+          </h1>
+          <p className="text-sm text-text-secondary mt-0.5">Track stock levels and manage ingredients</p>
+        </div>
+        <Button onClick={() => { resetInventoryForm(); setShowItemModal(true); }}>
+          <Plus size={16} /> Add Item
+        </Button>
+      </div>
+
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: <Package size={18} />, label: 'Total Items', value: totalItems, tone: undefined },
+          { icon: <AlertTriangle size={18} />, label: 'Low Stock', value: lowStockCount, tone: lowStockCount > 0 ? 'red' as const : 'green' as const },
+          { icon: <Package size={18} />, label: 'Total Quantity', value: totalOnHand, tone: undefined },
+          { icon: <AlertTriangle size={18} />, label: 'Low Stock %', value: `${lowStockPercent}%`, tone: lowStockPercent > 20 ? 'yellow' as const : undefined },
+        ].map(({ icon, label, value, tone }) => {
+          const bg = tone === 'green' ? 'bg-success-muted border-success/30' : tone === 'red' ? 'bg-error-muted border-error/30' : tone === 'yellow' ? 'bg-warning-muted border-warning/30' : 'bg-surface-raised border-border-subtle';
+          const tv = tone === 'green' ? 'text-success' : tone === 'red' ? 'text-error' : tone === 'yellow' ? 'text-warning' : 'text-text-primary';
+          return (
+            <div key={label} className={`rounded-2xl border p-4 flex flex-col gap-2 ${bg}`}>
+              <div className={`flex items-center gap-2 text-sm font-semibold ${tv}`}>{icon}<span>{label}</span></div>
+              <p className={`text-3xl font-bold font-mono ${tv}`}>{value}</p>
+            </div>
+          );
+        })}
       </div>
 
       {movementAnalytics && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard title="Movements" value={movementAnalytics.totalMovements} icon={<Package size={20} />} />
-          <KPICard title="Purchases" value={movementAnalytics.typeCounts.PURCHASE_IN || 0} icon={<Package size={20} />} />
-          <KPICard title="Waste" value={movementAnalytics.typeCounts.WASTE || 0} icon={<AlertTriangle size={20} />} severity={(movementAnalytics.typeCounts.WASTE || 0) > 0 ? 'warning' : 'healthy'} />
-          <KPICard title="Adjustments" value={movementAnalytics.typeCounts.ADJUSTMENT || 0} icon={<AlertTriangle size={20} />} severity={(movementAnalytics.typeCounts.ADJUSTMENT || 0) > 0 ? 'warning' : 'healthy'} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Movements', value: movementAnalytics.totalMovements },
+            { label: 'Purchases', value: movementAnalytics.typeCounts.PURCHASE_IN || 0 },
+            { label: 'Waste', value: movementAnalytics.typeCounts.WASTE || 0 },
+            { label: 'Adjustments', value: movementAnalytics.typeCounts.ADJUSTMENT || 0 },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-2xl border border-border-subtle bg-surface-raised p-3 flex flex-col gap-1">
+              <p className="text-xs text-text-tertiary">{label}</p>
+              <p className="text-2xl font-bold font-mono text-text-primary">{value}</p>
+            </div>
+          ))}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{editingIngredientId ? 'Edit Inventory Item' : 'Add Inventory Item'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 md:grid-cols-4" onSubmit={handleInventorySubmit}>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Name</span>
-              <input
-                type="text"
-                value={inventoryForm.name}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, name: e.target.value })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Unit</span>
-              <input
-                type="text"
-                value={inventoryForm.unit}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, unit: e.target.value })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Current Cost</span>
-              <input
-                type="number"
-                value={inventoryForm.currentCost}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, currentCost: e.target.value === '' ? 0 : Number(e.target.value) })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                min={0}
-                step={0.01}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Reorder Level</span>
-              <input
-                type="number"
-                value={inventoryForm.reorderLevel}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, reorderLevel: e.target.value === '' ? 0 : Number(e.target.value) })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                min={0}
-                step={0.01}
-              />
-            </label>
-            <div className="md:col-span-4 flex flex-wrap items-center gap-3">
-              <Button type="submit" loading={inventorySaving}>
-                {editingIngredientId ? 'Update Item' : 'Add Item'}
-              </Button>
-              {editingIngredientId && (
-                <Button type="button" variant="secondary" onClick={resetInventoryForm}>
-                  Cancel
-                </Button>
-              )}
-              {inventoryError && <p className="text-sm text-error">{inventoryError}</p>}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
+      {/* Low stock alert */}
       {lowStock.length > 0 && (
-        <Card className="border-border-default bg-error-muted">
-          <CardHeader>
-            <CardTitle className="text-error flex items-center gap-2">
-              <AlertTriangle size={18} /> Low Stock Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {lowStock.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-center p-3 bg-surface-raised rounded-xl"
-                >
-                  <span className="font-medium text-text-primary">{item.name}</span>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-error">
-                      {item.onHand} {item.unit}
-                    </span>
-                    <span className="text-xs text-text-tertiary ml-2">
-                      (reorder at {item.reorderLevel})
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-3xl border border-error/30 bg-error-muted p-4 space-y-3">
+          <p className="text-sm font-bold text-error flex items-center gap-2">
+            <AlertTriangle size={16} /> Low Stock Warning
+          </p>
+          <div className="space-y-2">
+            {lowStock.map((item) => (
+              <div key={item.id} className="flex items-center justify-between rounded-2xl bg-surface-raised border border-border-subtle p-3">
+                <span className="font-medium text-text-primary">{item.name}</span>
+                <span className="text-sm text-error font-bold">
+                  {item.onHand} {item.unit} <span className="text-text-tertiary font-normal">(reorder at {item.reorderLevel})</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Stock Levels</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="min-h-[280px] overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-text-secondary">
-                  <th className="py-2 pr-4">Ingredient</th>
-                  <th className="py-2 pr-4">Quantity</th>
-                  <th className="py-2 pr-4">Unit</th>
-                  <th className="py-2 pr-4">Cost</th>
-                  <th className="py-2 pr-4">Reorder</th>
-                  <th className="py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stock.map((item, index) => {
-                  const isLow = item.belowReorder ?? item.onHand < item.reorderLevel;
-                  return (
-                    <tr key={`${item.id}-${index}`} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium text-text-primary">{item.name}</td>
-                      <td className="py-2 pr-4">{item.onHand}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.unit}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.currentCost.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.reorderLevel}</td>
-                      <td className="py-2 pr-4">
-                        <Button size="sm" variant="ghost" onClick={() => startInventoryEdit(item)}>
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-        <div className="px-4 pb-4">
+      {/* Stock table */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Stock Levels</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border-subtle text-left text-text-tertiary text-xs">
+                <th className="px-4 py-3 font-medium">Ingredient</th>
+                <th className="px-4 py-3 font-medium text-right">On Hand</th>
+                <th className="px-4 py-3 font-medium">Unit</th>
+                <th className="px-4 py-3 font-medium text-right hidden sm:table-cell">Cost</th>
+                <th className="px-4 py-3 font-medium text-right hidden sm:table-cell">Reorder At</th>
+                <th className="px-4 py-3 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {stock.map((item, index) => {
+                const isLow = item.belowReorder ?? item.onHand < item.reorderLevel;
+                return (
+                  <tr key={`${item.id}-${index}`} className={`border-b border-border-subtle last:border-0 ${isLow ? 'bg-error-muted/40' : ''}`}>
+                    <td className="px-4 py-3 font-medium text-text-primary">
+                      {item.name}
+                      {isLow && <span className="ml-2 text-xs text-error font-semibold">Low</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-text-secondary">{item.onHand}</td>
+                    <td className="px-4 py-3 text-text-secondary">{item.unit}</td>
+                    <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{item.currentCost.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{item.reorderLevel}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Button size="sm" variant="secondary" onClick={() => { startInventoryEdit(item); setShowItemModal(true); }}>
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {stock.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">No stock items yet</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-4 pb-4 pt-2">
           <PaginationControls
             page={page}
             limit={limit}
@@ -302,48 +261,102 @@ export default function OwnerInventoryPage() {
             hasMore={stock.length === limit}
           />
         </div>
-      </Card>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Movement History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-text-secondary">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Ingredient</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Quantity</th>
-                  <th className="py-2 pr-4">Reason</th>
+      {/* Movement history */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Movement History</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border-subtle text-left text-text-tertiary text-xs">
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Ingredient</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium text-right">Qty</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.map((movement) => (
+                <tr key={movement.id} className="border-b border-border-subtle last:border-0">
+                  <td className="px-4 py-3 text-text-secondary">{new Date(movement.createdAt).toLocaleDateString('en-GH')}</td>
+                  <td className="px-4 py-3 font-medium text-text-primary">{movement.ingredient?.name || '—'}</td>
+                  <td className="px-4 py-3 text-text-secondary">{movement.type.replace(/_/g, ' ')}</td>
+                  <td className="px-4 py-3 text-right font-mono">{movement.quantity}</td>
+                  <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{movement.reason || '—'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {movements.map((movement) => (
-                  <tr key={movement.id} className="border-b last:border-0">
-                    <td className="py-2 pr-4 text-text-secondary">{new Date(movement.createdAt).toLocaleDateString('en-GH')}</td>
-                    <td className="py-2 pr-4 font-medium text-text-primary">{movement.ingredient?.name || 'Unknown'}</td>
-                    <td className="py-2 pr-4 text-text-secondary">{movement.type.replace('_', ' ')}</td>
-                    <td className="py-2 pr-4">{movement.quantity}</td>
-                    <td className="py-2 pr-4 text-text-secondary">{movement.reason || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 pb-4">
-            <PaginationControls
-              page={movementPage}
-              limit={movementLimit}
-              onPageChange={setMovementPage}
-              onLimitChange={(value) => { setMovementLimit(value); setMovementPage(0); }}
-              hasMore={movements.length === movementLimit}
+              ))}
+              {movements.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-text-tertiary">No movements recorded</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-4 pb-4 pt-2">
+          <PaginationControls
+            page={movementPage}
+            limit={movementLimit}
+            onPageChange={setMovementPage}
+            onLimitChange={(value) => { setMovementLimit(value); setMovementPage(0); }}
+            hasMore={movements.length === movementLimit}
+          />
+        </div>
+      </div>
+
+      {/* Add/Edit Item Modal */}
+      <Modal
+        open={showItemModal}
+        onClose={() => { setShowItemModal(false); resetInventoryForm(); }}
+        title={editingIngredientId ? 'Edit Inventory Item' : 'Add Inventory Item'}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowItemModal(false); resetInventoryForm(); }}>Cancel</Button>
+            <Button type="submit" form="inventory-item-form" loading={inventorySaving}>
+              {editingIngredientId ? 'Save Changes' : 'Add Item'}
+            </Button>
+          </>
+        }
+      >
+        {inventoryError && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{inventoryError}</div>}
+        <form id="inventory-item-form" onSubmit={(e) => { handleInventorySubmit(e).then(() => setShowItemModal(false)); }} className="space-y-4 pt-2">
+          <Input
+            label="Ingredient Name"
+            value={inventoryForm.name}
+            onChange={(e) => setInventoryForm({ ...inventoryForm, name: e.target.value })}
+            required
+            placeholder="e.g. Chicken Breast"
+          />
+          <Input
+            label="Unit of Measurement"
+            value={inventoryForm.unit}
+            onChange={(e) => setInventoryForm({ ...inventoryForm, unit: e.target.value })}
+            required
+            placeholder="e.g. kg, litres, pieces"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Cost per Unit (GHS)"
+              type="number"
+              min="0"
+              step="0.01"
+              value={inventoryForm.currentCost}
+              onChange={(e) => setInventoryForm({ ...inventoryForm, currentCost: e.target.value === '' ? 0 : Number(e.target.value) })}
+              placeholder="0.00"
+            />
+            <Input
+              label="Reorder Level"
+              type="number"
+              min="0"
+              value={inventoryForm.reorderLevel}
+              onChange={(e) => setInventoryForm({ ...inventoryForm, reorderLevel: e.target.value === '' ? 0 : Number(e.target.value) })}
+              placeholder="e.g. 10"
             />
           </div>
-        </CardContent>
-      </Card>
+        </form>
+      </Modal>
     </div>
   );
 }

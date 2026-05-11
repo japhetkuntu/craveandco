@@ -33,8 +33,8 @@ let OpsController = class OpsController {
         const limitNumber = (0, pagination_1.normalizeLimit)(limit, 50);
         return this.ops.getServiceTimeline(branchId, from, to, date, pageNumber, limitNumber);
     }
-    dayClose(branchId, userId) {
-        return this.ops.dayClose(branchId, userId);
+    dayClose(branchId, userId, body) {
+        return this.ops.dayClose(branchId, userId, Number(body?.openingFloat ?? 0), Number(body?.cashCounted ?? 0), body?.notes);
     }
     getDayCloseSummary(branchId, date) {
         return this.ops.getDayCloseSummary(branchId, date);
@@ -43,9 +43,9 @@ let OpsController = class OpsController {
         const userId = role === 'KITCHEN_STAFF' ? currentUserId : undefined;
         return this.ops.getChecklists(branchId, date, userId);
     }
-    getChecklistHistory(branchId, currentUserId, role, from, to, userId) {
+    getChecklistHistory(branchId, currentUserId, role, from, to, userId, roleFilter) {
         const effectiveUserId = role === 'OWNER' || role === 'OPERATIONS_MANAGER' ? userId : currentUserId;
-        return this.ops.getChecklistHistory(branchId, effectiveUserId, from, to);
+        return this.ops.getChecklistHistory(branchId, effectiveUserId, roleFilter, from, to);
     }
     saveChecklists(branchId, userId, body) {
         return this.ops.saveChecklists(branchId, userId, body.date, body.lists);
@@ -78,8 +78,9 @@ __decorate([
     (0, common_1.Post)('day-close'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", void 0)
 ], OpsController.prototype, "dayClose", null);
 __decorate([
@@ -110,8 +111,9 @@ __decorate([
     __param(3, (0, common_1.Query)('from')),
     __param(4, (0, common_1.Query)('to')),
     __param(5, (0, common_1.Query)('userId')),
+    __param(6, (0, common_1.Query)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], OpsController.prototype, "getChecklistHistory", null);
 __decorate([

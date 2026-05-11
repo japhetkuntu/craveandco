@@ -2,21 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { get, post } from '@/lib/api';
+import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency, formatDate } from '@/lib/utils';
 import { API_PATHS } from '@/lib/constants';
-import { Card, CardContent } from '@/components/ui/card';
-import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
-import { Users, UserPlus, Search, Plus, X, Phone, Mail, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, Download } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Customer {
   id: string;
   name: string;
   phone?: string;
   email?: string;
+  birthday?: string;
   visitCount: number;
   totalSpend: number;
   loyaltyPoints?: number;
@@ -34,37 +37,126 @@ interface CustomerDashboard {
   totalVisits: number;
 }
 
+// ─── Customer Status ──────────────────────────────────────────────────────────
+
+type CustomerStatus = 'new' | 'loyal' | 'active' | 'fading' | 'at-risk' | 'inactive' | 'never';
+
+function getCustomerStatus(c: Customer): CustomerStatus {
+  if (!c.lastSeenAt) return 'never';
+  const daysSince = Math.floor((Date.now() - new Date(c.lastSeenAt).getTime()) / 86400000);
+  if (daysSince <= 30 && c.visitCount <= 2) return 'new';
+  if (daysSince <= 30 && c.visitCount >= 10) return 'loyal';
+  if (daysSince <= 30) return 'active';
+  if (daysSince <= 60) return 'fading';
+  if (daysSince <= 90) return 'at-risk';
+  return 'inactive';
+}
+
+const STATUS_META: Record<CustomerStatus, { label: string; bg: string; text: string; dot: string; desc: string }> = {
+  new:       { label: 'New',       bg: 'bg-info-muted',       text: 'text-info',    dot: 'bg-info',    desc: 'Visited in last 30 days, 1–2 visits total' },
+  loyal:     { label: 'Loyal',     bg: 'bg-warning-muted',    text: 'text-[var(--color-gold)]', dot: 'bg-[var(--color-gold)]', desc: 'Visited in last 30 days, 10+ visits' },
+  active:    { label: 'Active',    bg: 'bg-success-muted',    text: 'text-success', dot: 'bg-success', desc: 'Visited within the last 30 days' },
+  fading:    { label: 'Fading',    bg: 'bg-warning-muted',    text: 'text-warning', dot: 'bg-warning', desc: 'Last visit was 31–60 days ago' },
+  'at-risk': { label: 'At Risk',   bg: 'bg-error-muted',      text: 'text-error',   dot: 'bg-error',   desc: 'Last visit was 61–90 days ago' },
+  inactive:  { label: 'Inactive',  bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'No visit in over 90 days' },
+  never:     { label: 'No Visits', bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'Has never placed an order' },
+};
+
+function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
+  const m = STATUS_META[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${m.bg} ${m.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
+// ─── Birthday Helpers ─────────────────────────────────────────────────────────
+
+function parseBirthday(birthday?: string) {
+  if (!birthday) return null;
+  const date = new Date(birthday);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function BirthdayFields({ month, day, onMonth, onDay }: {
+  month: string; day: string;
+  onMonth: (v: string) => void; onDay: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-semibold text-text-secondary">Birthday (optional)</label>
+      <p className="text-xs text-text-tertiary">Just the day and month — we use this to celebrate with them!</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-xs text-text-tertiary">Month</label>
+          <select
+            value={month}
+            onChange={e => onMonth(e.target.value)}
+            className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="">Month</option>
+            {MONTHS.map((m, i) => (
+              <option key={m} value={String(i + 1)}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-text-tertiary">Day</label>
+          <select
+            value={day}
+            onChange={e => onDay(e.target.value)}
+            className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="">Day</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+              <option key={d} value={String(d)}>{d}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function OwnerCustomersPage() {
   const { token } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [search, setSearch] = useState('');
-  const [addedAfter, setAddedAfter] = useState('');
-  const [addedBefore, setAddedBefore] = useState('');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [showLegend, setShowLegend] = useState(false);
+
+  // Create modal
+  const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [error, setError] = useState('');
+  const [newBirthdayMonth, setNewBirthdayMonth] = useState('');
+  const [newBirthdayDay, setNewBirthdayDay] = useState('');
+
+  // Edit modal
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editBirthdayMonth, setEditBirthdayMonth] = useState('');
+  const [editBirthdayDay, setEditBirthdayDay] = useState('');
 
   const fetchData = async () => {
     if (!token) return;
     try {
       const [c, d] = await Promise.all([
-        get(
-          `${API_PATHS.customers.list}${buildQueryString({
-            page,
-            limit,
-            search,
-            addedAfter,
-            addedBefore,
-          })}`,
-          token,
-        ),
+        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit, search })}`, token),
         get(API_PATHS.customers.dashboard, token),
       ]);
       setCustomers(c);
@@ -76,155 +168,275 @@ export default function OwnerCustomersPage() {
     }
   };
 
-  useEffect(() => {
-    setLoading(true);
-    fetchData();
-  }, [token, page, limit, search, addedAfter, addedBefore]);
+  useEffect(() => { setLoading(true); fetchData(); }, [token, page, limit, search]);
+
+  const openEdit = (c: Customer) => {
+    setEditCustomer(c);
+    setEditName(c.name);
+    setEditPhone(c.phone ?? '');
+    setEditEmail(c.email ?? '');
+    const bd = parseBirthday(c.birthday);
+    if (bd) {
+      setEditBirthdayMonth(String(bd.getMonth() + 1));
+      setEditBirthdayDay(String(bd.getDate()));
+    } else {
+      setEditBirthdayMonth('');
+      setEditBirthdayDay('');
+    }
+    setError('');
+  };
+
+  const closeEdit = () => { setEditCustomer(null); setError(''); };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !newName.trim()) return;
     setSaving(true);
     setError('');
-
     try {
+      const birthday = newBirthdayMonth && newBirthdayDay
+        ? `2000-${newBirthdayMonth.padStart(2, '0')}-${newBirthdayDay.padStart(2, '0')}`
+        : undefined;
       await post(API_PATHS.customers.list, {
         name: newName.trim(),
         phone: newPhone.trim() || undefined,
         email: newEmail.trim() || undefined,
+        birthday,
       }, token);
-      setNewName('');
-      setNewPhone('');
-      setNewEmail('');
+      setNewName(''); setNewPhone(''); setNewEmail(''); setNewBirthdayMonth(''); setNewBirthdayDay('');
       setShowNew(false);
       await fetchData();
     } catch (err: any) {
-      setError(err?.message || 'Failed to create customer');
+      setError(err.message || 'Failed to create customer');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editCustomer || !editName.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      const birthday = editBirthdayMonth && editBirthdayDay
+        ? `2000-${editBirthdayMonth.padStart(2, '0')}-${editBirthdayDay.padStart(2, '0')}`
+        : editBirthdayMonth === '' && editBirthdayDay === '' && editCustomer.birthday
+          ? null
+          : undefined;
+      await patch(`/api/v1/customers/${editCustomer.id}`, {
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+        email: editEmail.trim() || undefined,
+        ...(birthday !== undefined ? { birthday } : {}),
+      }, token);
+      closeEdit();
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update customer');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = customers;
+
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
-          <Users className="text-gold" /> Customer Data
+          <Users className="text-[var(--color-gold)]" /> Customers
         </h1>
-        <Button onClick={() => setShowNew(true)}>
-          <Plus size={16} /> Add Customer
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KPICard title="Total" value={dashboard?.total || 0} icon={<Users size={20} />} />
-        <KPICard title="New This Week" value={dashboard?.newThisWeek || 0} icon={<UserPlus size={20} />} severity="healthy" />
-        <KPICard title="Active" value={dashboard?.activeThisMonth || 0} icon={<Users size={20} />} severity="healthy" />
-        <KPICard title="At Risk" value={dashboard?.churnRisk || 0} icon={<Users size={20} />} severity={dashboard?.churnRisk ? 'warning' : 'healthy'} />
-        <KPICard title="Total Spend" value={dashboard?.totalSpend || 0} icon={<DollarSign size={20} />} isCurrency />
-        <KPICard title="Visits" value={dashboard?.totalVisits || 0} icon={<TrendingUp size={20} />} />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr]">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-          <input
-            type="text"
-            placeholder="Search by name, phone or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-border-default rounded-xl text-sm text-text-primary focus:ring-2 focus:ring-gold focus:border-gold outline-none"
-          />
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => {
+            const rows = [['Name', 'Phone', 'Email', 'Visits', 'Total Spend', 'Loyalty Points', 'Last Seen', 'Joined'].join(','),
+              ...customers.map(c => [
+                c.name,
+                c.phone ?? '',
+                c.email ?? '',
+                c.visitCount,
+                c.totalSpend,
+                c.loyaltyPoints ?? 0,
+                new Date(c.lastSeenAt).toLocaleDateString('en-GH'),
+                new Date(c.createdAt).toLocaleDateString('en-GH'),
+              ].join(','))
+            ].join('\n');
+            const a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows);
+            a.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+          }}>
+            <Download size={14} /> Export
+          </Button>
+          <Button onClick={() => setShowNew(true)}>
+            <Plus size={16} /> Add Customer
+          </Button>
         </div>
-        <label className="block">
-          <span className="text-sm text-text-secondary">Added after</span>
-          <input
-            type="date"
-            value={addedAfter}
-            onChange={(e) => setAddedAfter(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-gold focus:ring-2 focus:ring-gold"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm text-text-secondary">Added before</span>
-          <input
-            type="date"
-            value={addedBefore}
-            onChange={(e) => setAddedBefore(e.target.value)}
-            className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-gold focus:ring-2 focus:ring-gold"
-          />
-        </label>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-text-secondary">Use the search and added date range to dynamically query customer records.</p>
-        <Button variant="secondary" size="sm" onClick={() => { setSearch(''); setAddedAfter(''); setAddedBefore(''); setPage(0); }}>
-          Clear filters
-        </Button>
       </div>
 
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {[
+          { label: 'Total', value: dashboard?.total || 0, icon: <Users size={16} /> },
+          { label: 'New This Week', value: dashboard?.newThisWeek || 0, icon: <UserPlus size={16} />, tone: 'green' as const },
+          { label: 'Active', value: dashboard?.activeThisMonth || 0, icon: <Users size={16} />, tone: 'green' as const },
+          { label: 'At Risk', value: dashboard?.churnRisk || 0, icon: <Users size={16} />, tone: (dashboard?.churnRisk ?? 0) > 0 ? 'red' as const : undefined },
+          { label: 'Total Spend', value: formatCurrency(dashboard?.totalSpend || 0), icon: <DollarSign size={16} /> },
+          { label: 'Total Visits', value: dashboard?.totalVisits || 0, icon: <TrendingUp size={16} /> },
+        ].map(({ label, value, icon, tone }) => {
+          const bg = tone === 'green' ? 'bg-success-muted border-success/20' : tone === 'red' ? 'bg-error-muted border-error/20' : 'bg-surface-raised border-border-subtle';
+          const tv = tone === 'green' ? 'text-success' : tone === 'red' ? 'text-error' : 'text-text-primary';
+          return (
+            <div key={label} className={`rounded-2xl border p-3 flex flex-col gap-1.5 ${bg}`}>
+              <div className="flex items-center gap-1.5 text-text-secondary text-xs">{icon}<span>{label}</span></div>
+              <span className={`text-2xl font-bold font-mono ${tv}`}>{value}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend toggle */}
+      <div>
+        <button
+          onClick={() => setShowLegend(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+        >
+          <Info size={13} />
+          <span>{showLegend ? 'Hide' : 'Show'} customer status legend</span>
+        </button>
+        {showLegend && (
+          <div className="mt-3 rounded-2xl border border-border-subtle bg-surface-raised p-4">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-3">Status Legend</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {(Object.entries(STATUS_META) as [CustomerStatus, typeof STATUS_META[CustomerStatus]][]).map(([key, m]) => (
+                <div key={key} className={`flex items-start gap-2.5 rounded-xl p-2.5 ${m.bg}`}>
+                  <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${m.dot}`} />
+                  <div>
+                    <p className={`text-xs font-bold ${m.text}`}>{m.label}</p>
+                    <p className="text-xs text-text-tertiary mt-0.5">{m.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+        <input
+          type="text"
+          placeholder="Search by name or phone..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 border border-border-default rounded-xl text-sm text-text-primary focus:ring-2 focus:ring-[var(--color-gold)] outline-none bg-surface-input"
+        />
+      </div>
+
+      {/* Desktop Table */}
       <div className="hidden md:block">
-        <Card>
-          <CardContent className="p-0">
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-text-secondary">
                     <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Phone</th>
-                    <th className="px-4 py-3 font-medium">Email</th>
+                    <th className="px-4 py-3 font-medium">Birthday</th>
                     <th className="px-4 py-3 font-medium">Visits</th>
                     <th className="px-4 py-3 font-medium">Points</th>
                     <th className="px-4 py-3 font-medium">Discounts</th>
                     <th className="px-4 py-3 font-medium">Total Spent</th>
                     <th className="px-4 py-3 font-medium">Last Visit</th>
+                    <th className="px-4 py-3 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((customer) => (
-                    <tr key={customer.id} className="border-b last:border-0 hover:bg-gold-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-text-primary">{customer.name}</td>
-                      <td className="px-4 py-3 text-text-secondary">{customer.phone || '—'}</td>
-                      <td className="px-4 py-3 text-text-secondary">{customer.email || '—'}</td>
-                      <td className="px-4 py-3">{customer.visitCount}</td>
-                      <td className="px-4 py-3">{customer.loyaltyPoints ?? 0}</td>
-                      <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(customer.totalDiscount || 0))}</td>
-                      <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(customer.totalSpend))}</td>
-                      <td className="px-4 py-3 text-text-secondary">{formatDate(customer.createdAt)}</td>
-                      <td className="px-4 py-3 text-text-tertiary">{customer.lastSeenAt ? formatDate(customer.lastSeenAt) : '—'}</td>
+                  {filtered.map((c) => (
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-surface-elevated/50 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-text-primary">{c.name}</td>
+                      <td className="px-4 py-3"><CustomerStatusBadge status={getCustomerStatus(c)} /></td>
+                      <td className="px-4 py-3 text-text-secondary">{c.phone || '—'}</td>
+                      <td className="px-4 py-3 text-text-secondary">
+                        {(() => {
+                          const bd = parseBirthday(c.birthday);
+                          return bd ? (
+                            <span className="flex items-center gap-1">
+                              <Cake size={13} className="text-[var(--color-gold)]" />
+                              {bd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                            </span>
+                          ) : '—';
+                        })()}
+                      </td>
+                      <td className="px-4 py-3">{c.visitCount}</td>
+                      <td className="px-4 py-3">{c.loyaltyPoints ?? 0}</td>
+                      <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalDiscount || 0))}</td>
+                      <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalSpend))}</td>
+                      <td className="px-4 py-3 text-text-tertiary">{c.lastSeenAt ? formatDate(c.lastSeenAt) : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="p-1.5 rounded-lg hover:bg-surface-elevated text-text-tertiary hover:text-text-primary transition-colors"
+                          title="Edit customer"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-text-tertiary">No customers found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
+          </div>
       </div>
 
+      {/* Mobile Cards */}
       <div className="md:hidden space-y-2">
-        {customers.map((customer) => (
-          <div key={customer.id} className="bg-surface-raised rounded-2xl border border-border-subtle p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-text-primary">{customer.name}</p>
-              <span className="text-sm font-bold text-gold">{formatCurrency(Number(customer.totalSpend))}</span>
+        {filtered.map((c) => (
+          <div key={c.id} className="bg-surface-raised rounded-2xl border border-border-subtle p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div>
+                <p className="font-semibold text-text-primary">{c.name}</p>
+                <div className="mt-1"><CustomerStatusBadge status={getCustomerStatus(c)} /></div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm font-bold text-[var(--color-gold)]">{formatCurrency(Number(c.totalSpend))}</span>
+                <button
+                  onClick={() => openEdit(c)}
+                  className="p-1.5 rounded-lg hover:bg-surface-elevated text-text-tertiary hover:text-text-primary transition-colors"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
-              {customer.phone && <span className="flex items-center gap-1"><Phone size={10} /> {customer.phone}</span>}
-              {customer.email && <span className="flex items-center gap-1"><Mail size={10} /> {customer.email}</span>}
-              <span>{customer.visitCount} visits</span>
-              <span>{customer.loyaltyPoints ?? 0} pts</span>
-              <span>Discount: {formatCurrency(Number(customer.totalDiscount || 0))}</span>
-              {customer.lastSeenAt && <span>Last: {formatDate(customer.lastSeenAt)}</span>}
-              <span>Added: {formatDate(customer.createdAt)}</span>
+              {c.phone && <span className="flex items-center gap-1"><Phone size={10} /> {c.phone}</span>}
+              {(() => {
+                const bd = parseBirthday(c.birthday);
+                return bd ? (
+                  <span className="flex items-center gap-1">
+                    <Cake size={10} className="text-[var(--color-gold)]" />
+                    {bd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </span>
+                ) : null;
+              })()}
+              <span>{c.visitCount} visits</span>
+              <span>{c.loyaltyPoints ?? 0} pts</span>
+              <span>Discount: {formatCurrency(Number(c.totalDiscount || 0))}</span>
+              {c.lastSeenAt && <span>Last: {formatDate(c.lastSeenAt)}</span>}
             </div>
           </div>
         ))}
-        {customers.length === 0 && (
+        {filtered.length === 0 && (
           <div className="text-center py-12 text-text-tertiary text-sm">No customers found</div>
         )}
       </div>
@@ -233,62 +445,51 @@ export default function OwnerCustomersPage() {
         page={page}
         limit={limit}
         onPageChange={setPage}
-        onLimitChange={(value) => {
-          setLimit(value);
-          setPage(0);
-        }}
+        onLimitChange={(value) => { setLimit(value); setPage(0); }}
         hasMore={customers.length === limit}
       />
 
-      {showNew && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-surface-raised rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-text-primary">New Customer</h2>
-              <button onClick={() => { setShowNew(false); setError(''); }} className="text-text-tertiary hover:text-text-secondary p-1">
-                <X size={20} />
-              </button>
-            </div>
-            {error && <div className="mb-3 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
-            <form onSubmit={handleCreate} className="space-y-3">
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                required
-                placeholder="Customer name *"
-                className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-              <input
-                type="tel"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="Phone number"
-                className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Email address"
-                className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setShowNew(false); setError(''); }}
-                  className="flex-1 py-3 rounded-xl bg-surface-elevated text-text-secondary font-semibold text-sm"
-                >
-                  Cancel
-                </button>
-                <Button type="submit" loading={saving} className="flex-1">
-                  Save
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ── Add Customer Modal ── */}
+      <Modal
+        open={showNew}
+        onClose={() => { setShowNew(false); setError(''); }}
+        title="Add Customer"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowNew(false); setError(''); }}>Cancel</Button>
+            <Button type="submit" form="new-customer-form" loading={saving}>Save Customer</Button>
+          </>
+        }
+      >
+        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+        <form id="new-customer-form" onSubmit={handleCreate} className="space-y-4 pt-2">
+          <Input label="Customer Name" value={newName} onChange={e => setNewName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
+          <Input label="Phone Number" type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
+          <Input label="Email Address" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
+          <BirthdayFields month={newBirthdayMonth} day={newBirthdayDay} onMonth={setNewBirthdayMonth} onDay={setNewBirthdayDay} />
+        </form>
+      </Modal>
+
+      {/* ── Edit Customer Modal ── */}
+      <Modal
+        open={!!editCustomer}
+        onClose={closeEdit}
+        title="Edit Customer"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeEdit}>Cancel</Button>
+            <Button type="submit" form="edit-customer-form" loading={saving}>Save Changes</Button>
+          </>
+        }
+      >
+        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+        <form id="edit-customer-form" onSubmit={handleUpdate} className="space-y-4 pt-2">
+          <Input label="Customer Name" value={editName} onChange={e => setEditName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
+          <Input label="Phone Number" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
+          <Input label="Email Address" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
+          <BirthdayFields month={editBirthdayMonth} day={editBirthdayDay} onMonth={setEditBirthdayMonth} onDay={setEditBirthdayDay} />
+        </form>
+      </Modal>
     </div>
   );
 }

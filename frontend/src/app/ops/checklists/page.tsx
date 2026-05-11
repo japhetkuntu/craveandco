@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { buildQueryString, formatDate } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { ClipboardList, CheckSquare, Square } from 'lucide-react';
@@ -64,23 +63,6 @@ const ROLE_CHECKLISTS: Record<string, Record<string, ChecklistItem[]>> = {
       { id: 's3', label: 'Check sanitizer dispensers', checked: false },
     ],
   },
-  CASHIER: {
-    'Opening': [
-      { id: 'p1', label: 'Count cash float', checked: false },
-      { id: 'p2', label: 'Boot POS system', checked: false },
-      { id: 'p3', label: 'Verify card terminal online', checked: false },
-      { id: 'p4', label: 'Review menu pricing', checked: false },
-    ],
-    'Closing': [
-      { id: 'p5', label: 'Reconcile daily takings', checked: false },
-      { id: 'p6', label: 'Print sales report', checked: false },
-      { id: 'p7', label: 'Secure cash drawer', checked: false },
-    ],
-    'Customer Service': [
-      { id: 'p8', label: 'Respond to customer feedback', checked: false },
-      { id: 'p9', label: 'Confirm loyalty points updated', checked: false },
-    ],
-  },
   GROWTH_LEAD: {
     'Marketing': [
       { id: 'm1', label: 'Review campaign performance', checked: false },
@@ -90,17 +72,6 @@ const ROLE_CHECKLISTS: Record<string, Record<string, ChecklistItem[]>> = {
     'Feedback': [
       { id: 'm4', label: 'Check customer feedback tickets', checked: false },
       { id: 'm5', label: 'Review social interactions', checked: false },
-    ],
-  },
-  ACCOUNTANT: {
-    'Finance': [
-      { id: 'f1', label: 'Review daily expenses', checked: false },
-      { id: 'f2', label: 'Confirm bank deposits', checked: false },
-      { id: 'f3', label: 'Verify petty cash records', checked: false },
-    ],
-    'Reports': [
-      { id: 'f4', label: 'Prepare daily financial summary', checked: false },
-      { id: 'f5', label: 'Review vendor invoices', checked: false },
     ],
   },
 };
@@ -151,6 +122,9 @@ export default function OpsChecklistsPage() {
     if (user.role === 'KITCHEN_STAFF') {
       params.userId = user.userId;
     }
+    if (userRoleFilter !== 'ALL') {
+      params.role = userRoleFilter;
+    }
 
     get(`/api/v1/ops/checklists/history${buildQueryString(params)}`, token)
       .then((result) => {
@@ -160,12 +134,9 @@ export default function OpsChecklistsPage() {
       })
       .catch(console.error)
       .finally(() => setHistoryLoading(false));
-  }, [token, user, historyFrom, historyTo]);
+  }, [token, user, historyFrom, historyTo, userRoleFilter]);
 
-  const filteredHistory = useMemo(() => {
-    if (userRoleFilter === 'ALL') return history;
-    return history.filter((entry) => entry.user?.role === userRoleFilter);
-  }, [history, userRoleFilter]);
+  const filteredHistory = history;
 
   useEffect(() => {
     if (!selectedRecord || filteredHistory.length === 0) return;
@@ -227,11 +198,11 @@ export default function OpsChecklistsPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Checklist History</CardTitle>
+              <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Checklist History</p>
               <p className="text-sm text-text-secondary mt-1">
                 Review daily completion rates and recent checklist submissions for your branch.
               </p>
@@ -243,7 +214,7 @@ export default function OpsChecklistsPage() {
                   type="date"
                   value={historyFrom}
                   onChange={(e) => setHistoryFrom(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
+                  className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-base text-text-primary outline-none"
                 />
               </label>
               <label className="text-sm text-text-secondary">
@@ -252,13 +223,13 @@ export default function OpsChecklistsPage() {
                   type="date"
                   value={historyTo}
                   onChange={(e) => setHistoryTo(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
+                  className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-base text-text-primary outline-none"
                 />
               </label>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-4">
           <div className="space-y-6">
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -283,19 +254,17 @@ export default function OpsChecklistsPage() {
                     <select
                       value={userRoleFilter}
                       onChange={(e) => setUserRoleFilter(e.target.value)}
-                      className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none"
+                      className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-base text-text-primary outline-none"
                     >
                       <option value="ALL">All Roles</option>
                       <option value="KITCHEN_STAFF">Kitchen Staff</option>
                       <option value="OPERATIONS_MANAGER">Operations Manager</option>
-                      <option value="CASHIER">Cashier</option>
                       <option value="GROWTH_LEAD">Growth Lead</option>
-                      <option value="ACCOUNTANT">Accountant</option>
                     </select>
                   </div>
                 )}
-                <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-sm min-w-[480px]">
                   <thead>
                     <tr className="border-b text-left text-text-secondary">
                       <th className="px-4 py-3 font-medium">Date</th>
@@ -328,14 +297,14 @@ export default function OpsChecklistsPage() {
             </>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Checklist Details</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Checklist Details</p>
+        </div>
+        <div className="p-4">
           {selectedRecord ? (
             <div className="space-y-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -364,16 +333,16 @@ export default function OpsChecklistsPage() {
           ) : (
             <p className="text-sm text-text-secondary">Select a checklist record above to see the submitted details.</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {user?.role !== 'OWNER' && Object.entries(checklists).map(([name, items]) => {
         const prog = getProgress(items);
         return (
-          <Card key={name}>
-            <CardHeader>
+          <div key={name} className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+            <div className="px-4 py-3 border-b border-border-subtle">
               <div className="flex items-center justify-between">
-                <CardTitle>{name}</CardTitle>
+                <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">{name}</p>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                   prog.pct === 100
                     ? 'bg-success-muted text-success'
@@ -389,8 +358,8 @@ export default function OpsChecklistsPage() {
                   style={{ width: `${prog.pct}%` }}
                 />
               </div>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="p-4">
               <div className="space-y-1">
                 {items.map((item) => (
                   <button
@@ -409,8 +378,8 @@ export default function OpsChecklistsPage() {
                   </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

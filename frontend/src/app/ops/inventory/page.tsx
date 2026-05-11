@@ -4,11 +4,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
-import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
-import { Package, AlertTriangle, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Plus, X, Pencil } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface StockItem {
@@ -33,8 +31,15 @@ interface StockResponse {
   items: StockItem[];
   totalCount: number;
   lowStockCount: number;
-  pageLowStockCount: number;
 }
+
+// Human-readable movement type labels
+const MOVEMENT_TYPES = [
+  { value: 'PURCHASE_IN', label: 'Stock arrived (delivery received)' },
+  { value: 'WASTE', label: 'Item wasted / thrown away' },
+  { value: 'ADJUSTMENT', label: 'Count correction' },
+  { value: 'USAGE', label: 'Used in production' },
+];
 
 export default function OpsInventoryPage() {
   const { token, user } = useAuth();
@@ -43,33 +48,39 @@ export default function OpsInventoryPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [inventoryForm, setInventoryForm] = useState({ id: '', name: '', unit: '', currentCost: 0, reorderLevel: 0 });
-  const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
-  const [inventorySaving, setInventorySaving] = useState(false);
-  const [inventoryError, setInventoryError] = useState('');
   const [stockPage, setStockPage] = useState(0);
-  const [stockLimit, setStockLimit] = useState(10);
+  const [stockLimit] = useState(15);
   const [movementPage, setMovementPage] = useState(0);
-  const [movementLimit, setMovementLimit] = useState(10);
-  const [lowStockPage, setLowStockPage] = useState(0);
-  const [lowStockLimit, setLowStockLimit] = useState(10);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ ingredientId: '', quantity: '', type: 'PURCHASE_IN', reason: '' });
-  const [submitting, setSubmitting] = useState(false);
+  const [movementLimit] = useState(10);
+  const [showMovementForm, setShowMovementForm] = useState(false);
+  const [movementData, setMovementData] = useState({ ingredientId: '', quantity: '', type: 'PURCHASE_IN', reason: '' });
+  const [submittingMovement, setSubmittingMovement] = useState(false);
+
+  // Edit ingredient form
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', unit: '', currentCost: 0, reorderLevel: 0 });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  // Add ingredient form (collapsible)
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', unit: '', currentCost: '', reorderLevel: '' });
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState('');
 
   const fetchData = async () => {
     if (!token) return;
     try {
       const [s, ls, ing, mv] = await Promise.all([
         get(`/api/v1/inventory/stock${buildQueryString({ page: stockPage, limit: stockLimit })}`, token),
-        get(`/api/v1/inventory/alerts/low-stock${buildQueryString({ page: lowStockPage, limit: lowStockLimit })}`, token),
+        get('/api/v1/inventory/alerts/low-stock', token),
         get('/api/v1/inventory/ingredients?limit=100', token).catch(() => []),
         get(`/api/v1/inventory/movements${buildQueryString({ page: movementPage, limit: movementLimit })}`, token),
       ]);
-      const stockResponse = s as StockResponse;
+      const sr = s as StockResponse;
       setStockData({
-        ...stockResponse,
-        items: stockResponse.items.map((item) => ({
+        ...sr,
+        items: sr.items.map((item) => ({
           ...item,
           currentCost: Number(item.currentCost),
           reorderLevel: Number(item.reorderLevel),
@@ -85,321 +96,389 @@ export default function OpsInventoryPage() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [token, stockPage, stockLimit, lowStockPage, lowStockLimit, movementPage, movementLimit]);
+  useEffect(() => { fetchData(); }, [token, stockPage, movementPage]);
 
-  const startIngredientEdit = (item: StockItem) => {
-    setInventoryForm({
-      id: item.id,
-      name: item.name,
-      unit: item.unit,
-      currentCost: item.currentCost,
-      reorderLevel: item.reorderLevel,
-    });
-    setEditingIngredientId(item.id);
-    setInventoryError('');
-  };
-
-  const resetInventoryForm = () => {
-    setInventoryForm({ id: '', name: '', unit: '', currentCost: 0, reorderLevel: 0 });
-    setEditingIngredientId(null);
-    setInventoryError('');
-  };
-
-  const handleInventorySubmit = async (e: React.FormEvent) => {
+  const handleAddIngredient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !inventoryForm.name.trim()) {
-      setInventoryError('Name is required');
-      return;
-    }
-
-    setInventorySaving(true);
-    setInventoryError('');
+    if (!token || !addForm.name.trim()) { setAddError('Name is required'); return; }
+    setAddSaving(true);
+    setAddError('');
     try {
-      const payload = {
-        name: inventoryForm.name.trim(),
-        unit: inventoryForm.unit.trim() || 'unit',
-        currentCost: Number(inventoryForm.currentCost) || 0,
-        reorderLevel: Number(inventoryForm.reorderLevel) || 0,
-      };
-      if (editingIngredientId) {
-        await patch(`/api/v1/inventory/ingredients/${editingIngredientId}`, payload, token);
-      } else {
-        await post('/api/v1/inventory/ingredients', payload, token);
-      }
-      setInventoryForm({ id: '', name: '', unit: '', currentCost: 0, reorderLevel: 0 });
-      setEditingIngredientId(null);
+      await post('/api/v1/inventory/ingredients', {
+        name: addForm.name.trim(),
+        unit: addForm.unit.trim() || 'unit',
+        currentCost: Number(addForm.currentCost) || 0,
+        reorderLevel: Number(addForm.reorderLevel) || 0,
+      }, token);
+      setAddForm({ name: '', unit: '', currentCost: '', reorderLevel: '' });
+      setShowAddForm(false);
       await fetchData();
-    } catch (err) {
-      console.error(err);
-      setInventoryError('Failed to save inventory item');
+    } catch {
+      setAddError('Could not save. Please try again.');
     } finally {
-      setInventorySaving(false);
+      setAddSaving(false);
+    }
+  };
+
+  const startEdit = (item: StockItem) => {
+    setEditingItem(item);
+    setEditForm({ name: item.name, unit: item.unit, currentCost: item.currentCost, reorderLevel: item.reorderLevel });
+    setEditError('');
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingItem) return;
+    setEditSaving(true);
+    try {
+      await patch(`/api/v1/inventory/ingredients/${editingItem.id}`, {
+        name: editForm.name.trim(),
+        unit: editForm.unit.trim(),
+        currentCost: Number(editForm.currentCost) || 0,
+        reorderLevel: Number(editForm.reorderLevel) || 0,
+      }, token);
+      setEditingItem(null);
+      await fetchData();
+    } catch {
+      setEditError('Could not save changes.');
+    } finally {
+      setEditSaving(false);
     }
   };
 
   const handleMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
-    setSubmitting(true);
+    if (!token || !user?.branchId) return;
+    setSubmittingMovement(true);
     try {
       await post('/api/v1/inventory/movements', {
-        ingredientId: formData.ingredientId,
-        branchId: user!.branchId,
-        quantity: parseFloat(formData.quantity),
-        type: formData.type,
-        reason: formData.reason,
+        ingredientId: movementData.ingredientId,
+        branchId: user.branchId,
+        quantity: parseFloat(movementData.quantity),
+        type: movementData.type,
+        reason: movementData.reason,
       }, token);
-      setShowForm(false);
-      setFormData({ ingredientId: '', quantity: '', type: 'PURCHASE_IN', reason: '' });
+      setShowMovementForm(false);
+      setMovementData({ ingredientId: '', quantity: '', type: 'PURCHASE_IN', reason: '' });
       await fetchData();
     } catch (err) {
       console.error(err);
     } finally {
-      setSubmitting(false);
+      setSubmittingMovement(false);
     }
   };
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   const stockItems = stockData?.items || [];
+  const lowStockCount = stockData?.lowStockCount ?? 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-          <Package className="text-gold" /> Inventory
-        </h1>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus size={16} /> Add Movement
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+            <Package className="text-gold" /> Inventory
+          </h1>
+          {lowStockCount > 0 ? (
+            <p className="text-sm text-warning font-medium mt-1">
+              {lowStockCount} item{lowStockCount > 1 ? 's' : ''} running low — scroll down to see them
+            </p>
+          ) : (
+            <p className="text-sm text-success font-medium mt-1">All stock levels are okay</p>
+          )}
+        </div>
+        <Button size="sm" onClick={() => setShowMovementForm(!showMovementForm)}>
+          <Plus size={15} /> Record Stock Change
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{editingIngredientId ? 'Edit Inventory Item' : 'Add Inventory Item'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 md:grid-cols-4" onSubmit={handleInventorySubmit}>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Name</span>
-              <input
-                type="text"
-                value={inventoryForm.name}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, name: e.target.value })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Unit</span>
-              <input
-                type="text"
-                value={inventoryForm.unit}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, unit: e.target.value })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Current Cost</span>
-              <input
-                type="number"
-                value={inventoryForm.currentCost}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, currentCost: e.target.value === '' ? 0 : Number(e.target.value) })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                min={0}
-                step={0.01}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Reorder Level</span>
-              <input
-                type="number"
-                value={inventoryForm.reorderLevel}
-                onChange={(e) => setInventoryForm({ ...inventoryForm, reorderLevel: e.target.value === '' ? 0 : Number(e.target.value) })}
-                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                min={0}
-                step={0.01}
-              />
-            </label>
-            <div className="md:col-span-4 flex flex-wrap items-center gap-3">
-              <Button type="submit" loading={inventorySaving}>
-                {editingIngredientId ? 'Update Item' : 'Add Item'}
-              </Button>
-              {editingIngredientId && (
-                <Button type="button" variant="secondary" onClick={resetInventoryForm}>
-                  Cancel
-                </Button>
-              )}
-              {inventoryError && <p className="text-sm text-error">{inventoryError}</p>}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-4">
-        <KPICard title="Total Items" value={stockData?.totalCount || 0} icon={<Package size={20} />} />
-        <KPICard
-          title="Low Stock"
-          value={stockData?.lowStockCount || 0}
-          icon={<AlertTriangle size={20} />}
-          severity={(stockData?.lowStockCount || 0) > 0 ? 'critical' : 'healthy'}
-        />
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
+          <p className="text-xs text-text-secondary">Total ingredients</p>
+          <p className="text-2xl font-bold font-mono text-text-primary mt-1">{stockData?.totalCount ?? 0}</p>
+        </div>
+        <div className={`rounded-2xl border p-4 ${lowStockCount > 0 ? 'bg-warning-muted border-warning/30' : 'bg-success-muted border-success/30'}`}>
+          <p className="text-xs text-text-secondary">Running low</p>
+          <p className={`text-2xl font-bold font-mono mt-1 ${lowStockCount > 0 ? 'text-warning' : 'text-success'}`}>{lowStockCount}</p>
+        </div>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="p-4">
-            <form onSubmit={handleMovement} className="space-y-3">
-              <select
-                value={formData.ingredientId}
-                onChange={(e) => setFormData({ ...formData, ingredientId: e.target.value })}
-                className="w-full px-3 py-2 border border-border-default rounded-xl text-sm bg-surface-raised focus:ring-2 focus:ring-gold"
-                required
-              >
-                <option value="">Select ingredient...</option>
-                {ingredients.map((ing) => (
-                  <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                ))}
-              </select>
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="number"
-                  placeholder="Quantity"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  step="0.01"
-                  className="px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold"
-                  required
-                />
+      {/* Record stock change form */}
+      {showMovementForm && (
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-subtle">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Record a Stock Change</p>
+              <button onClick={() => setShowMovementForm(false)} className="text-text-tertiary hover:text-text-secondary">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+          <div className="p-4">
+            <form onSubmit={handleMovement} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Which ingredient?</label>
                 <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold"
+                  value={movementData.ingredientId}
+                  onChange={(e) => setMovementData({ ...movementData, ingredientId: e.target.value })}
+                  className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                  required
                 >
-                  <option value="PURCHASE_IN">Purchase In</option>
-                  <option value="WASTE">Waste</option>
-                  <option value="ADJUSTMENT">Adjustment</option>
-                  <option value="USAGE">Usage</option>
+                  <option value="">Choose an ingredient...</option>
+                  {ingredients.map((ing) => (
+                    <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                  ))}
                 </select>
               </div>
-              <input
-                type="text"
-                placeholder="Reason (optional)"
-                value={formData.reason}
-                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                className="w-full px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold"
-              />
-              <Button type="submit" loading={submitting} className="w-full">Record Movement</Button>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">What happened?</label>
+                <select
+                  value={movementData.type}
+                  onChange={(e) => setMovementData({ ...movementData, type: e.target.value })}
+                  className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                >
+                  {MOVEMENT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Quantity</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 5"
+                  value={movementData.quantity}
+                  onChange={(e) => setMovementData({ ...movementData, quantity: e.target.value })}
+                  step="0.01"
+                  className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Reason <span className="text-text-tertiary font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  placeholder="e.g. Weekly delivery from supplier"
+                  value={movementData.reason}
+                  onChange={(e) => setMovementData({ ...movementData, reason: e.target.value })}
+                  className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                />
+              </div>
+              <Button type="submit" loading={submittingMovement} className="w-full">Save Stock Change</Button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <CardHeader><CardTitle>All Stock</CardTitle></CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-text-secondary">
-                  <th className="py-2 pr-4">Ingredient</th>
-                  <th className="py-2 pr-4">Qty</th>
-                  <th className="py-2 pr-4">Unit</th>
-                  <th className="py-2 pr-4">Cost</th>
-                  <th className="py-2 pr-4">Reorder</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockItems.map((item, index) => {
-                  const isLow = item.belowReorder ?? item.onHand < item.reorderLevel;
-                  return (
-                    <tr key={`${item.id}-${index}`} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium text-text-primary">{item.name}</td>
-                      <td className="py-2 pr-4">{item.onHand}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.unit}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.currentCost.toFixed(2)}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{item.reorderLevel}</td>
-                      <td className="py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isLow ? 'bg-error-muted text-error' : 'bg-success-muted text-success'}`}>
-                          {isLow ? 'Low' : 'OK'}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-4">
-                        <Button size="sm" variant="ghost" onClick={() => startIngredientEdit(item)}>
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* Low stock alert section */}
+      {lowStock.length > 0 && (
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-text-tertiary mb-3 flex items-center gap-1.5">
+            <AlertTriangle size={13} className="text-warning" /> Running Low
+          </h2>
+          <div className="space-y-2">
+            {lowStock.map((item) => (
+              <div key={item.id} className="rounded-2xl bg-warning-muted border border-warning/30 p-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">{item.name}</p>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Only {item.onHand} {item.unit} left — reorder when below {item.reorderLevel}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-warning bg-warning-muted px-2 py-1 rounded-full border border-warning/30">
+                  Low
+                </span>
+              </div>
+            ))}
           </div>
-        </CardContent>
-        <div className="px-4 pb-4">
+        </div>
+      )}
+
+      {/* All stock table */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">All Ingredients</p>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="text-sm text-gold font-semibold hover:underline flex items-center gap-1"
+            >
+              <Plus size={14} /> Add new
+            </button>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {/* Add form (inline collapsible) */}
+          {showAddForm && (
+            <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4 space-y-3">
+              <p className="text-sm font-semibold text-text-primary">Add New Ingredient</p>
+              <form onSubmit={handleAddIngredient} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={addForm.name}
+                    onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                    placeholder="e.g. Tomatoes"
+                    className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Unit</label>
+                    <input
+                      type="text"
+                      value={addForm.unit}
+                      onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
+                      placeholder="e.g. kg"
+                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Reorder when below</label>
+                    <input
+                      type="number"
+                      value={addForm.reorderLevel}
+                      onChange={(e) => setAddForm({ ...addForm, reorderLevel: e.target.value })}
+                      placeholder="e.g. 5"
+                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+                      min={0}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" loading={addSaving} size="sm">Save</Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>Cancel</Button>
+                  {addError && <span className="text-xs text-error self-center">{addError}</span>}
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Edit form (inline, replaces row) */}
+          {editingItem && (
+            <div className="rounded-2xl bg-surface-elevated border border-gold/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-text-primary">Editing: {editingItem.name}</p>
+                <button onClick={() => setEditingItem(null)} className="text-text-tertiary hover:text-text-secondary"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleEditSave} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Name</label>
+                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Unit</label>
+                    <input type="text" value={editForm.unit} onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
+                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Cost per unit (GH₵)</label>
+                    <input type="number" value={editForm.currentCost} onChange={(e) => setEditForm({ ...editForm, currentCost: Number(e.target.value) })}
+                      step="0.01" min={0} className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Reorder when below</label>
+                    <input type="number" value={editForm.reorderLevel} onChange={(e) => setEditForm({ ...editForm, reorderLevel: Number(e.target.value) })}
+                      min={0} className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" loading={editSaving} size="sm">Save Changes</Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setEditingItem(null)}>Cancel</Button>
+                  {editError && <span className="text-xs text-error self-center">{editError}</span>}
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Stock list */}
+          <div className="space-y-2">
+            {stockItems.length === 0 ? (
+              <p className="text-sm text-text-tertiary text-center py-6">No ingredients yet</p>
+            ) : (
+              stockItems.map((item, index) => {
+                const isLow = item.belowReorder ?? item.onHand < item.reorderLevel;
+                return (
+                  <div
+                    key={`${item.id}-${index}`}
+                    className={`flex items-center justify-between p-3 rounded-xl border ${isLow ? 'bg-warning-muted border-warning/20' : 'bg-surface-elevated border-border-subtle'}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${isLow ? 'bg-warning' : 'bg-success'}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{item.name}</p>
+                        <p className="text-xs text-text-tertiary">{item.onHand} {item.unit} on hand</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isLow && <span className="text-xs font-semibold text-warning">Low</span>}
+                      <button
+                        onClick={() => startEdit(item)}
+                        className="p-1.5 rounded-lg hover:bg-surface-raised text-text-tertiary hover:text-text-secondary transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
           <PaginationControls
             page={stockPage}
             limit={stockLimit}
             onPageChange={setStockPage}
-            onLimitChange={(value) => { setStockLimit(value); setStockPage(0); }}
+            onLimitChange={() => {}}
             hasMore={stockItems.length === stockLimit}
           />
         </div>
-      </Card>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Inventory Movements</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Recent movements */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Recent Stock Changes</p></div>
+        <div className="p-4">
           {movements.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No recent inventory adjustments.</p>
+            <p className="text-sm text-text-tertiary text-center py-6">No recent changes</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-text-secondary">
-                    <th className="py-2 pr-4">Ingredient</th>
-                    <th className="py-2 pr-4">Type</th>
-                    <th className="py-2 pr-4">Quantity</th>
-                    <th className="py-2 pr-4">Reason</th>
-                    <th className="py-2">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movements.map((movement) => (
-                    <tr key={movement.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium text-text-primary">{movement.ingredient?.name}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{movement.type}</td>
-                      <td className="py-2 pr-4">{movement.quantity}</td>
-                      <td className="py-2 pr-4 text-text-secondary">{movement.reason || '—'}</td>
-                      <td className="py-2 text-text-secondary">{new Date(movement.createdAt).toLocaleString('en-GH')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {movements.map((m) => {
+                const typeLabel = MOVEMENT_TYPES.find((t) => t.value === m.type)?.label ?? m.type;
+                return (
+                  <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-surface-elevated border border-border-subtle">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">{m.ingredient?.name}</p>
+                      <p className="text-xs text-text-secondary">{typeLabel}</p>
+                      {m.reason && <p className="text-xs text-text-tertiary mt-0.5">{m.reason}</p>}
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="text-sm font-bold text-text-primary">{m.quantity}</p>
+                      <p className="text-xs text-text-tertiary">{new Date(m.createdAt).toLocaleDateString('en-GH')}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </CardContent>
-        <div className="px-4 pb-4">
-          <PaginationControls
-            page={movementPage}
-            limit={movementLimit}
-            onPageChange={setMovementPage}
-            onLimitChange={(value) => { setMovementLimit(value); setMovementPage(0); }}
-            hasMore={movements.length === movementLimit}
-          />
+          <div className="mt-3">
+            <PaginationControls
+              page={movementPage}
+              limit={movementLimit}
+              onPageChange={setMovementPage}
+              onLimitChange={() => {}}
+              hasMore={movements.length === movementLimit}
+            />
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

@@ -18,8 +18,8 @@ export declare class MenuController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            categoryId: string;
             description: string | null;
+            categoryId: string;
             price: import("@prisma/client/runtime/library").Decimal;
             imageUrl: string | null;
             available: boolean;
@@ -65,8 +65,8 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        categoryId: string;
         description: string | null;
+        categoryId: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         available: boolean;
@@ -88,8 +88,8 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        categoryId: string;
         description: string | null;
+        categoryId: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         available: boolean;
@@ -111,8 +111,8 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        categoryId: string;
         description: string | null;
+        categoryId: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         available: boolean;
@@ -125,8 +125,8 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        categoryId: string;
         description: string | null;
+        categoryId: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         available: boolean;
@@ -139,8 +139,8 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        categoryId: string;
         description: string | null;
+        categoryId: string;
         price: import("@prisma/client/runtime/library").Decimal;
         imageUrl: string | null;
         available: boolean;

@@ -17,15 +17,21 @@ export class FeedbackController {
     return this.feedback.create(dto);
   }
 
+  @Get('tickets/stats')
+  getStats() {
+    return this.feedback.getStats();
+  }
+
   @Get('tickets')
   findAll(
     @Query('status') status?: string,
+    @Query('search') search?: string,
     @Query('page') page = '0',
     @Query('limit') limit = '10',
   ) {
     const pageNumber = normalizePage(page);
     const limitNumber = normalizeLimit(limit);
-    return this.feedback.findAll(status, pageNumber, limitNumber);
+    return this.feedback.findAll(status, search, pageNumber, limitNumber);
   }
 
   @Post('tickets/:id/resolve')

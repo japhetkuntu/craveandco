@@ -103,6 +103,18 @@ enum LoyaltyTxType {
   ADJUST
 }
 
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PromotionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
 // ─── CORE ───────────────────────────────────────────────
 
 model Branch {
@@ -129,6 +141,7 @@ model Branch {
   alerts             Alert[]
   auditLogs          AuditLog[]
   paymentTypes       PaymentType[]
+  promotions         Promotion[]
 
   @@map("branches")
 }
@@ -360,6 +373,9 @@ model Order {
 
   items         OrderItem[]
 
+  promotionId    String?
+  promotion      Promotion?    @relation(fields: [promotionId], references: [id])
+
   @@index([branchId, status])
   @@index([branchId, createdAt])
   @@map("orders")
@@ -531,6 +547,30 @@ model Campaign {
   updatedAt   DateTime       @updatedAt
 
   @@map("campaigns")
+}
+
+model Promotion {
+  id             String          @id @default(cuid())
+  branchId       String
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  name           String
+  description    String?
+  type           PromotionType
+  value          Decimal         @db.Decimal(10, 2)
+  minOrderAmount Decimal?        @db.Decimal(10, 2)
+  maxDiscount    Decimal?        @db.Decimal(10, 2)
+  startDate      DateTime?
+  endDate        DateTime?
+  status         PromotionStatus @default(DRAFT)
+  usageCount     Int             @default(0)
+  totalDiscount  Decimal         @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  orders         Order[]
+
+  @@index([branchId, status])
+  @@map("promotions")
 }
 
 model FeedbackTicket {

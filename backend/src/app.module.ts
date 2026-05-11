@@ -19,6 +19,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { OwnerModule } from './owner/owner.module';
 import { OpsModule } from './ops/ops.module';
 import { GrowthModule } from './growth/growth.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { GrowthModule } from './growth/growth.module';
     OwnerModule,
     OpsModule,
     GrowthModule,
+    PromotionsModule,
   ],
 })
 export class AppModule {}

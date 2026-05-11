@@ -13,8 +13,8 @@ export declare class KitchenService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -27,9 +27,9 @@ export declare class KitchenService {
             quantity: number;
             notes: string | null;
             selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
+            orderId: string;
             unitPrice: import("@prisma/client/runtime/library").Decimal;
             unitCost: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -44,6 +44,7 @@ export declare class KitchenService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: import("@prisma/client/runtime/library").Decimal;
         foodCost: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
@@ -57,8 +58,8 @@ export declare class KitchenService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -71,9 +72,9 @@ export declare class KitchenService {
             quantity: number;
             notes: string | null;
             selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
+            orderId: string;
             unitPrice: import("@prisma/client/runtime/library").Decimal;
             unitCost: import("@prisma/client/runtime/library").Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -88,6 +89,7 @@ export declare class KitchenService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: import("@prisma/client/runtime/library").Decimal;
         foodCost: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
@@ -102,8 +104,8 @@ export declare class KitchenService {
         id: string;
         createdAt: Date;
         quantity: import("@prisma/client/runtime/library").Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     }>;
@@ -112,8 +114,8 @@ export declare class KitchenService {
         id: string;
         createdAt: Date;
         quantity: import("@prisma/client/runtime/library").Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     }>;
@@ -128,8 +130,8 @@ export declare class KitchenService {
         id: string;
         createdAt: Date;
         quantity: import("@prisma/client/runtime/library").Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     })[]>;

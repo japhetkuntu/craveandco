@@ -1,13 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
 
 @Controller('api/v1/customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'CASHIER')
+@Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
 export class CustomersController {
   constructor(private customers: CustomersService) {}
 
@@ -39,6 +39,12 @@ export class CustomersController {
     });
   }
 
+  @Get('upcoming-birthdays')
+  getUpcomingBirthdays(@Query('days') days = '7') {
+    const daysNum = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30);
+    return this.customers.getUpcomingBirthdays(daysNum);
+  }
+
   @Get('dashboard')
   getDashboard() {
     return this.customers.getDashboard();
@@ -47,5 +53,10 @@ export class CustomersController {
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.customers.findById(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
+    return this.customers.update(id, dto);
   }
 }

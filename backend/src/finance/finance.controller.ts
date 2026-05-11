@@ -23,7 +23,7 @@ export class FinanceController {
   }
 
   @Get('expenses')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   findExpenses(
     @CurrentUser('branchId') branchId: string,
     @Query('from') from?: string,
@@ -52,7 +52,7 @@ export class FinanceController {
   }
 
   @Get('finance/daily-summary')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   getDailySummary(
     @CurrentUser('branchId') branchId: string,
     @Query('date') date: string,

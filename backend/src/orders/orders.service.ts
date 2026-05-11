@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, UpdateOrderStatusDto, UpdateOrderItemsDto, PayOrderDto, AddOrderItemDto } from './dto/orders.dto';
 import { OrderStatus, OrderChannel, PaymentMethod, Prisma, LoyaltyTxType } from '@prisma/client';
+import { PromotionsService } from '../promotions/promotions.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private promotions: PromotionsService,
+  ) {}
 
   private orderInclude = {
     items: {
@@ -323,6 +327,34 @@ export class OrdersService {
 
     let paidTotal = Number(order.total);
     const loyaltyTransactions: Array<Promise<any>> = [];
+    let appliedPromotionId: string | undefined;
+
+    // Apply promotion discount first
+    if (dto.promotionId) {
+      const promotion = await this.promotions.findById(dto.promotionId);
+      if (!promotion) throw new BadRequestException('Promotion not found');
+      if (promotion.status !== 'ACTIVE') throw new BadRequestException('Promotion is not active');
+      const now = new Date();
+      if (promotion.startDate && promotion.startDate > now) {
+        throw new BadRequestException('Promotion has not started yet');
+      }
+      if (promotion.endDate && promotion.endDate < now) {
+        throw new BadRequestException('Promotion has expired');
+      }
+      if (promotion.minOrderAmount && paidTotal < Number(promotion.minOrderAmount)) {
+        throw new BadRequestException(
+          `Order total must be at least ${promotion.minOrderAmount} to apply this promotion`,
+        );
+      }
+      const { discountAmount, finalTotal } = this.promotions.calculateDiscount(
+        dto.promotionId,
+        paidTotal,
+        promotion,
+      );
+      paidTotal = finalTotal;
+      appliedPromotionId = dto.promotionId;
+      // Record promotion usage after successful payment (deferred below)
+    }
 
     const redeemPoints = dto.redeemPoints === 100 ? 100 : 0;
 
@@ -393,12 +425,27 @@ export class OrdersService {
         status: OrderStatus.COMPLETED,
         total: paidTotal,
         customerId: customerId || undefined,
+        ...(appliedPromotionId ? { promotionId: appliedPromotionId } : {}),
       },
       include: this.orderInclude,
     });
 
-    if (loyaltyTransactions.length) {
-      await Promise.all(loyaltyTransactions);
+    const postPayTasks: Array<Promise<any>> = [...loyaltyTransactions];
+
+    if (appliedPromotionId) {
+      const origTotal = Number(order.total);
+      const promoDiscount = Number((origTotal - paidTotal).toFixed(2));
+      // Adjust for loyalty discount which was applied after promo
+      const prePayTotal = redeemPoints > 0
+        ? Number((origTotal * 0.95).toFixed(2))  // loyalty was applied on original total; we need on post-promo total
+        : origTotal;
+      // More accurately: discount = orig - final
+      const totalDiscountGiven = Number((Number(order.total) - paidTotal).toFixed(2));
+      postPayTasks.push(this.promotions.recordUsage(appliedPromotionId, Math.max(totalDiscountGiven, 0)));
+    }
+
+    if (postPayTasks.length) {
+      await Promise.all(postPayTasks);
     }
 
     return this.enrichOrder(updatedOrder);
@@ -420,33 +467,58 @@ export class OrdersService {
     return orders.map((order) => this.enrichOrder(order));
   }
 
+  private buildOrderWhere(
+    branchId: string,
+    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
+  ) {
+    const search = params.search?.trim();
+    return {
+      branchId,
+      ...(params.status && { status: params.status as OrderStatus }),
+      ...(params.channel && { channel: params.channel as OrderChannel }),
+      ...(params.paymentMethod && { paymentMethod: params.paymentMethod as PaymentMethod }),
+      ...(params.from && { createdAt: { gte: new Date(params.from) } }),
+      ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+      ...(search
+        ? {
+            OR: [
+              { id: { contains: search, mode: Prisma.QueryMode.insensitive } },
+              { customer: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  async getStats(
+    branchId: string,
+    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
+  ) {
+    const where = this.buildOrderWhere(branchId, params);
+    const [count, agg] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.aggregate({
+        where,
+        _sum: { total: true, foodCost: true },
+      }),
+    ]);
+    const totalRevenue = Number(agg._sum.total ?? 0);
+    const foodCost = Number(agg._sum.foodCost ?? 0);
+    const avgTicket = count > 0 ? Number((totalRevenue / count).toFixed(2)) : 0;
+    return { count, totalRevenue, foodCost, avgTicket };
+  }
+
   async findAll(
     branchId: string,
     params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
     page = 0,
     limit = 50,
   ) {
-    const search = params.search?.trim();
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max(page, 0) * take;
 
     const orders = await this.prisma.order.findMany({
-      where: {
-        branchId,
-        ...(params.status && { status: params.status as OrderStatus }),
-        ...(params.channel && { channel: params.channel as OrderChannel }),
-        ...(params.paymentMethod && { paymentMethod: params.paymentMethod as PaymentMethod }),
-        ...(params.from && { createdAt: { gte: new Date(params.from) } }),
-        ...(params.to && { createdAt: { lte: new Date(params.to) } }),
-        ...(search
-          ? {
-              OR: [
-                { id: { contains: search, mode: Prisma.QueryMode.insensitive } },
-                { customer: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } },
-              ],
-            }
-          : {}),
-      },
+      where: this.buildOrderWhere(branchId, params),
       include: this.orderInclude,
       orderBy: { createdAt: 'desc' },
       take,

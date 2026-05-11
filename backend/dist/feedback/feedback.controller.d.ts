@@ -28,7 +28,13 @@ export declare class FeedbackController {
         resolution: string | null;
         resolvedAt: Date | null;
     }>;
-    findAll(status?: string, page?: string, limit?: string): Promise<({
+    getStats(): Promise<{
+        open: number;
+        inProgress: number;
+        resolved: number;
+        total: number;
+    }>;
+    findAll(status?: string, search?: string, page?: string, limit?: string): Promise<({
         customer: {
             email: string | null;
             name: string;

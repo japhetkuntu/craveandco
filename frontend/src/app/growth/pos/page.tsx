@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, del, patch } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
+import { Modal } from '@/components/ui/modal';
 import {
   ShoppingCart, Plus, Minus, Trash2, CreditCard, Search,
-  User, X, Check, ChevronRight, Receipt, Hash,
+  User, X, Check, ChevronRight, Receipt,
 } from 'lucide-react';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -112,6 +113,8 @@ export default function GrowthPOSPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
   const [useLoyaltyDiscount, setUseLoyaltyDiscount] = useState(false);
+  const [activePromos, setActivePromos] = useState<{ id: string; name: string; type: string; value: number }[]>([]);
+  const [selectedPromoId, setSelectedPromoId] = useState<string>('');
   const [guestName, setGuestName] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
   const [receiptReference, setReceiptReference] = useState('');
@@ -239,7 +242,17 @@ export default function GrowthPOSPage() {
       setCategories(cats);
       setPaymentTypes(pts);
       setCustomers(custs);
-      setOpenOrders(orders.filter((o: Order) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'));
+      const STATUS_RANK: Record<string, number> = { READY: 0, PREPARING: 1, NEW: 2 };
+      setOpenOrders(
+        orders
+          .filter((o: Order) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
+          .sort((a: Order, b: Order) => (STATUS_RANK[a.status] ?? 3) - (STATUS_RANK[b.status] ?? 3)),
+      );
+      // Load active promotions
+      try {
+        const promos = await get('/api/v1/promotions/active', token);
+        setActivePromos(promos);
+      } catch { /* non-critical */ }
     } catch (err) {
       console.error('Failed to load POS data:', err);
     } finally {
@@ -281,6 +294,13 @@ export default function GrowthPOSPage() {
       setUseLoyaltyDiscount(false);
     }
   }, [loyaltyBalance]);
+
+  // Auto-refresh open orders every 10s so kitchen status stays live
+  useEffect(() => {
+    if (view !== 'orders') return;
+    const id = window.setInterval(() => { fetchData(); }, 10_000);
+    return () => window.clearInterval(id);
+  }, [view, fetchData]);
 
   /* ─── Cart operations ─── */
 
@@ -328,8 +348,15 @@ export default function GrowthPOSPage() {
   const cartTotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
   const discountRate = useLoyaltyDiscount ? 0.05 : 0;
-  const discountedTotal = Number((cartTotal * (1 - discountRate)).toFixed(2));
-  const discountAmount = Number((cartTotal - discountedTotal).toFixed(2));
+  const selectedPromo = activePromos.find(p => p.id === selectedPromoId);
+  const promoDiscount = selectedPromo
+    ? selectedPromo.type === 'PERCENTAGE'
+      ? Number((cartTotal * selectedPromo.value / 100).toFixed(2))
+      : Math.min(Number(selectedPromo.value), cartTotal)
+    : 0;
+  const afterPromoTotal = Number((cartTotal - promoDiscount).toFixed(2));
+  const discountAmount = Number((afterPromoTotal * discountRate).toFixed(2));
+  const discountedTotal = Number((afterPromoTotal - discountAmount).toFixed(2));
 
   /* ─── Order operations ─── */
 
@@ -345,6 +372,7 @@ export default function GrowthPOSPage() {
     setGuestName('');
     setReceiptReference('');
     setPrintReceipt(true);
+    setSelectedPromoId('');
     setConfirmAction(null);
   };
 
@@ -569,12 +597,14 @@ export default function GrowthPOSPage() {
         receiptUrl: receiptReference.trim() || undefined,
         customerId: selectedCustomer?.id,
         redeemPoints: useLoyaltyDiscount ? 100 : undefined,
+        promotionId: selectedPromoId || undefined,
       }, token);
       setShowPayment(false);
       setActiveOrderId(null);
       setCart([]);
       setReceiptReference('');
       setUseLoyaltyDiscount(false);
+      setSelectedPromoId('');
       await fetchData();
       showAlert('success', 'Payment recorded. Order complete.');
       if (printReceipt) {
@@ -751,70 +781,100 @@ export default function GrowthPOSPage() {
 
       {view === 'orders' ? (
         /* ─── Open Orders View ─── */
-        <div className="flex-1 overflow-y-auto py-4 lg:pb-0">
+        <div className="flex-1 overflow-y-auto py-4 lg:pb-0 space-y-4">
+          {/* Ready-for-pickup alert */}
+          {openOrders.some(o => o.status === 'READY') && (
+            <div className="flex items-center gap-3 rounded-2xl bg-success-muted border border-success/30 px-4 py-3">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="text-sm font-bold text-success">
+                  {openOrders.filter(o => o.status === 'READY').length === 1
+                    ? '1 order is ready for pickup!'
+                    : `${openOrders.filter(o => o.status === 'READY').length} orders are ready for pickup!`}
+                </p>
+                <p className="text-xs text-success/70">Tap the order below to collect payment</p>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {openOrders.map(order => (
               <div
                 key={order.id}
-                className="bg-surface-raised rounded-2xl border border-border-subtle shadow-sm p-4 hover:shadow-md transition-all cursor-pointer"
+                className={`rounded-2xl border-2 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                  order.status === 'READY'
+                    ? 'border-success'
+                    : order.status === 'PREPARING'
+                    ? 'border-amber-300'
+                    : 'border-info/30'
+                }`}
                 onClick={() => loadOrder(order)}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-gold-muted text-gold text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      #{order.id.slice(-4).toUpperCase()}
-                    </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      order.status === 'NEW' ? 'bg-info-muted text-info'
-                        : order.status === 'PREPARING' ? 'bg-amber-100 text-amber-700'
-                        : order.status === 'READY' ? 'bg-success-muted text-success'
-                        : 'bg-surface-elevated text-text-secondary'
+                {/* Kitchen status banner */}
+                <div className={`px-4 py-3 flex items-center gap-3 ${
+                  order.status === 'READY' ? 'bg-success-muted'
+                    : order.status === 'PREPARING' ? 'bg-amber-50'
+                    : 'bg-info-muted'
+                }`}>
+                  <span className="text-2xl leading-none">
+                    {order.status === 'READY' ? '✅' : order.status === 'PREPARING' ? '🔥' : '⏳'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold leading-tight ${
+                      order.status === 'READY' ? 'text-success'
+                        : order.status === 'PREPARING' ? 'text-amber-700'
+                        : 'text-info'
                     }`}>
-                      {order.status}
-                    </span>
-                    <span className="text-[10px] text-text-tertiary">
-                      {order.channel.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <span className="text-xs text-text-tertiary">{formatTime(order.createdAt)}</span>
-                </div>
-                {(order.customer || order.guestName || order.receiptUrl) && (
-                  <p className="text-xs text-text-secondary mb-2 flex flex-wrap items-center gap-1">
-                    <User size={12} /> {order.customer ? order.customer.name : order.guestName || 'Guest'}
-                    {order.receiptUrl && (
-                      <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
-                        Receipt available
-                      </span>
-                    )}
-                  </p>
-                )}
-                <div className="space-y-1 mb-3">
-                  {order.items.slice(0, 3).map((item, idx) => (
-                    <p key={idx} className="text-xs text-text-secondary">
-                      {item.quantity}× {item.menuItem?.name}
+                      {order.status === 'READY' ? 'Ready for pickup!'
+                        : order.status === 'PREPARING' ? 'Kitchen is cooking…'
+                        : 'Waiting for kitchen'}
                     </p>
-                  ))}
-                  {order.items.length > 3 && (
-                    <p className="text-xs text-text-tertiary">+{order.items.length - 3} more</p>
-                  )}
+                    <p className="text-[10px] text-text-tertiary mt-0.5 truncate">
+                      #{order.id.slice(-4).toUpperCase()} · {order.channel.replace('_', ' ')} · {new Date(order.createdAt).toLocaleString('en-GH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-2 pt-2 border-t border-border-subtle">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-secondary">Discount</span>
-                    <span className="text-xs text-text-secondary">-{formatCurrency(Number(order.discountAmount || 0))}</span>
+
+                {/* Card body */}
+                <div className="p-4 bg-surface-raised">
+                  {(order.customer || order.guestName || order.receiptUrl) && (
+                    <p className="text-xs text-text-secondary mb-2 flex flex-wrap items-center gap-1">
+                      <User size={12} /> {order.customer ? order.customer.name : order.guestName || 'Guest'}
+                      {order.receiptUrl && (
+                        <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
+                          Receipt available
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  <div className="space-y-1 mb-3">
+                    {order.items.slice(0, 3).map((item, idx) => (
+                      <p key={idx} className="text-xs text-text-secondary">
+                        {item.quantity}× {item.menuItem?.name}
+                      </p>
+                    ))}
+                    {order.items.length > 3 && (
+                      <p className="text-xs text-text-tertiary">+{order.items.length - 3} more</p>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-text-primary">Total</span>
-                    <span className="text-sm font-bold text-gold">{formatCurrency(Number(order.total))}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={e => { e.stopPropagation(); setConfirmAction({ type: 'cancelOrder', orderId: order.id }); }}
-                      className="text-error hover:text-error p-1"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <ChevronRight size={14} className="text-text-tertiary" />
+                  <div className="space-y-2 pt-2 border-t border-border-subtle">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-secondary">Discount</span>
+                      <span className="text-xs text-text-secondary">-{formatCurrency(Number(order.discountAmount || 0))}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-text-primary">Total</span>
+                      <span className="text-sm font-bold text-[var(--color-gold)]">{formatCurrency(Number(order.total))}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmAction({ type: 'cancelOrder', orderId: order.id }); }}
+                        className="text-error hover:text-error p-1"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <ChevronRight size={14} className="text-text-tertiary" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1062,307 +1122,324 @@ export default function GrowthPOSPage() {
         </div>
       )}
 
-      {confirmAction && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-text-primary">Start new order</h2>
-                <p className="text-sm text-text-secondary mt-1">
-                  {confirmAction.type === 'discard' && 'Clear the current cart and begin a fresh order?'}
-                  {confirmAction.type === 'loadOrder' && 'Load this open order? Your current cart will be replaced.'}
-                  {confirmAction.type === 'cancelOrder' && 'Cancel this open order? This cannot be undone.'}
-                </p>
+      <Modal
+        open={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        title={confirmAction?.type === 'cancelOrder' ? 'Cancel Order' : 'Start New Order'}
+        size="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={() => setConfirmAction(null)}
+              className="flex-1 py-3 rounded-xl bg-surface-elevated text-text-secondary font-semibold text-sm"
+            >
+              Keep current
+            </button>
+            <button
+              onClick={() => {
+                if (confirmAction?.type === 'discard') confirmDiscardOrder();
+                if (confirmAction?.type === 'loadOrder') confirmLoadOrder();
+                if (confirmAction?.type === 'cancelOrder') confirmCancelOrder();
+              }}
+              className={`flex-1 py-3 rounded-xl font-semibold text-sm text-white transition-all ${
+                confirmAction?.type === 'cancelOrder' ? 'bg-error hover:brightness-110' : 'bg-gold hover:bg-gold-dark'
+              }`}
+            >
+              Confirm
+            </button>
+          </div>
+        }
+      >
+        <p className="text-text-secondary text-sm py-2">
+          {confirmAction?.type === 'discard' && 'Clear the current cart and begin a fresh order?'}
+          {confirmAction?.type === 'loadOrder' && 'Load this open order? Your current cart will be replaced.'}
+          {confirmAction?.type === 'cancelOrder' && 'Cancel this open order? This cannot be undone.'}
+        </p>
+      </Modal>
+
+      <Modal
+        open={showPayment}
+        onClose={() => { setShowPayment(false); setSelectedPromoId(''); }}
+        title="Take Payment"
+        size="md"
+        footer={
+          <div className="w-full">
+            {paymentTypes.length === 0 ? (
+              <p className="text-center text-sm text-text-tertiary py-2">
+                No payment types configured. Ask admin to set up payment types.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {paymentTypes.map(pt => (
+                  <button
+                    key={pt.id}
+                    onClick={() => payOrder(pt)}
+                    disabled={saving}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-border-subtle hover:border-gold hover:bg-gold-muted transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <CreditCard size={24} className="text-gold" />
+                    <span className="text-sm font-semibold text-text-primary">{pt.name}</span>
+                  </button>
+                ))}
               </div>
-              <button onClick={() => setConfirmAction(null)} className="text-text-tertiary hover:text-text-secondary p-2">
-                <X size={20} />
-              </button>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          {/* Order total summary */}
+          <div className="rounded-2xl bg-surface-base p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Subtotal</span>
+              <span className="font-medium text-text-primary">{formatCurrency(cartTotal || 0)}</span>
             </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setConfirmAction(null)}
-                className="flex-1 py-3 rounded-xl bg-surface-elevated text-text-secondary font-semibold text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (confirmAction.type === 'discard') confirmDiscardOrder();
-                  if (confirmAction.type === 'loadOrder') confirmLoadOrder();
-                  if (confirmAction.type === 'cancelOrder') confirmCancelOrder();
-                }}
-                className="flex-1 py-3 rounded-xl bg-gold text-white font-semibold text-sm hover:bg-gold-dark"
-              >
-                Confirm
-              </button>
+            {promoDiscount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Promo ({selectedPromo?.name})</span>
+                <span className="font-medium text-success">-{formatCurrency(promoDiscount)}</span>
+              </div>
+            )}
+            {useLoyaltyDiscount && (
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Loyalty Discount</span>
+                <span className="font-medium text-success">-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-base border-t border-border-subtle pt-2">
+              <span className="text-text-primary">Total to Pay</span>
+              <span className="text-gold">{formatCurrency(useLoyaltyDiscount ? discountedTotal : (promoDiscount > 0 ? afterPromoTotal : (cartTotal || 0)))}</span>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ─── Payment Modal ─── */}
-      {showPayment && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-text-primary">Select Payment</h2>
-                <p className="text-sm text-text-tertiary mt-0.5">
-                  Subtotal: {formatCurrency(cartTotal || 0)}
-                  {useLoyaltyDiscount ? (
-                    <>
-                      <span className="block text-text-secondary">Discount: -{formatCurrency(discountAmount)}</span>
-                      <span className="block text-success">Total: {formatCurrency(discountedTotal)}</span>
-                    </>
-                  ) : (
-                    <span className="block text-text-secondary">Total: {formatCurrency(cartTotal || 0)}</span>
-                  )}
-                </p>
-              </div>
-              <button onClick={() => setShowPayment(false)} className="text-text-tertiary hover:text-text-secondary p-2">
-                <X size={20} />
-              </button>
+          {/* Promotion selector */}
+          {activePromos.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-text-secondary">Apply Promotion</p>
+              <select
+                value={selectedPromoId}
+                onChange={e => setSelectedPromoId(e.target.value)}
+                className="w-full h-12 rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+              >
+                <option value="">No promotion</option>
+                {activePromos.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.type === 'PERCENTAGE' ? `${p.value}% off` : `${formatCurrency(p.value)} off`}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="px-6 space-y-3 pb-4">
-              <input
-                type="text"
-                value={receiptReference}
-                onChange={(e) => setReceiptReference(e.target.value)}
-                placeholder="Receipt link / reference (optional)"
-                className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-              <label className="flex items-center gap-3 text-sm text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={printReceipt}
-                  onChange={(e) => setPrintReceipt(e.target.checked)}
-                  className="w-4 h-4 rounded border border-border-default text-gold focus:ring-gold"
-                />
-                Print receipt after payment
-              </label>
+          )}
 
-              <div className="rounded-3xl border border-border-default bg-surface-base p-4 text-sm text-text-secondary">
-                {selectedCustomer ? (
-                  <>
-                    <p className="font-semibold text-text-primary">Loyalty points</p>
-                    <p>{loyaltyBalance ?? 0} points available for {selectedCustomer.name}</p>
-                    {loyaltyBalance !== null && loyaltyBalance >= 100 ? (
-                      <label className="flex items-center gap-3 mt-3">
-                        <input
-                          type="checkbox"
-                          checked={useLoyaltyDiscount}
-                          onChange={(e) => setUseLoyaltyDiscount(e.target.checked)}
-                          className="w-4 h-4 rounded border border-border-default text-gold focus:ring-gold"
-                        />
-                        <span>
-                          Redeem 100 points for 5% off this order
-                          {useLoyaltyDiscount && (
-                            <strong className="text-text-primary"> (save {formatCurrency(discountAmount)})</strong>
-                          )}
-                        </span>
-                      </label>
-                    ) : (
-                      <p className="mt-2 text-xs text-text-tertiary">
-                        {loyaltyBalance === null ? 'Loading loyalty balance...' : 'Customer needs at least 100 points to redeem.'}
-                      </p>
-                    )}
-                  </>
+          <input
+            type="text"
+            value={receiptReference}
+            onChange={(e) => setReceiptReference(e.target.value)}
+            placeholder="Receipt link / reference (optional)"
+            className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+          />
+          <label className="flex items-center gap-3 text-sm text-text-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={printReceipt}
+              onChange={(e) => setPrintReceipt(e.target.checked)}
+              className="w-4 h-4 rounded border border-border-default text-gold focus:ring-gold"
+            />
+            Print receipt after payment
+          </label>
+
+          <div className="rounded-3xl border border-border-default bg-surface-base p-4 text-sm text-text-secondary">
+            {selectedCustomer ? (
+              <>
+                <p className="font-semibold text-text-primary">Loyalty Points</p>
+                <p className="mt-1">{loyaltyBalance ?? 0} points available for {selectedCustomer.name}</p>
+                {loyaltyBalance !== null && loyaltyBalance >= 100 ? (
+                  <label className="flex items-center gap-3 mt-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useLoyaltyDiscount}
+                      onChange={(e) => setUseLoyaltyDiscount(e.target.checked)}
+                      className="w-4 h-4 rounded border border-border-default text-gold focus:ring-gold"
+                    />
+                    <span>
+                      Redeem 100 points for 5% off
+                      {useLoyaltyDiscount && (
+                        <strong className="text-text-primary"> (save {formatCurrency(discountAmount)})</strong>
+                      )}
+                    </span>
+                  </label>
                 ) : (
-                  <p>Select a customer to enable loyalty discounts.</p>
+                  <p className="mt-2 text-xs text-text-tertiary">
+                    {loyaltyBalance === null ? 'Loading loyalty balance...' : 'Needs at least 100 points to redeem.'}
+                  </p>
                 )}
-              </div>
-            </div>
-            <div className="px-6 pb-6 grid grid-cols-2 gap-3">
-              {paymentTypes.map(pt => (
-                <button
-                  key={pt.id}
-                  onClick={() => payOrder(pt)}
-                  disabled={saving}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-border-subtle hover:border-gold hover:bg-gold-muted transition-all active:scale-95"
-                >
-                  <CreditCard size={24} className="text-gold" />
-                  <span className="text-sm font-semibold text-text-primary">{pt.name}</span>
-                </button>
-              ))}
-              {paymentTypes.length === 0 && (
-                <div className="col-span-2 text-center py-8 text-text-tertiary text-sm">
-                  No payment types configured.<br />Ask admin to set up payment types.
-                </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <p>Select a customer on the order to enable loyalty discounts.</p>
+            )}
           </div>
         </div>
-      )}
+      </Modal>
 
-      {/* ─── Customer Search Modal ─── */}
-      {showCustomerSearch && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-50 flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-md max-h-[calc(var(--viewport-height,100dvh)-4rem)] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 pt-6 pb-3">
-              <h2 className="text-lg font-bold text-text-primary">Select Customer</h2>
-              <button onClick={() => { setShowCustomerSearch(false); setCustomerSearch(''); }} className="text-text-tertiary hover:text-text-secondary p-2">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="px-6 pb-3">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-                <input
-                  type="text"
-                  value={customerSearch}
-                  onChange={e => setCustomerSearch(e.target.value)}
-                  placeholder="Search by name or phone..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-1 pb-3">
-              {filteredCustomers.slice(0, 20).map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectedCustomer(c); setShowCustomerSearch(false); setCustomerSearch(''); }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gold-muted transition-colors text-left"
-                >
-                  <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center">
-                    <User size={14} className="text-text-secondary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary">{c.name}</p>
-                    <div className="text-xs text-text-tertiary flex flex-wrap gap-2">
-                      {c.phone && <span>{c.phone}</span>}
-                      <span>{c.loyaltyPoints ?? 0} pts</span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="px-6 pb-6 border-t border-border-subtle pt-3">
+      <Modal
+        open={showCustomerSearch}
+        onClose={() => { setShowCustomerSearch(false); setCustomerSearch(''); }}
+        title="Find Customer"
+        size="md"
+        footer={
+          <button
+            onClick={() => setShowNewCustomer(true)}
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-border-default text-gold font-semibold text-sm hover:bg-gold-muted transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={16} /> New Customer
+          </button>
+        }
+      >
+        <div className="space-y-3 pt-1">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              value={customerSearch}
+              onChange={e => setCustomerSearch(e.target.value)}
+              placeholder="Search by name or phone..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            {filteredCustomers.slice(0, 20).map(c => (
               <button
-                onClick={() => setShowNewCustomer(true)}
-                className="w-full py-2.5 rounded-xl border-2 border-dashed border-border-default text-gold font-semibold text-sm hover:bg-gold-muted transition-all flex items-center justify-center gap-2"
+                key={c.id}
+                onClick={() => { setSelectedCustomer(c); setShowCustomerSearch(false); setCustomerSearch(''); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gold-muted transition-colors text-left"
               >
-                <Plus size={16} /> New Customer
+                <div className="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center shrink-0">
+                  <User size={14} className="text-text-secondary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text-primary">{c.name}</p>
+                  <div className="text-xs text-text-tertiary flex flex-wrap gap-2">
+                    {c.phone && <span>{c.phone}</span>}
+                    <span>{c.loyaltyPoints ?? 0} pts</span>
+                  </div>
+                </div>
               </button>
-            </div>
+            ))}
+            {filteredCustomers.length === 0 && (
+              <p className="text-center text-sm text-text-tertiary py-6">No customers found</p>
+            )}
           </div>
         </div>
-      )}
+      </Modal>
 
-      {/* ─── New Customer Modal ─── */}
-      {selectedVariantItem && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-black/40 z-[70] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-lg max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+      <Modal
+        open={!!selectedVariantItem}
+        onClose={closeVariantSelector}
+        title={selectedVariantItem?.name || ''}
+        description="Choose your options for this item."
+        size="lg"
+        footer={
+          <button
+            type="button"
+            onClick={confirmVariantSelection}
+            disabled={!isVariantSelectionValid}
+            className="w-full rounded-2xl bg-gold py-3.5 text-sm font-semibold text-white disabled:opacity-50 transition-all"
+          >
+            Add to cart{selectedVariantItem ? ` • ${formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}` : ''}
+          </button>
+        }
+      >
+        {selectedVariantItem && (
+          <div className="space-y-5 pt-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-surface-base p-4">
               <div>
-                <h2 className="text-lg font-bold text-text-primary">{selectedVariantItem.name}</h2>
-                <p className="text-sm text-text-secondary">Choose the variation options for this item.</p>
+                <p className="text-xs text-text-secondary">Base price</p>
+                <p className="text-lg font-semibold text-text-primary">{formatCurrency(Number(selectedVariantItem.price))}</p>
               </div>
-              <button onClick={closeVariantSelector} className="text-text-tertiary hover:text-text-secondary p-2">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="px-6 py-4 border-b border-border-subtle bg-surface-base">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-text-secondary">Base price</p>
-                  <p className="text-lg font-semibold text-text-primary">{formatCurrency(Number(selectedVariantItem.price))}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-text-secondary">Current selection</p>
-                  <p className="text-lg font-semibold text-text-primary">{formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}</p>
-                </div>
+              <div>
+                <p className="text-xs text-text-secondary">Your selection</p>
+                <p className="text-lg font-semibold text-gold">{formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}</p>
               </div>
             </div>
-            <div className="overflow-y-auto p-6 space-y-5 flex-1">
-              {selectedVariantItem.options?.map((option) => {
-                const selected = selectedOptions.find((s) => s.optionId === option.id);
-                const selectedValues = selected?.values || [];
-                return (
-                  <div key={option.id} className="space-y-3 rounded-3xl border border-border-default bg-white p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-text-primary">{option.name}</p>
-                        <p className="text-xs text-text-secondary">{option.required ? 'Required' : 'Optional'} • {option.multiple ? 'Multiple selections' : 'Single selection'}</p>
-                      </div>
-                      {selectedValues.length > 0 ? (
-                        <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">
-                          {selectedValues.length} selected
-                        </span>
-                      ) : null}
+            {selectedVariantItem.options?.map((option) => {
+              const selected = selectedOptions.find((s) => s.optionId === option.id);
+              const selectedValues = selected?.values || [];
+              return (
+                <div key={option.id} className="space-y-3 rounded-3xl border border-border-default bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-text-primary">{option.name}</p>
+                      <p className="text-xs text-text-secondary">{option.required ? 'Required' : 'Optional'} • {option.multiple ? 'Pick multiple' : 'Pick one'}</p>
                     </div>
-                    <div className="space-y-2">
-                      {option.values.map((value) => {
-                        const isSelected = selectedValues.includes(value.id);
-                        return (
-                          <button
-                            key={value.id}
-                            type="button"
-                            onClick={() => toggleSelectedOptionValue(option.id, value.id, option.multiple)}
-                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isSelected ? 'border-gold bg-gold-muted text-text-primary' : 'border-border-default bg-surface-raised text-text-secondary'}`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span>{value.label}</span>
-                              {value.priceAdjustment ? <span className="text-xs text-text-secondary">+{formatCurrency(value.priceAdjustment)}</span> : null}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {selectedValues.length > 0 && (
+                      <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">
+                        {selectedValues.length} selected
+                      </span>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-            <div className="border-t border-border-subtle px-6 py-4 bg-white">
-              <button
-                type="button"
-                onClick={confirmVariantSelection}
-                disabled={!isVariantSelectionValid}
-                className="w-full rounded-2xl bg-gold py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                Add to cart • {formatCurrency(Number((Number(selectedVariantItem.price) + getOptionAdjustment(selectedVariantItem, selectedOptions)).toFixed(2)))}
-              </button>
-            </div>
+                  <div className="space-y-2">
+                    {option.values.map((value) => {
+                      const isSelected = selectedValues.includes(value.id);
+                      return (
+                        <button
+                          key={value.id}
+                          type="button"
+                          onClick={() => toggleSelectedOptionValue(option.id, value.id, option.multiple)}
+                          className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isSelected ? 'border-gold bg-gold-muted text-text-primary' : 'border-border-default bg-surface-raised text-text-secondary'}`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{value.label}</span>
+                            {value.priceAdjustment ? <span className="text-xs text-text-secondary">+{formatCurrency(value.priceAdjustment)}</span> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
-      {showNewCustomer && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] bg-white/50 z-[60] flex items-end lg:items-center justify-center p-0 lg:p-4">
-          <div className="bg-surface-raised rounded-t-3xl lg:rounded-3xl w-full lg:max-w-sm p-6 max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
-            <h2 className="text-lg font-bold text-text-primary mb-4">New Customer</h2>
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={newCustomerName}
-                onChange={e => setNewCustomerName(e.target.value)}
-                placeholder="Customer name *"
-                className="w-full px-4 py-2.5 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-              <input
-                type="tel"
-                value={newCustomerPhone}
-                onChange={e => setNewCustomerPhone(e.target.value)}
-                placeholder="Phone number"
-                className="w-full px-4 py-2.5 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-              />
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => { setShowNewCustomer(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
-                className="flex-1 py-2.5 rounded-xl bg-surface-elevated text-text-secondary font-semibold text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createCustomer}
-                disabled={!newCustomerName.trim() || saving}
-                className="flex-1 py-2.5 rounded-xl bg-gold text-white font-semibold text-sm hover:bg-gold-dark disabled:opacity-40 transition-all"
-              >
-                Save
-              </button>
-            </div>
+        )}
+      </Modal>
+      <Modal
+        open={showNewCustomer}
+        onClose={() => { setShowNewCustomer(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
+        title="Add Customer"
+        size="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={() => { setShowNewCustomer(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
+              className="flex-1 py-3 rounded-xl bg-surface-elevated text-text-secondary font-semibold text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={createCustomer}
+              disabled={!newCustomerName.trim() || saving}
+              className="flex-1 py-3 rounded-xl bg-gold text-white font-semibold text-sm hover:bg-gold-dark disabled:opacity-40 transition-all flex items-center justify-center"
+            >
+              {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : 'Save'}
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <input
+            type="text"
+            value={newCustomerName}
+            onChange={e => setNewCustomerName(e.target.value)}
+            placeholder="Customer name *"
+            className="w-full px-4 py-3 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+          />
+          <input
+            type="tel"
+            value={newCustomerPhone}
+            onChange={e => setNewCustomerPhone(e.target.value)}
+            placeholder="Phone number (optional)"
+            className="w-full px-4 py-3 rounded-xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+          />
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

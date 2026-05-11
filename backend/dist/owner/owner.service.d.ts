@@ -39,8 +39,8 @@ export declare class OwnerService {
         createdAt: Date;
         receiptUrl: string | null;
         description: string | null;
-        category: string;
         paidAt: Date;
+        category: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         approved: boolean | null;
         paidBy: string;
@@ -51,8 +51,8 @@ export declare class OwnerService {
         createdAt: Date;
         receiptUrl: string | null;
         description: string | null;
-        category: string;
         paidAt: Date;
+        category: string;
         amount: import("@prisma/client/runtime/library").Decimal;
         approved: boolean | null;
         paidBy: string;

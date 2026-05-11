@@ -28,6 +28,9 @@ let OrdersController = class OrdersController {
     create(dto) {
         return this.orders.create(dto);
     }
+    getStats(branchId, status, channel, paymentMethod, from, to, search) {
+        return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search });
+    }
     findLive(branchId, page = '0', limit = '50') {
         const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
         const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
@@ -69,6 +72,20 @@ __decorate([
     __metadata("design:paramtypes", [orders_dto_1.CreateOrderDto]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)('stats'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
+    __param(1, (0, common_1.Query)('status')),
+    __param(2, (0, common_1.Query)('channel')),
+    __param(3, (0, common_1.Query)('paymentMethod')),
+    __param(4, (0, common_1.Query)('from')),
+    __param(5, (0, common_1.Query)('to')),
+    __param(6, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Get)('live'),
     (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD'),

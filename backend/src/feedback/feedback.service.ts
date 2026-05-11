@@ -13,11 +13,30 @@ export class FeedbackService {
     });
   }
 
-  async findAll(status?: string, page = 0, limit = 10) {
+  async getStats() {
+    const [open, inProgress, resolved] = await Promise.all([
+      this.prisma.feedbackTicket.count({ where: { status: 'OPEN' } }),
+      this.prisma.feedbackTicket.count({ where: { status: 'IN_PROGRESS' } }),
+      this.prisma.feedbackTicket.count({ where: { status: 'RESOLVED' } }),
+    ]);
+    return { open, inProgress, resolved, total: open + inProgress + resolved };
+  }
+
+  async findAll(status?: string, search?: string, page = 0, limit = 10) {
     const take = Math.min(Math.max(limit, 10), 100);
     const skip = Math.max(page, 0) * take;
+    const where: any = {};
+    if (status) where.status = status as any;
+    if (search?.trim()) {
+      const s = search.trim();
+      where.OR = [
+        { subject: { contains: s, mode: 'insensitive' } },
+        { body: { contains: s, mode: 'insensitive' } },
+        { customer: { name: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
     return this.prisma.feedbackTicket.findMany({
-      where: status ? { status: status as any } : {},
+      where,
       include: { customer: true },
       orderBy: { createdAt: 'desc' },
       take,

@@ -18,10 +18,54 @@ let CustomersService = class CustomersService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    parseBirthday(birthday) {
+        if (birthday === undefined)
+            return undefined;
+        if (birthday === null)
+            return null;
+        const parsed = new Date(birthday);
+        if (Number.isNaN(parsed.getTime())) {
+            throw new common_1.BadRequestException('Invalid birthday format');
+        }
+        return parsed;
+    }
     async create(dto) {
-        return this.prisma.customer.create({
-            data: { ...dto, birthday: dto.birthday ? new Date(dto.birthday) : undefined },
-        });
+        const birthday = this.parseBirthday(dto.birthday);
+        try {
+            return await this.prisma.customer.create({
+                data: {
+                    name: dto.name,
+                    phone: dto.phone,
+                    email: dto.email,
+                    ...(birthday !== undefined ? { birthday } : {}),
+                },
+            });
+        }
+        catch (error) {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                throw new common_1.BadRequestException('A customer with that phone number already exists.');
+            }
+            throw error;
+        }
+    }
+    async update(id, dto) {
+        const { birthday, ...rest } = dto;
+        const parsedBirthday = this.parseBirthday(birthday);
+        try {
+            return await this.prisma.customer.update({
+                where: { id },
+                data: {
+                    ...rest,
+                    ...(parsedBirthday !== undefined ? { birthday: parsedBirthday } : {}),
+                },
+            });
+        }
+        catch (error) {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                throw new common_1.BadRequestException('A customer with that phone number already exists.');
+            }
+            throw error;
+        }
     }
     async findAll(params) {
         const take = Math.min(Math.max(params?.limit ?? 50, 1), 100);
@@ -139,6 +183,28 @@ let CustomersService = class CustomersService {
             },
             orderBy: { lastSeenAt: 'asc' },
         });
+    }
+    async getUpcomingBirthdays(days = 7) {
+        const now = new Date();
+        const results = [];
+        for (let i = 0; i <= days; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() + i);
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            const customers = await this.prisma.$queryRaw `
+        SELECT id, name, phone, email, birthday
+        FROM customers
+        WHERE birthday IS NOT NULL
+          AND EXTRACT(MONTH FROM birthday) = ${month}
+          AND EXTRACT(DAY FROM birthday) = ${day}
+        LIMIT 50
+      `;
+            for (const c of customers) {
+                results.push({ ...c, daysUntil: i });
+            }
+        }
+        return results;
     }
     async getDashboard() {
         const now = new Date();

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch, del } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
-import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, UserCheck, UserX, Plus, UserMinus, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
+import { Users, Clock, UserCheck, UserX, Plus, UserMinus, Trash2, Pencil } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Shift {
@@ -46,6 +46,11 @@ export default function OwnerStaffPage() {
     password: '',
     role: 'OPERATIONS_MANAGER',
   });
+
+  // Edit state
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', role: '' });
+  const [editError, setEditError] = useState('');
 
   const fetchData = async () => {
     if (!token) return;
@@ -103,6 +108,33 @@ export default function OwnerStaffPage() {
     }
   };
 
+  const startEdit = (member: StaffMember) => {
+    setEditingMember(member);
+    setEditForm({ name: member.name, email: member.email, phone: member.phone ?? '', role: member.role });
+    setEditError('');
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingMember) return;
+    setSaving(true);
+    setEditError('');
+    try {
+      const updated = await patch(`/api/v1/owner/staff/${editingMember.id}`, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone.trim() || undefined,
+        role: editForm.role,
+      }, token);
+      setStaff((prev) => prev.map((m) => (m.id === editingMember.id ? updated : m)));
+      setEditingMember(null);
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update staff member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!token) return;
     try {
@@ -118,219 +150,228 @@ export default function OwnerStaffPage() {
   const clockedIn = todayShifts.filter((s) => s.clockIn && !s.clockOut);
   const clockedOut = todayShifts.filter((s) => s.clockOut);
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-6 pb-8">
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Users className="text-gold" /> Staff Team
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Users className="text-[var(--color-gold)]" /> Staff Team
           </h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Create and manage your team from the owner portal.
-          </p>
+          <p className="text-sm text-text-secondary mt-0.5">Create and manage your team</p>
         </div>
-        <Button variant="primary" size="lg" onClick={() => setShowCreateModal(true)}>
-          <Plus size={18} /> Add Staff
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus size={16} /> Add Staff
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Total Staff" value={staff.length} icon={<Users size={20} />} />
-        <KPICard title="Active" value={staff.filter((member) => member.active).length} icon={<UserCheck size={20} />} severity="healthy" />
-        <KPICard title="Inactive" value={staff.filter((member) => !member.active).length} icon={<UserX size={20} />} severity={staff.some((member) => !member.active) ? 'warning' : 'healthy'} />
-        <KPICard title="On Duty" value={clockedIn.length} icon={<Clock size={20} />} />
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: <Users size={18} />, label: 'Total Staff', value: staff.length, tone: undefined },
+          { icon: <UserCheck size={18} />, label: 'Active', value: staff.filter(m => m.active).length, tone: 'green' as const },
+          { icon: <UserX size={18} />, label: 'Inactive', value: staff.filter(m => !m.active).length, tone: staff.some(m => !m.active) ? 'yellow' as const : undefined },
+          { icon: <Clock size={18} />, label: 'On Duty Now', value: clockedIn.length, tone: clockedIn.length > 0 ? 'green' as const : undefined },
+        ].map(({ icon, label, value, tone }) => {
+          const bg = tone === 'green' ? 'bg-success-muted border-success/30' : tone === 'yellow' ? 'bg-warning-muted border-warning/30' : 'bg-surface-raised border-border-subtle';
+          const tv = tone === 'green' ? 'text-success' : tone === 'yellow' ? 'text-warning' : 'text-text-primary';
+          return (
+            <div key={label} className={`rounded-2xl border p-4 flex flex-col gap-2 ${bg}`}>
+              <div className={`flex items-center gap-2 text-sm font-semibold ${tv}`}>{icon}<span>{label}</span></div>
+              <p className={`text-3xl font-bold font-mono ${tv}`}>{value}</p>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {staff.length === 0 ? (
-              <p className="text-sm text-text-tertiary text-center py-6">No staff members found yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {staff.map((member) => (
-                  <div
-                    key={member.id}
-                    className={`rounded-3xl border p-4 shadow-sm transition ${
-                      member.active ? 'border-border-default bg-surface-raised' : 'border-border-muted bg-surface-base'
-                    }`}
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-lg font-semibold text-text-primary">{member.name}</p>
-                        <p className="text-sm text-text-secondary">{member.email}</p>
-                        <p className="text-xs text-text-tertiary mt-1">Joined {new Date(member.createdAt).toLocaleDateString('en-GH')}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-gold-muted px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gold">
-                          {member.role.replace('_', ' ')}
-                        </span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          member.active ? 'bg-success-muted text-success' : 'bg-error-muted text-error'
-                        }`}>
-                          {member.active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-text-secondary">
-                      <span>{member.phone || 'No phone set'}</span>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleDeactivate(member.id)}
-                          disabled={!member.active || member.role === 'OWNER'}
-                        >
-                          <UserMinus size={16} /> {member.role === 'OWNER' ? 'Owner account' : 'Deactivate'}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleDelete(member.id)}
-                          disabled={member.role === 'OWNER'}
-                        >
-                          <Trash2 size={16} /> Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6">
-              <PaginationControls
-                page={page}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(value) => { setLimit(value); setPage(0); }}
-                hasMore={staff.length === limit}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gold-muted border-border-default">
-          <CardHeader>
-            <CardTitle>Staff Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-text-secondary mb-4">
-              Use the staff manager to create and maintain your branch team.
-            </p>
-            <div className="space-y-3">
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Today&apos;s shift count</p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">{todayShifts.length}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Clocked in</p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">{clockedIn.length}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-sm text-text-secondary">Clocked out</p>
-                <p className="mt-2 text-2xl font-semibold text-text-primary">{clockedOut.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {showCreateModal && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-center justify-center bg-black/40 p-4 overflow-auto">
-          <div className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-y-auto">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-text-primary">Add new staff member</h2>
-                <p className="text-sm text-text-secondary mt-1">Add a team member with role, email, and password in one interface.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="rounded-full p-2 text-text-secondary hover:bg-surface-elevated"
-              >
-                ×
-              </button>
-            </div>
-
-            {error && (
-              <div className="mt-4 rounded-3xl bg-error-muted p-4 text-sm text-error">{error}</div>
-            )}
-
-            <form className="mt-6 space-y-4" onSubmit={handleCreateStaff}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-medium text-text-secondary">Name</span>
-                  <input
-                    type="text"
-                    value={newStaff.name}
-                    onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                    required
-                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-raised px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-medium text-text-secondary">Email</span>
-                  <input
-                    type="email"
-                    value={newStaff.email}
-                    onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
-                    required
-                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-raised px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-medium text-text-secondary">Password</span>
-                  <input
-                    type="password"
-                    value={newStaff.password}
-                    onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-                    required
-                    minLength={6}
-                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-raised px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-medium text-text-secondary">Role</span>
-                  <select
-                    value={newStaff.role}
-                    onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
-                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-raised px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                  >
-                    <option value="OPERATIONS_MANAGER">Operations Manager</option>
-                    <option value="KITCHEN_STAFF">Kitchen Staff</option>
-                    <option value="GROWTH_LEAD">Growth Lead</option>
-                    <option value="CASHIER">Cashier</option>
-                    <option value="ACCOUNTANT">Accountant</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                <Button type="submit" loading={saving}>
-                  Add Staff Member
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
+      {/* Shift summary row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Today's Shifts", value: todayShifts.length },
+          { label: 'Clocked In', value: clockedIn.length },
+          { label: 'Clocked Out', value: clockedOut.length },
+        ].map(({ label, value }) => (
+          <div key={label} className="rounded-2xl border border-border-subtle bg-surface-raised p-3 text-center">
+            <p className="text-xs text-text-tertiary">{label}</p>
+            <p className="text-2xl font-bold font-mono text-text-primary mt-1">{value}</p>
           </div>
+        ))}
+      </div>
+
+      {/* Staff list */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        {staff.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <Users size={32} className="text-text-tertiary opacity-50" />
+            <p className="text-sm font-semibold text-text-secondary">No staff members yet</p>
+            <p className="text-xs text-text-tertiary">Add your first team member to get started</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border-subtle">
+            {staff.map((member) => (
+              <div
+                key={member.id}
+                className={`p-4 transition-colors ${member.active ? '' : 'opacity-60'}`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-text-primary text-base">{member.name}</p>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${member.active ? 'bg-success-muted text-success' : 'bg-surface-elevated text-text-tertiary'}`}>
+                        {member.active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className="rounded-full bg-warning-muted px-2.5 py-0.5 text-xs font-semibold text-[var(--color-gold)]">
+                        {member.role.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary mt-0.5">{member.email}</p>
+                    {member.phone && <p className="text-xs text-text-tertiary mt-0.5">{member.phone}</p>}
+                    <p className="text-xs text-text-tertiary mt-0.5">Joined {new Date(member.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => startEdit(member)}
+                      disabled={member.role === 'OWNER'}
+                    >
+                      <Pencil size={14} /> Edit
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDeactivate(member.id)}
+                      disabled={!member.active || member.role === 'OWNER'}
+                    >
+                      <UserMinus size={14} /> Deactivate
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleDelete(member.id)}
+                      disabled={member.role === 'OWNER'}
+                    >
+                      <Trash2 size={14} /> Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="px-4 pb-4 pt-2">
+          <PaginationControls
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(value) => { setLimit(value); setPage(0); }}
+            hasMore={staff.length === limit}
+          />
         </div>
-      )}
+      </div>
+
+      {/* Edit Staff Modal */}
+      <Modal
+        open={!!editingMember}
+        onClose={() => { setEditingMember(null); setEditError(''); }}
+        title="Edit Staff Member"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setEditingMember(null); setEditError(''); }}>Cancel</Button>
+            <Button type="submit" form="edit-staff-form" loading={saving}>Save Changes</Button>
+          </>
+        }
+      >
+        {editError && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{editError}</div>}
+        <form id="edit-staff-form" onSubmit={handleEditSave} className="space-y-4 pt-2">
+          <Input
+            label="Full Name"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            required
+          />
+          <Input
+            label="Email Address"
+            type="email"
+            value={editForm.email}
+            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+            required
+          />
+          <Input
+            label="Phone (optional)"
+            value={editForm.phone}
+            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+            placeholder="e.g. 0244000000"
+          />
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-text-secondary">Role</label>
+            <select
+              value={editForm.role}
+              onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+              className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+            >
+              <option value="OPERATIONS_MANAGER">Operations Manager</option>
+              <option value="KITCHEN_STAFF">Kitchen Staff</option>
+              <option value="GROWTH_LEAD">Growth Lead</option>
+            </select>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Staff Modal */}
+      <Modal
+        open={showCreateModal}
+        onClose={() => { setShowCreateModal(false); setError(''); }}
+        title="Add Staff Member"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowCreateModal(false); setError(''); }}>Cancel</Button>
+            <Button type="submit" form="new-staff-form" loading={saving}>Add Staff Member</Button>
+          </>
+        }
+      >
+        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+        <form id="new-staff-form" onSubmit={handleCreateStaff} className="space-y-4 pt-2">
+          <Input
+            label="Full Name"
+            value={newStaff.name}
+            onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+            required
+            placeholder="e.g. Ama Owusu"
+          />
+          <Input
+            label="Email Address"
+            type="email"
+            value={newStaff.email}
+            onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+            required
+            placeholder="e.g. ama@crave.com"
+          />
+          <Input
+            label="Password"
+            type="password"
+            value={newStaff.password}
+            onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+            required
+            placeholder="At least 6 characters"
+          />
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-text-secondary">Role</label>
+            <select
+              value={newStaff.role}
+              onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+              className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+            >
+              <option value="OPERATIONS_MANAGER">Operations Manager</option>
+              <option value="KITCHEN_STAFF">Kitchen Staff</option>
+              <option value="GROWTH_LEAD">Growth Lead</option>
+            </select>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

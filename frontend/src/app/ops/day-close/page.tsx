@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { API_PATHS } from '@/lib/constants';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
+import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
-import { Clock, ShoppingCart, Receipt, DollarSign, Lock } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface DayCloseSummary {
@@ -23,33 +21,57 @@ interface DayCloseSummary {
   auditId?: string | null;
 }
 
+interface CashBalance {
+  openingFloat: number;
+  cashSales: number;
+  expectedCash: number;
+  cashCounted: number;
+  variance: number;
+}
+
+interface CloseResult extends DayCloseSummary {
+  cashBalance?: CashBalance;
+}
+
+type Step = 1 | 2 | 3 | 'done';
+
 export default function OpsDayClosePage() {
   const { token } = useAuth();
   const [summary, setSummary] = useState<DayCloseSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<Step>(1);
+  const [openingFloat, setOpeningFloat] = useState('');
+  const [cashCounted, setCashCounted] = useState('');
+  const [notes, setNotes] = useState('');
   const [closing, setClosing] = useState(false);
+  const [closeResult, setCloseResult] = useState<CloseResult | null>(null);
 
   useEffect(() => {
     if (!token) return;
     const today = new Date().toISOString().split('T')[0];
     get(API_PATHS.ops.dayCloseSummary(today), token)
-      .then(setSummary)
+      .then((data) => {
+        setSummary(data);
+        if (data.closed) setStep('done');
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [token]);
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [closed, setClosed] = useState(false);
-  const [closeResult, setCloseResult] = useState<DayCloseSummary | null>(null);
+  const floatNum = parseFloat(openingFloat) || 0;
+  const countedNum = parseFloat(cashCounted) || 0;
 
   const handleClose = async () => {
     if (!token) return;
     setClosing(true);
     try {
-      const result = await post(API_PATHS.ops.dayClose, {}, token);
-      setClosed(true);
+      const result = await post(API_PATHS.ops.dayClose, {
+        openingFloat: floatNum,
+        cashCounted: countedNum,
+        notes: notes.trim() || undefined,
+      }, token);
       setCloseResult(result);
-      setConfirmOpen(false);
+      setStep('done');
     } catch (err) {
       console.error(err);
     } finally {
@@ -57,107 +79,226 @@ export default function OpsDayClosePage() {
     }
   };
 
-  if (loading) {
+  const todayLabel = new Date().toLocaleDateString('en-GH', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+
+  if (loading) return <PageSkeleton />;
+
+  // ─── DONE ────────────────────────────────────────────────────────
+  if (step === 'done') {
+    const result = closeResult ?? summary;
+    const cb = closeResult?.cashBalance;
     return (
-      <PageSkeleton />
+      <div className="space-y-6 max-w-lg mx-auto">
+        <div className="flex items-center gap-3">
+          <CheckCircle2 size={28} className="text-success" />
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Day closed</h1>
+            <p className="text-sm text-text-secondary">{todayLabel}</p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Today&apos;s final summary</p></div>
+          <div className="space-y-3">
+            <SummaryRow label="Total sales" value={formatCurrency(result?.totalSales ?? 0)} large />
+            <SummaryRow label="Orders completed" value={String(result?.orderCount ?? 0)} />
+            <SummaryRow label="Expenses paid" value={formatCurrency(result?.totalExpenses ?? 0)} />
+
+            {cb && (
+              <>
+                <hr className="border-border-default" />
+                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide pt-1">Cash balancing</p>
+                <SummaryRow label="Opening float" value={formatCurrency(cb.openingFloat)} />
+                <SummaryRow label="Cash sales (system)" value={formatCurrency(cb.cashSales)} />
+                <SummaryRow label="Expected in till" value={formatCurrency(cb.expectedCash)} large />
+                <SummaryRow label="You counted" value={formatCurrency(cb.cashCounted)} large />
+                <div className={`rounded-xl p-4 ${cb.variance >= 0 ? 'bg-success-muted' : 'bg-warning-muted'}`}>
+                  <p className={`text-sm font-bold ${cb.variance >= 0 ? 'text-success' : 'text-warning'}`}>
+                    {cb.variance === 0
+                      ? '✓ Cash balanced perfectly'
+                      : cb.variance > 0
+                      ? `▲ Over by ${formatCurrency(Math.abs(cb.variance))}`
+                      : `▼ Short by ${formatCurrency(Math.abs(cb.variance))}`}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-        <Clock className="text-gold" /> Day Close
-      </h1>
-      <p className="text-sm text-text-secondary">
-        {new Date().toLocaleDateString('en-GH', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </p>
+  // ─── STEP 1: Today's numbers ──────────────────────────────────────
+  if (step === 1) {
+    const net = (summary?.totalSales ?? 0) - (summary?.totalExpenses ?? 0);
+    return (
+      <div className="space-y-6 max-w-lg mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">End of day</h1>
+          <p className="text-sm text-text-secondary mt-1">{todayLabel}</p>
+        </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Sales" value={formatCurrency(summary?.totalSales || 0)} icon={<DollarSign size={20} />} severity="healthy" />
-        <KPICard title="Orders" value={summary?.orderCount || 0} icon={<ShoppingCart size={20} />} />
-        <KPICard title="Expenses" value={formatCurrency(summary?.totalExpenses || 0)} icon={<Receipt size={20} />} severity="warning" />
-        <KPICard
-          title="Net"
-          value={formatCurrency((summary?.totalSales || 0) - (summary?.totalExpenses || 0))}
-          icon={<DollarSign size={20} />}
-          severity={((summary?.totalSales || 0) - (summary?.totalExpenses || 0)) >= 0 ? 'healthy' : 'critical'}
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Close Today's Operations</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-text-secondary">
-            Closing the day will finalize all records for today. Ensure all orders are completed, 
-            cash is reconciled, and handover notes are posted before proceeding.
-          </p>
-          <div className="flex items-center gap-3 p-4 bg-gold-muted rounded-xl">
-            <Lock size={20} className="text-gold" />
-            <p className="text-sm text-warning">This action cannot be undone for today's date.</p>
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Today&apos;s numbers</p></div>
+          <div className="space-y-3">
+            <SummaryRow label="Total sales" value={formatCurrency(summary?.totalSales ?? 0)} large />
+            <SummaryRow label="Orders completed" value={String(summary?.orderCount ?? 0)} />
+            <SummaryRow label="Expenses paid" value={formatCurrency(summary?.totalExpenses ?? 0)} />
+            <hr className="border-border-default" />
+            <SummaryRow
+              label="Net (sales minus expenses)"
+              value={formatCurrency(net)}
+              large
+              highlight={net >= 0 ? 'green' : 'red'}
+            />
           </div>
-          <Button variant="danger" onClick={() => setConfirmOpen(true)} className="w-full">
-            <Lock size={16} /> Close Day
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
 
-      {closed && closeResult && (
-        <Card className="border-success bg-success-muted">
-          <CardHeader>
-            <CardTitle>Day Closed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-success">Day close completed successfully.</p>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-xs text-text-secondary">Sales</p>
-                <p className="mt-2 text-xl font-semibold text-text-primary">{formatCurrency(closeResult.totalSales)}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-xs text-text-secondary">Orders</p>
-                <p className="mt-2 text-xl font-semibold text-text-primary">{closeResult.orderCount}</p>
-              </div>
-              <div className="rounded-3xl bg-surface-base p-4">
-                <p className="text-xs text-text-secondary">Expenses</p>
-                <p className="mt-2 text-xl font-semibold text-text-primary">{formatCurrency(closeResult.totalExpenses)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <Button onClick={() => setStep(2)} className="w-full">
+          Next: Count the cash →
+        </Button>
+      </div>
+    );
+  }
 
-      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm Day Close" size="md" footer={
-        <>
-          <Button variant="secondary" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-          <Button variant="danger" onClick={handleClose} loading={closing}>Close Day</Button>
-        </>
-      }>
-        <div className="space-y-4">
-          <p className="text-sm text-text-secondary">
-            This will lock today&apos;s operational data and record a day-close event.
-            Please make sure all food counts, cash reconciliation, and handover notes are complete.
+  // ─── STEP 2: Count the cash ───────────────────────────────────────
+  if (step === 2) {
+    return (
+      <div className="space-y-6 max-w-lg mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Count the cash</h1>
+          <p className="text-sm text-text-secondary mt-1">
+            Take out all the cash from the till and count it carefully before entering the amounts below.
           </p>
-          <div className="rounded-3xl bg-surface-default p-4 border border-border-default">
-            <p className="text-sm font-semibold text-text-primary">Today&apos;s summary</p>
-            <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-text-secondary">
-              <div className="flex justify-between">
-                <span>Total sales</span>
-                <strong>{formatCurrency(summary?.totalSales || 0)}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Order count</span>
-                <strong>{summary?.orderCount || 0}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Total expenses</span>
-                <strong>{formatCurrency(summary?.totalExpenses || 0)}</strong>
-              </div>
+        </div>
+
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="space-y-6 pt-5">
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-1">
+                Opening float
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                How much cash was put in the till at the start of today? (Leave as 0 if you don&apos;t use a float.)
+              </p>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={openingFloat}
+                onChange={(e) => setOpeningFloat(e.target.value)}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-1">
+                Cash in the till right now
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                Count every note and coin and enter the total amount here.
+              </p>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={cashCounted}
+                onChange={(e) => setCashCounted(e.target.value)}
+                min={0}
+              />
             </div>
           </div>
         </div>
-      </Modal>
+
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">← Back</Button>
+          <Button
+            onClick={() => setStep(3)}
+            disabled={!cashCounted || parseFloat(cashCounted) < 0}
+            className="flex-1"
+          >
+            Next: Review balance →
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STEP 3: Review & confirm ─────────────────────────────────────
+  return (
+    <div className="space-y-6 max-w-lg mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">Review &amp; close</h1>
+        <p className="text-sm text-text-secondary mt-1">
+          Check everything looks right before closing the day.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Cash balancing</p></div>
+        <div className="space-y-3">
+          <SummaryRow label="Opening float" value={formatCurrency(floatNum)} />
+          <SummaryRow label="Total sales today (system)" value={formatCurrency(summary?.totalSales ?? 0)} />
+          <SummaryRow label="Cash you counted" value={formatCurrency(countedNum)} large />
+          <div className="rounded-xl bg-surface-default border border-border-default p-3">
+            <p className="text-xs text-text-secondary">
+              The exact cash-vs-card split will be calculated when you close. The final balance report will show your variance against cash-only sales.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-text-primary mb-1">
+          Notes <span className="font-normal text-text-secondary">(optional)</span>
+        </label>
+        <textarea
+          className="w-full rounded-xl border border-border-default bg-surface-default p-3 text-base text-text-primary resize-none focus:outline-none focus:ring-2 focus:ring-gold"
+          rows={3}
+          placeholder="Any notes for the record (e.g. explanation for a cash discrepancy)..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+
+      <div className="rounded-xl border border-warning bg-warning-muted p-4">
+        <p className="text-sm font-semibold text-warning">This will lock today&apos;s records.</p>
+        <p className="text-xs text-text-secondary mt-1">Make sure all orders are done and stock counts are complete before closing.</p>
+      </div>
+
+      <div className="flex gap-3">
+        <Button variant="secondary" onClick={() => setStep(2)} className="flex-1">← Back</Button>
+        <Button variant="danger" onClick={handleClose} loading={closing} className="flex-1">
+          Close today →
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  large,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  large?: boolean;
+  highlight?: 'green' | 'red';
+}) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-sm text-text-secondary">{label}</span>
+      <span
+        className={[
+          large ? 'text-lg font-bold' : 'text-sm font-medium',
+          highlight === 'green' ? 'text-success' : highlight === 'red' ? 'text-danger' : 'text-text-primary',
+        ].join(' ')}
+      >
+        {value}
+      </span>
     </div>
   );
 }

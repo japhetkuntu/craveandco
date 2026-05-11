@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 import { Megaphone, Plus, Send } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
@@ -86,41 +87,55 @@ export default function GrowthCampaignsPage() {
         </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="p-4">
-            <form onSubmit={handleCreate} className="space-y-3">
-              <input
-                type="text"
-                placeholder="Campaign name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold"
-                required
-              />
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="w-full px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold"
-              >
-                <option value="BIRTHDAY">Birthday</option>
-                <option value="REACTIVATION">Win-Back</option>
-                <option value="PROMOTION">Promotion</option>
-                <option value="CUSTOM">Custom</option>
-              </select>
-              <textarea
-                placeholder="Campaign message"
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                rows={3}
-                className="w-full px-3 py-2 border border-border-default rounded-xl text-sm focus:ring-2 focus:ring-gold resize-none"
-                required
-              />
-              <Button type="submit" loading={submitting} className="w-full">Create Campaign</Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <Modal
+        open={showForm}
+        onClose={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}
+        title="New Campaign"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}>
+              Cancel
+            </Button>
+            <Button type="submit" form="new-campaign-form" loading={submitting}>
+              Create Campaign
+            </Button>
+          </>
+        }
+      >
+        <form id="new-campaign-form" onSubmit={handleCreate} className="space-y-4 pt-2">
+          <Input
+            label="Campaign Name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="e.g. Weekend Special, Birthday Reward"
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Campaign Type</label>
+            <select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border border-border-default bg-surface-raised text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+            >
+              <option value="BIRTHDAY">Birthday — send on customer birthdays</option>
+              <option value="REACTIVATION">Win-Back — bring back inactive customers</option>
+              <option value="PROMOTION">Promotion — special offer or discount</option>
+              <option value="CUSTOM">Custom — any other message</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Message</label>
+            <textarea
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              placeholder="Write the message your customers will receive..."
+              rows={4}
+              className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none resize-none"
+              required
+            />
+          </div>
+        </form>
+      </Modal>
 
       {campaigns.length === 0 ? (
         <p className="text-center text-text-tertiary py-12">No campaigns created yet</p>
@@ -128,8 +143,8 @@ export default function GrowthCampaignsPage() {
         <>
           <div className="space-y-3">
             {campaigns.map((c) => (
-              <Card key={c.id}>
-              <CardContent className="p-4">
+              <div key={c.id} className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+              <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-semibold text-text-primary">{c.name}</h3>
@@ -146,12 +161,20 @@ export default function GrowthCampaignsPage() {
                 </div>
                 <p className="text-sm text-text-secondary mt-2">{c.message}</p>
                 <div className="flex flex-wrap gap-4 mt-3 text-xs text-text-secondary">
-                  <span>Sent: {c.sentCount}</span>
-                  <span>Opened: {c.openCount}</span>
-                  <span>Redeemed: {c.redeemCount}</span>
+                  {c.status !== 'DRAFT' && c.sentCount > 0 ? (
+                    <>
+                      <span>Sent: <span className="font-semibold text-text-primary">{c.sentCount}</span></span>
+                      <span>Opened: <span className="font-semibold text-text-primary">{c.openCount}</span> ({Math.round(c.openCount / c.sentCount * 100)}%)</span>
+                      <span>Redeemed: <span className="font-semibold text-text-primary">{c.redeemCount}</span> ({Math.round(c.redeemCount / c.sentCount * 100)}%)</span>
+                    </>
+                  ) : c.status === 'DRAFT' ? (
+                    <span className="text-text-tertiary italic">Not yet launched</span>
+                  ) : (
+                    <span className="text-text-tertiary">Sent: {c.sentCount} — awaiting engagement data</span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
         <PaginationControls

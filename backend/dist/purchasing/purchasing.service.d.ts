@@ -46,8 +46,8 @@ export declare class PurchasingService {
         } & {
             id: string;
             quantity: import("@prisma/client/runtime/library").Decimal;
-            ingredientId: string;
             unitCost: import("@prisma/client/runtime/library").Decimal;
+            ingredientId: string;
             receivedQty: import("@prisma/client/runtime/library").Decimal;
             purchaseOrderId: string;
         })[];
@@ -87,8 +87,8 @@ export declare class PurchasingService {
         } & {
             id: string;
             quantity: import("@prisma/client/runtime/library").Decimal;
-            ingredientId: string;
             unitCost: import("@prisma/client/runtime/library").Decimal;
+            ingredientId: string;
             receivedQty: import("@prisma/client/runtime/library").Decimal;
             purchaseOrderId: string;
         })[];
@@ -128,8 +128,8 @@ export declare class PurchasingService {
         } & {
             id: string;
             quantity: import("@prisma/client/runtime/library").Decimal;
-            ingredientId: string;
             unitCost: import("@prisma/client/runtime/library").Decimal;
+            ingredientId: string;
             receivedQty: import("@prisma/client/runtime/library").Decimal;
             purchaseOrderId: string;
         })[];
@@ -169,8 +169,8 @@ export declare class PurchasingService {
         } & {
             id: string;
             quantity: import("@prisma/client/runtime/library").Decimal;
-            ingredientId: string;
             unitCost: import("@prisma/client/runtime/library").Decimal;
+            ingredientId: string;
             receivedQty: import("@prisma/client/runtime/library").Decimal;
             purchaseOrderId: string;
         })[];

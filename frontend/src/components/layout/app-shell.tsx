@@ -190,7 +190,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <main className={cn(
-        'pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-250',
+        'pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0 transition-all duration-250 min-h-screen h-screen overflow-y-auto',
         collapsed ? 'lg:pl-[72px]' : 'lg:pl-[260px]',
       )}>
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">

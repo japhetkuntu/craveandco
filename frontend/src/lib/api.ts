@@ -61,6 +61,16 @@ export async function api<T = any>(
 
   const baseUrl = API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
   const requestUrl = path.startsWith('http') ? path : `${baseUrl}${path}`;
+
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('API request', {
+      method: rest.method,
+      url: requestUrl,
+      auth: Boolean(authToken),
+      body: rest.body,
+    });
+  }
+
   const res = await fetch(requestUrl, {
     headers: {
       'Content-Type': 'application/json',

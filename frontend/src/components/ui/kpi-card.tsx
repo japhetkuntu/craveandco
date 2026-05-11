@@ -46,7 +46,7 @@ export function KPICard({
             {currencySymbol ? (
               <span className="text-xs text-text-secondary shrink-0">{currencySymbol}</span>
             ) : null}
-            <p className="text-lg sm:text-xl font-bold text-text-primary font-mono">{numericAmount}</p>
+            <p className="min-w-0 text-lg sm:text-xl font-bold text-text-primary font-mono whitespace-normal break-words">{numericAmount}</p>
           </div>
         </div>
         {icon && (

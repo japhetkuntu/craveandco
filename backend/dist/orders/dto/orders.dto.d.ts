@@ -30,6 +30,7 @@ export declare class PayOrderDto {
     receiptUrl?: string;
     customerId?: string;
     redeemPoints?: number;
+    promotionId?: string;
 }
 export declare class AddOrderItemDto {
     menuItemId: string;

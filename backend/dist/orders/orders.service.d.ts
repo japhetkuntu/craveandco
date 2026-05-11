@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, UpdateOrderStatusDto, UpdateOrderItemsDto, PayOrderDto, AddOrderItemDto } from './dto/orders.dto';
 import { Prisma } from '@prisma/client';
+import { PromotionsService } from '../promotions/promotions.service';
 export declare class OrdersService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private promotions;
+    constructor(prisma: PrismaService, promotions: PromotionsService);
     private orderInclude;
     private loadMenuItemsWithCosts;
     private getSelectedOptionAdjustment;
@@ -40,8 +42,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -51,8 +53,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -64,9 +66,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -81,6 +83,7 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;
@@ -117,8 +120,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -128,8 +131,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -141,9 +144,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -158,6 +161,7 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;
@@ -192,8 +196,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -203,8 +207,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -216,9 +220,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -233,6 +237,7 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;
@@ -267,8 +272,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -278,8 +283,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -291,9 +296,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -308,6 +313,7 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;
@@ -342,8 +348,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -353,8 +359,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -366,9 +372,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -383,12 +389,27 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;
     }>;
     pay(id: string, dto: PayOrderDto): Promise<any>;
     findLive(branchId: string, page?: number, limit?: number): Promise<any[]>;
+    private buildOrderWhere;
+    getStats(branchId: string, params: {
+        status?: string;
+        channel?: string;
+        paymentMethod?: string;
+        from?: string;
+        to?: string;
+        search?: string;
+    }): Promise<{
+        count: number;
+        totalRevenue: number;
+        foodCost: number;
+        avgTicket: number;
+    }>;
     findAll(branchId: string, params: {
         status?: string;
         channel?: string;
@@ -427,8 +448,8 @@ export declare class OrdersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                categoryId: string;
                 description: string | null;
+                categoryId: string;
                 price: Prisma.Decimal;
                 imageUrl: string | null;
                 available: boolean;
@@ -438,8 +459,8 @@ export declare class OrdersService {
             ingredientCosts: {
                 id: string;
                 quantity: Prisma.Decimal;
-                ingredientId: string;
                 unitCost: Prisma.Decimal;
+                ingredientId: string;
                 ingredientName: string;
                 ingredientUnit: string;
                 totalCost: Prisma.Decimal;
@@ -451,9 +472,9 @@ export declare class OrdersService {
             quantity: number;
             notes: string | null;
             selectedOptions: Prisma.JsonValue | null;
+            orderId: string;
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
-            orderId: string;
         })[];
     } & {
         branchId: string;
@@ -468,6 +489,7 @@ export declare class OrdersService {
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;
+        promotionId: string | null;
         total: Prisma.Decimal;
         foodCost: Prisma.Decimal;
         paidAt: Date | null;

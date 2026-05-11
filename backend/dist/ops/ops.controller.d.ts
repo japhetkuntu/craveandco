@@ -30,7 +30,11 @@ export declare class OpsController {
         status: import("@prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }[]>;
-    dayClose(branchId: string, userId: string): Promise<{
+    dayClose(branchId: string, userId: string, body: {
+        openingFloat?: number;
+        cashCounted?: number;
+        notes?: string;
+    }): Promise<{
         date: string;
         totalSales: number;
         orderCount: number;
@@ -38,6 +42,13 @@ export declare class OpsController {
         closedBy: string;
         closedAt: Date;
         auditId: string;
+        cashBalance: {
+            openingFloat: number;
+            cashSales: number;
+            expectedCash: number;
+            cashCounted: number;
+            variance: number;
+        };
     }>;
     getDayCloseSummary(branchId: string, date: string): Promise<{
         date: string;
@@ -50,7 +61,7 @@ export declare class OpsController {
         auditId: string | null;
     }>;
     getChecklists(branchId: string, currentUserId: string, role: string, date: string): Promise<string | number | true | import("@prisma/client/runtime/library").JsonObject | import("@prisma/client/runtime/library").JsonArray | null>;
-    getChecklistHistory(branchId: string, currentUserId: string, role: string, from?: string, to?: string, userId?: string): Promise<{
+    getChecklistHistory(branchId: string, currentUserId: string, role: string, from?: string, to?: string, userId?: string, roleFilter?: string): Promise<{
         history: {
             id: string;
             date: any;

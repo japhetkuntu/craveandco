@@ -123,6 +123,7 @@ class PayOrderDto {
     receiptUrl;
     customerId;
     redeemPoints;
+    promotionId;
 }
 exports.PayOrderDto = PayOrderDto;
 __decorate([
@@ -150,6 +151,11 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], PayOrderDto.prototype, "redeemPoints", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], PayOrderDto.prototype, "promotionId", void 0);
 class AddOrderItemDto {
     menuItemId;
     quantity;

@@ -17,6 +17,20 @@ export class OrdersController {
     return this.orders.create(dto);
   }
 
+  @Get('stats')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+  getStats(
+    @CurrentUser('branchId') branchId: string,
+    @Query('status') status?: string,
+    @Query('channel') channel?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search });
+  }
+
   @Get('live')
   @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD')
   findLive(

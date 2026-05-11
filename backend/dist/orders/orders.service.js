@@ -13,10 +13,13 @@ exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
+const promotions_service_1 = require("../promotions/promotions.service");
 let OrdersService = class OrdersService {
     prisma;
-    constructor(prisma) {
+    promotions;
+    constructor(prisma, promotions) {
         this.prisma = prisma;
+        this.promotions = promotions;
     }
     orderInclude = {
         items: {
@@ -281,6 +284,27 @@ let OrdersService = class OrdersService {
         }
         let paidTotal = Number(order.total);
         const loyaltyTransactions = [];
+        let appliedPromotionId;
+        if (dto.promotionId) {
+            const promotion = await this.promotions.findById(dto.promotionId);
+            if (!promotion)
+                throw new common_1.BadRequestException('Promotion not found');
+            if (promotion.status !== 'ACTIVE')
+                throw new common_1.BadRequestException('Promotion is not active');
+            const now = new Date();
+            if (promotion.startDate && promotion.startDate > now) {
+                throw new common_1.BadRequestException('Promotion has not started yet');
+            }
+            if (promotion.endDate && promotion.endDate < now) {
+                throw new common_1.BadRequestException('Promotion has expired');
+            }
+            if (promotion.minOrderAmount && paidTotal < Number(promotion.minOrderAmount)) {
+                throw new common_1.BadRequestException(`Order total must be at least ${promotion.minOrderAmount} to apply this promotion`);
+            }
+            const { discountAmount, finalTotal } = this.promotions.calculateDiscount(dto.promotionId, paidTotal, promotion);
+            paidTotal = finalTotal;
+            appliedPromotionId = dto.promotionId;
+        }
         const redeemPoints = dto.redeemPoints === 100 ? 100 : 0;
         if (dto.redeemPoints && dto.redeemPoints !== 100) {
             throw new common_1.BadRequestException('Redeem points must be exactly 100 for a 5% discount');
@@ -337,11 +361,22 @@ let OrdersService = class OrdersService {
                 status: client_1.OrderStatus.COMPLETED,
                 total: paidTotal,
                 customerId: customerId || undefined,
+                ...(appliedPromotionId ? { promotionId: appliedPromotionId } : {}),
             },
             include: this.orderInclude,
         });
-        if (loyaltyTransactions.length) {
-            await Promise.all(loyaltyTransactions);
+        const postPayTasks = [...loyaltyTransactions];
+        if (appliedPromotionId) {
+            const origTotal = Number(order.total);
+            const promoDiscount = Number((origTotal - paidTotal).toFixed(2));
+            const prePayTotal = redeemPoints > 0
+                ? Number((origTotal * 0.95).toFixed(2))
+                : origTotal;
+            const totalDiscountGiven = Number((Number(order.total) - paidTotal).toFixed(2));
+            postPayTasks.push(this.promotions.recordUsage(appliedPromotionId, Math.max(totalDiscountGiven, 0)));
+        }
+        if (postPayTasks.length) {
+            await Promise.all(postPayTasks);
         }
         return this.enrichOrder(updatedOrder);
     }
@@ -360,27 +395,44 @@ let OrdersService = class OrdersService {
         });
         return orders.map((order) => this.enrichOrder(order));
     }
-    async findAll(branchId, params, page = 0, limit = 50) {
+    buildOrderWhere(branchId, params) {
         const search = params.search?.trim();
+        return {
+            branchId,
+            ...(params.status && { status: params.status }),
+            ...(params.channel && { channel: params.channel }),
+            ...(params.paymentMethod && { paymentMethod: params.paymentMethod }),
+            ...(params.from && { createdAt: { gte: new Date(params.from) } }),
+            ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+            ...(search
+                ? {
+                    OR: [
+                        { id: { contains: search, mode: client_1.Prisma.QueryMode.insensitive } },
+                        { customer: { name: { contains: search, mode: client_1.Prisma.QueryMode.insensitive } } },
+                    ],
+                }
+                : {}),
+        };
+    }
+    async getStats(branchId, params) {
+        const where = this.buildOrderWhere(branchId, params);
+        const [count, agg] = await Promise.all([
+            this.prisma.order.count({ where }),
+            this.prisma.order.aggregate({
+                where,
+                _sum: { total: true, foodCost: true },
+            }),
+        ]);
+        const totalRevenue = Number(agg._sum.total ?? 0);
+        const foodCost = Number(agg._sum.foodCost ?? 0);
+        const avgTicket = count > 0 ? Number((totalRevenue / count).toFixed(2)) : 0;
+        return { count, totalRevenue, foodCost, avgTicket };
+    }
+    async findAll(branchId, params, page = 0, limit = 50) {
         const take = Math.min(Math.max(limit, 1), 100);
         const skip = Math.max(page, 0) * take;
         const orders = await this.prisma.order.findMany({
-            where: {
-                branchId,
-                ...(params.status && { status: params.status }),
-                ...(params.channel && { channel: params.channel }),
-                ...(params.paymentMethod && { paymentMethod: params.paymentMethod }),
-                ...(params.from && { createdAt: { gte: new Date(params.from) } }),
-                ...(params.to && { createdAt: { lte: new Date(params.to) } }),
-                ...(search
-                    ? {
-                        OR: [
-                            { id: { contains: search, mode: client_1.Prisma.QueryMode.insensitive } },
-                            { customer: { name: { contains: search, mode: client_1.Prisma.QueryMode.insensitive } } },
-                        ],
-                    }
-                    : {}),
-            },
+            where: this.buildOrderWhere(branchId, params),
             include: this.orderInclude,
             orderBy: { createdAt: 'desc' },
             take,
@@ -399,6 +451,7 @@ let OrdersService = class OrdersService {
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        promotions_service_1.PromotionsService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { API_PATHS } from '@/lib/constants';
 import { get, post, patch, del } from '@/lib/api';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { Modal } from '@/components/ui/modal';
 
 interface MenuOptionValue {
   id: string;
@@ -93,6 +93,8 @@ export default function OwnerMenuPage() {
   const [recipeImportSourceId, setRecipeImportSourceId] = useState('');
   const [recipeForm, setRecipeForm] = useState({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
 
   const createOption = () => ({
     id: `opt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -425,25 +427,27 @@ export default function OwnerMenuPage() {
     }
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
+  const handleCreateCategory = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
-    if (!newCategory.trim()) return;
+    if (!newCategory.trim()) return false;
     setSaving(true);
     setError('');
     try {
       await post('/api/v1/menu/categories', { name: newCategory.trim() }, token ?? undefined);
       setNewCategory('');
       await fetchData();
+      return true;
     } catch (err: any) {
       setError(err.message || 'Failed to create category');
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCreateItem = async (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
-    if (!newItem.name.trim() || newItem.price <= 0 || !newItem.categoryId) return;
+    if (!newItem.name.trim() || newItem.price <= 0 || !newItem.categoryId) return false;
     setSaving(true);
     setError('');
     try {
@@ -472,8 +476,10 @@ export default function OwnerMenuPage() {
       setNewItem({ ...newItem, name: '', description: '', price: 0 });
       setNewItemOptions([]);
       await fetchData();
+      return true;
     } catch (err: any) {
       setError(err.message || 'Failed to create menu item');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -499,353 +505,344 @@ export default function OwnerMenuPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className="space-y-6 pb-8">
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Utensils className="text-gold" /> Menu Management
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+            <Utensils className="text-[var(--color-gold)]" /> Menu Management
           </h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Full menu management for your branch, including categories, items, availability, and recipe costing.
-          </p>
+          <p className="text-sm text-text-secondary mt-0.5">Manage categories, items, availability and recipe costing.</p>
         </div>
-        <Button variant="primary" size="lg" onClick={() => setActiveCategory('')}>
-          <BookOpen size={18} /> Show All Categories
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setShowCategoryModal(true)}>
+            <Plus size={14} /> Add Category
+          </Button>
+          <Button size="sm" onClick={() => { setNewItem({ name: '', description: '', price: 0, categoryId: categories[0]?.id ?? '' }); setNewItemOptions([]); setError(''); setShowItemModal(true); }}>
+            <Plus size={14} /> Add Item
+          </Button>
+        </div>
       </div>
 
-      {error && (
-        <div className="rounded-3xl bg-error-muted p-4 text-sm text-error">{error}</div>
-      )}
+      {error && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{error}</div>}
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_0.7fr]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleCreateCategory}>
-                <label className="block">
-                  <span className="text-sm font-medium text-text-secondary">Category Name</span>
-                  <input
-                    type="text"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    required
-                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    placeholder="Breakfast, Main, Dessert"
-                  />
-                </label>
-                <Button type="submit" loading={saving} className="w-full">
-                  <Plus size={18} /> Add Category
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Menu Item</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleCreateItem}>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block">
-                    <span className="text-sm font-medium text-text-secondary">Item Name</span>
-                    <input
-                      type="text"
-                      value={newItem.name}
-                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                      required
-                      className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-text-secondary">Category</span>
-                    <select
-                      value={newItem.categoryId}
-                      onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
-                      required
-                      className="mt-2 w-full rounded-2xl border border-border-default bg-surface-raised px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    >
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block">
-                    <span className="text-sm font-medium text-text-secondary">Price</span>
-                    <input
-                      type="number"
-                      value={newItem.price}
-                      onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
-                      required
-                      min={0}
-                      step={0.01}
-                      className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-text-secondary">Description</span>
-                    <input
-                      type="text"
-                      value={newItem.description}
-                      onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                      className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    />
-                  </label>
-                </div>
-                <div className="rounded-3xl border border-border-default bg-surface-base p-4 space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Variations</h3>
-                      <p className="text-xs text-text-secondary">Add optional or required choices for this item.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addNewItemOption}
-                      className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-secondary hover:border-gold hover:text-gold"
-                    >
-                      Add Option
-                    </button>
-                  </div>
-                  {newItemOptions.length === 0 ? (
-                    <p className="text-sm text-text-tertiary">No variations configured.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {newItemOptions.map((option, optionIndex) => (
-                        <div key={option.id} className="rounded-3xl border border-slate-200 bg-white p-4 space-y-4">
-                          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                            <label className="block flex-1">
-                              <span className="text-sm font-medium text-text-secondary">Option name</span>
-                              <input
-                                type="text"
-                                value={option.name}
-                                onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { name: e.target.value }))}
-                                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                placeholder="Soup type, Protein style"
-                              />
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              <label className="flex items-center gap-2 text-sm text-text-secondary">
-                                <input
-                                  type="checkbox"
-                                  checked={option.required}
-                                  onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { required: e.target.checked }))}
-                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
-                                />
-                                Required
-                              </label>
-                              <label className="flex items-center gap-2 text-sm text-text-secondary">
-                                <input
-                                  type="checkbox"
-                                  checked={option.multiple}
-                                  onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { multiple: e.target.checked }))}
-                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
-                                />
-                                Multiple
-                              </label>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-semibold text-text-primary">Option values</span>
-                              <button
-                                type="button"
-                                onClick={() => addNewItemOptionValue(optionIndex)}
-                                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-2 text-sm text-text-secondary hover:border-gold hover:text-gold"
-                              >
-                                Add Value
-                              </button>
-                            </div>
-                            {option.values.map((value, valueIndex) => (
-                              <div key={value.id} className="grid gap-3 md:grid-cols-[1fr_0.8fr_0.4fr] items-end">
-                                <label className="block">
-                                  <span className="text-sm font-medium text-text-secondary">Value</span>
-                                  <input
-                                    type="text"
-                                    value={value.label}
-                                    onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
-                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                    placeholder="Light broth, Grilled, Fried"
-                                  />
-                                </label>
-                                <label className="block">
-                                  <span className="text-sm font-medium text-text-secondary">Extra</span>
-                                  <input
-                                    type="number"
-                                    value={value.priceAdjustment}
-                                    onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
-                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                    placeholder="0"
-                                    step="0.01"
-                                    min="0"
-                                  />
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => removeNewItemOptionValue(optionIndex, valueIndex)}
-                                  className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeNewItemOption(optionIndex)}
-                            className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
-                          >
-                            Remove Option
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <Button type="submit" loading={saving} className="w-full">
-                  <Plus size={18} /> Add Menu Item
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Total Items</p>
+          <p className="text-3xl font-bold font-mono text-text-primary mt-1">{items.length}</p>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tag size={18} /> Categories
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {categories.map((category) => (
-                <div key={category.id} className="flex items-center justify-between gap-3 p-4 rounded-3xl bg-surface-raised shadow-sm">
-                  <div>
-                    <p className="font-semibold text-text-primary">{category.name}</p>
-                  </div>
-                </div>
-              ))}
-              {categories.length === 0 && (
-                <p className="text-sm text-text-secondary">No categories yet. Add one to get started.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-success/30 bg-success-muted p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-success">Available</p>
+          <p className="text-3xl font-bold font-mono text-success mt-1">{items.filter((i) => i.available).length}</p>
+        </div>
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Unavailable</p>
+          <p className="text-3xl font-bold font-mono text-text-primary mt-1">{items.filter((i) => !i.available).length}</p>
+        </div>
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Categories</p>
+          <p className="text-3xl font-bold font-mono text-text-primary mt-1">{categories.length}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredItems.map((item) => (
-          <Card key={item.id} className={!item.available ? 'opacity-80' : ''}>
-            <CardContent className="space-y-4 p-5">
+      {/* Category filter pills */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setActiveCategory('')}
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${!activeCategory ? 'bg-[var(--color-gold)] text-white shadow-sm' : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'}`}
+        >
+          All Items
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.name)}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeCategory === cat.name ? 'bg-[var(--color-gold)] text-white shadow-sm' : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'}`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Items grid */}
+      {filteredItems.length === 0 ? (
+        <div className="rounded-3xl border border-border-default bg-surface-raised flex flex-col items-center gap-2 py-16 text-center">
+          <Utensils size={32} className="opacity-30" />
+          <p className="text-sm font-semibold text-text-secondary">No items{activeCategory ? ` in ${activeCategory}` : ''}</p>
+          <p className="text-xs text-text-tertiary">Add an item to get started</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredItems.map((item) => (
+            <div key={item.id} className={`rounded-3xl border border-border-default bg-surface-raised p-5 space-y-3 flex flex-col ${!item.available ? 'opacity-70' : ''}`}>
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-text-primary">{item.name}</h3>
-                  <p className="text-xs text-text-secondary">{item.category?.name}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-text-primary truncate">{item.name}</h3>
+                  <span className="inline-block mt-0.5 text-xs text-text-tertiary bg-surface-elevated px-2 py-0.5 rounded-full">{item.category?.name}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => startEditItem(item)}
-                    className="rounded-full p-2 text-text-secondary hover:text-gold transition-colors"
-                    aria-label="Edit item"
+                    className="rounded-full p-2 text-text-secondary hover:text-[var(--color-gold)] hover:bg-surface-elevated transition-colors"
+                    title="Edit item"
                   >
-                    <Tag size={20} />
+                    <Tag size={16} />
                   </button>
                   <button
                     onClick={() => toggleAvailability(item.id)}
-                    className="rounded-full p-2 text-text-secondary hover:text-gold transition-colors"
-                    aria-label="Toggle availability"
+                    className="rounded-full p-2 text-text-secondary hover:text-[var(--color-gold)] hover:bg-surface-elevated transition-colors"
+                    title="Toggle availability"
                   >
-                    {item.available ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                    {item.available ? <ToggleRight size={20} className="text-success" /> : <ToggleLeft size={20} />}
                   </button>
                   <button
                     onClick={() => handleDeleteItem(item.id)}
-                    className="rounded-full p-2 text-error hover:text-error transition-colors"
-                    aria-label="Delete item"
+                    className="rounded-full p-2 text-text-tertiary hover:text-error hover:bg-surface-elevated transition-colors"
+                    title="Delete item"
                   >
-                    <Trash2 size={24} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
-              <p className="text-sm text-text-secondary">{item.description || 'No description added yet.'}</p>
+              <p className="text-sm text-text-secondary flex-1">{item.description || 'No description.'}</p>
               {item.options?.length ? (
-                <div className="inline-flex items-center gap-2 rounded-full bg-surface-elevated px-3 py-1 text-xs text-text-secondary">
-                  <span>{item.options.length} variation{item.options.length > 1 ? 's' : ''}</span>
-                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-surface-elevated px-3 py-1 text-xs text-text-secondary self-start">
+                  {item.options.length} variation{item.options.length > 1 ? 's' : ''}
+                </span>
               ) : null}
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-bold text-gold">{formatCurrency(item.price)}</span>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    item.available ? 'bg-success-muted text-success' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
+              <div className="flex items-center justify-between pt-2 border-t border-border-subtle mt-auto">
+                <span className="text-lg font-bold font-mono text-[var(--color-gold)]">{formatCurrency(item.price)}</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.available ? 'bg-success-muted text-success' : 'bg-surface-elevated text-text-tertiary'}`}>
                   {item.available ? 'Available' : 'Unavailable'}
                 </span>
               </div>
               <Button variant="ghost" size="sm" className="w-full" onClick={() => openRecipeEditor(item)}>
-                <BookOpen size={18} /> Manage Recipe
+                <BookOpen size={16} /> Manage Recipe
               </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {selectedMenuItem && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden">
-            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-text-primary">Recipe for {selectedMenuItem.name}</h2>
-                <p className="text-sm text-text-secondary mt-1">Manage ingredients, unit costs, and recipe totals for this menu item.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button variant="secondary" onClick={closeRecipeEditor}>
-                  Close
-                </Button>
-              </div>
             </div>
-            <div className="space-y-6 overflow-y-auto p-6 max-h-[calc(90%-5.5rem)]">
-              {recipeError && (
-                <div className="rounded-3xl bg-error-muted p-4 text-sm text-error">{recipeError}</div>
-              )}
+          ))}
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      <Modal
+        open={showCategoryModal}
+        onClose={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}
+        title="Add Category"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}>Cancel</Button>
+            <Button type="submit" form="new-category-form" loading={saving}>Add Category</Button>
+          </>
+        }
+      >
+        {error && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{error}</div>}
+        <form
+          id="new-category-form"
+          onSubmit={async (e) => { const ok = await handleCreateCategory(e); if (ok) setShowCategoryModal(false); }}
+          className="pt-1"
+        >
+          <label className="block">
+            <span className="text-sm font-medium text-text-secondary">Category Name</span>
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              required
+              autoFocus
+              className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+              placeholder="e.g. Breakfast, Main Course, Dessert"
+            />
+          </label>
+        </form>
+      </Modal>
+
+      {/* Add Item Modal */}
+      <Modal
+        open={showItemModal}
+        onClose={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}
+        title="Add Menu Item"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Cancel</Button>
+            <Button type="submit" form="new-item-form" loading={saving}>Add Item</Button>
+          </>
+        }
+      >
+        {error && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{error}</div>}
+        <form
+          id="new-item-form"
+          onSubmit={async (e) => { const ok = await handleCreateItem(e); if (ok) setShowItemModal(false); }}
+          className="space-y-4 pt-1"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Item Name</span>
+              <input
+                type="text"
+                value={newItem.name}
+                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                required
+                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                placeholder="e.g. Jollof Rice"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Category</span>
+              <select
+                value={newItem.categoryId}
+                onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
+                required
+                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+              >
+                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
+              <input
+                type="number"
+                value={newItem.price}
+                onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
+                required
+                min={0}
+                step={0.01}
+                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-text-secondary">Description</span>
+              <input
+                type="text"
+                value={newItem.description}
+                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                placeholder="Brief description (optional)"
+              />
+            </label>
+          </div>
+          {/* Variations */}
+          <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Variations</p>
+                <p className="text-xs text-text-secondary">Optional or required choices for this item</p>
+              </div>
+              <button
+                type="button"
+                onClick={addNewItemOption}
+                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-1.5 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors"
+              >
+                + Add Option
+              </button>
+            </div>
+            {newItemOptions.length === 0 ? (
+              <p className="text-sm text-text-tertiary">No variations yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {newItemOptions.map((option, optionIndex) => (
+                  <div key={option.id} className="rounded-2xl border border-border-subtle bg-surface-raised p-4 space-y-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <label className="block flex-1">
+                        <span className="text-xs font-medium text-text-secondary">Option name</span>
+                        <input
+                          type="text"
+                          value={option.name}
+                          onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { name: e.target.value }))}
+                          className="mt-1 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                          placeholder="e.g. Soup type"
+                        />
+                      </label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm text-text-secondary">
+                          <input type="checkbox" checked={option.required} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { required: e.target.checked }))} className="h-4 w-4 rounded" />
+                          Required
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-text-secondary">
+                          <input type="checkbox" checked={option.multiple} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { multiple: e.target.checked }))} className="h-4 w-4 rounded" />
+                          Multiple
+                        </label>
+                        <button type="button" onClick={() => removeNewItemOption(optionIndex)} className="text-xs text-error hover:underline">Remove</button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-text-secondary">Values</span>
+                        <button type="button" onClick={() => addNewItemOptionValue(optionIndex)} className="text-xs text-[var(--color-gold)] hover:underline">+ Add Value</button>
+                      </div>
+                      {option.values.map((value, valueIndex) => (
+                        <div key={value.id} className="grid gap-2 grid-cols-[1fr_0.6fr_auto] items-center">
+                          <input
+                            type="text"
+                            value={value.label}
+                            onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
+                            className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                            placeholder="Label"
+                          />
+                          <input
+                            type="number"
+                            value={value.priceAdjustment}
+                            onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
+                            className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                            placeholder="+0.00"
+                            step="0.01"
+                            min="0"
+                          />
+                          <button type="button" onClick={() => removeNewItemOptionValue(optionIndex, valueIndex)} className="rounded-xl border border-border-subtle px-2 py-2 text-xs text-error hover:border-error transition-colors">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </form>
+      </Modal>
+
+      {/* Recipe Editor — fullscreen overlay */}
+      {selectedMenuItem && (
+        <div
+          className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+        >
+          <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col min-h-0">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Recipe — {selectedMenuItem.name}</h2>
+                <p className="text-sm text-text-secondary mt-1">Manage ingredients, unit costs and totals.</p>
+              </div>
+              <Button variant="secondary" onClick={closeRecipeEditor}>Close</Button>
+            </div>
+            <div
+              className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+            >
+              {recipeError && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{recipeError}</div>}
 
               {recipeItems.length === 0 && (
-                <div className="rounded-3xl border border-slate-200 bg-amber-50 p-4 text-sm text-slate-800">
-                  <p className="font-semibold">Import cost items from another menu item</p>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Select an existing menu item with cost items to import into this item. This action is only available when this item has no cost items yet.
-                  </p>
-                  {recipeImportError && (
-                    <p className="mt-2 text-sm text-error">{recipeImportError}</p>
-                  )}
+                <div className="rounded-2xl border border-warning/30 bg-warning-muted p-4 text-sm">
+                  <p className="font-semibold text-text-primary">Import cost items from another menu item</p>
+                  <p className="mt-1 text-text-secondary">Select an existing menu item to copy its recipe into this one. Only available when this item has no recipe items yet.</p>
+                  {recipeImportError && <p className="mt-2 text-error">{recipeImportError}</p>}
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <label className="flex-1">
-                      <span className="block text-sm font-medium text-text-secondary">Source menu item</span>
-                      <select
-                        value={recipeImportSourceId}
-                        onChange={(e) => setRecipeImportSourceId(e.target.value)}
-                        className="mt-2 w-full rounded-2xl border border-border-default bg-white px-4 py-3 text-sm text-text-primary outline-none focus:border-gold focus:ring-2 focus:ring-gold"
-                      >
-                        {recipeImportSources.length === 0 ? (
-                          <option value="">No available source items</option>
-                        ) : (
-                          recipeImportSources.map((source) => (
-                            <option key={source.id} value={source.id}>
-                              {source.name} — {source.category.name}
-                            </option>
+                    <select
+                      value={recipeImportSourceId}
+                      onChange={(e) => setRecipeImportSourceId(e.target.value)}
+                      className="flex-1 rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    >
+                      {recipeImportSources.length === 0
+                        ? <option value="">No available source items</option>
+                        : recipeImportSources.map((source) => (
+                            <option key={source.id} value={source.id}>{source.name} — {source.category.name}</option>
                           ))
-                        )}
-                      </select>
-                    </label>
+                      }
+                    </select>
                     <Button
-                      variant="primary"
                       onClick={importRecipeItems}
                       disabled={recipeImportSources.length === 0 || !recipeImportSourceId || recipeImportLoading}
                       loading={recipeImportLoading}
@@ -856,213 +853,149 @@ export default function OwnerMenuPage() {
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-surface-raised p-4">
+              {/* Recipe table */}
+              <div className="rounded-3xl border border-border-subtle bg-surface-raised overflow-hidden">
                 {recipeLoading ? (
                   <PageSkeleton />
                 ) : (
-                  <div className="min-w-[500px]">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 text-sm font-semibold text-slate-600 pb-3 border-b border-slate-200">
-                      <div>Ingredient</div>
-                      <div className="text-right">Quantity</div>
-                      <div className="text-right">Unit</div>
-                      <div className="text-right">Unit Cost</div>
-                      <div className="text-right">Total Cost</div>
-                    </div>
-                    {recipeItems.length === 0 ? (
-                      <p className="mt-4 text-sm text-slate-500">No recipe items added yet.</p>
-                    ) : (
-                      recipeItems.map((recipeItem) => (
-                        <div
-                          key={recipeItem.id}
-                          className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4 border-b border-slate-200 py-3 text-sm text-slate-700"
-                        >
-                          <div>{recipeItem.ingredient.name}</div>
-                          <div className="text-right">{recipeItem.quantity}</div>
-                          <div className="text-right">{recipeItem.unit || recipeItem.ingredient.unit}</div>
-                          <div className="text-right">{formatCurrency(recipeItem.ingredient.currentCost)}</div>
-                          <div className="text-right font-semibold">
-                            {formatCurrency(Number(recipeItem.ingredient.currentCost) * recipeItem.quantity)}
-                          </div>
-                          <div className="col-span-full flex flex-wrap items-center gap-2 pt-2">
-                            <Button variant="ghost" size="sm" onClick={() => startRecipeEdit(recipeItem)}>
-                              Edit
-                            </Button>
-                            <Button variant="danger" size="sm" onClick={() => deleteRecipeItem(recipeItem.id)}>
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[520px]">
+                      <thead>
+                        <tr className="border-b border-border-subtle text-left">
+                          <th className="px-4 py-3 text-xs font-medium text-text-tertiary">Ingredient</th>
+                          <th className="px-4 py-3 text-xs font-medium text-text-tertiary text-right">Qty</th>
+                          <th className="px-4 py-3 text-xs font-medium text-text-tertiary">Unit</th>
+                          <th className="px-4 py-3 text-xs font-medium text-text-tertiary text-right">Unit Cost</th>
+                          <th className="px-4 py-3 text-xs font-medium text-text-tertiary text-right">Total</th>
+                          <th className="px-4 py-3" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-subtle">
+                        {recipeItems.length === 0 ? (
+                          <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-text-tertiary">No recipe items added yet.</td></tr>
+                        ) : (
+                          recipeItems.map((recipeItem) => (
+                            <tr key={recipeItem.id}>
+                              <td className="px-4 py-3 font-medium text-text-primary">{recipeItem.ingredient.name}</td>
+                              <td className="px-4 py-3 text-right font-mono text-text-secondary">{recipeItem.quantity}</td>
+                              <td className="px-4 py-3 text-text-secondary">{recipeItem.unit || recipeItem.ingredient.unit}</td>
+                              <td className="px-4 py-3 text-right font-mono text-text-secondary">{formatCurrency(recipeItem.ingredient.currentCost)}</td>
+                              <td className="px-4 py-3 text-right font-mono font-semibold text-text-primary">{formatCurrency(Number(recipeItem.ingredient.currentCost) * recipeItem.quantity)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2 justify-end">
+                                  <Button variant="ghost" size="sm" onClick={() => startRecipeEdit(recipeItem)}>Edit</Button>
+                                  <Button variant="danger" size="sm" onClick={() => deleteRecipeItem(recipeItem.id)}>Delete</Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {recipeItems.length > 0 && (
+                        <tfoot>
+                          <tr className="border-t border-border-default bg-surface-base">
+                            <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-text-secondary">Total Recipe Cost</td>
+                            <td className="px-4 py-3 text-right font-mono font-bold text-text-primary">
+                              {formatCurrency(recipeItems.reduce((sum, ri) => sum + Number(ri.ingredient.currentCost) * ri.quantity, 0))}
+                            </td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
                   </div>
                 )}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-                <Card className="p-0">
-                  <CardHeader>
-                    <CardTitle>{editingRecipeId ? 'Edit Recipe Item' : 'Add Recipe Item'}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <form className="space-y-4" onSubmit={handleRecipeFormSubmit}>
+              {/* Add / Edit Recipe Item form */}
+              <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+                <div className="px-4 py-3 border-b border-border-subtle">
+                  <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">{editingRecipeId ? 'Edit Recipe Item' : 'Add Recipe Item'}</p>
+                </div>
+                <div className="p-4">
+                  <form className="space-y-4" onSubmit={handleRecipeFormSubmit}>
+                    <label className="block">
+                      <span className="text-sm font-medium text-text-secondary">Ingredient</span>
+                      <input
+                        type="text"
+                        list="ingredient-options"
+                        value={recipeForm.ingredientName}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          const existing = ingredients.find((ingredient) => ingredient.name.toLowerCase() === nextValue.toLowerCase());
+                          setRecipeForm({ ...recipeForm, ingredientName: nextValue, unit: existing?.unit ?? recipeForm.unit, unitCost: existing?.currentCost ?? recipeForm.unitCost });
+                        }}
+                        required
+                        className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                        placeholder="Enter ingredient name"
+                      />
+                      <datalist id="ingredient-options">
+                        {ingredients.map((ingredient) => <option key={ingredient.id} value={ingredient.name} />)}
+                      </datalist>
+                      <p className="text-xs text-text-tertiary mt-1">Type a name or pick from existing ingredients.</p>
+                    </label>
+                    <div className="grid gap-4 sm:grid-cols-3">
                       <label className="block">
-                        <span className="text-sm font-medium text-text-secondary">Ingredient</span>
-                        <input
-                          type="text"
-                          list="ingredient-options"
-                          value={recipeForm.ingredientName}
-                          onChange={(e) => {
-                            const nextValue = e.target.value;
-                            const existing = ingredients.find((ingredient) => ingredient.name.toLowerCase() === nextValue.toLowerCase());
-                            setRecipeForm({
-                              ...recipeForm,
-                              ingredientName: nextValue,
-                              unit: existing?.unit ?? recipeForm.unit,
-                              unitCost: existing?.currentCost ?? recipeForm.unitCost,
-                            });
-                          }}
-                          required
-                          className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                          placeholder="Enter ingredient name"
-                        />
-                        <datalist id="ingredient-options">
-                          {ingredients.map((ingredient) => (
-                            <option key={ingredient.id} value={ingredient.name} />
-                          ))}
-                        </datalist>
-                        <p className="text-xs text-text-secondary mt-2">Select an existing ingredient or type a new name to create it automatically.</p>
+                        <span className="text-sm font-medium text-text-secondary">Quantity</span>
+                        <input type="number" value={recipeForm.quantity} onChange={(e) => setRecipeForm({ ...recipeForm, quantity: Number(e.target.value) })} required min={0} step={0.01} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
                       </label>
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <label className="block">
-                          <span className="text-sm font-medium text-text-secondary">Quantity</span>
-                          <input
-                            type="number"
-                            value={recipeForm.quantity}
-                            onChange={(e) => setRecipeForm({ ...recipeForm, quantity: Number(e.target.value) })}
-                            required
-                            min={0}
-                            step={0.01}
-                            className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-text-secondary">Unit</span>
-                          <input
-                            type="text"
-                            value={recipeForm.unit}
-                            onChange={(e) => setRecipeForm({ ...recipeForm, unit: e.target.value })}
-                            className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-text-secondary">Unit Cost</span>
-                          <input
-                            type="number"
-                            value={recipeForm.unitCost}
-                            onChange={(e) => setRecipeForm({ ...recipeForm, unitCost: Number(e.target.value) })}
-                            className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                            min={0}
-                            step={0.01}
-                          />
-                        </label>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <Button type="submit" loading={recipeSaving}>
-                          {editingRecipeId ? 'Save Recipe Item' : 'Add Recipe Item'}
-                        </Button>
-                        {editingRecipeId && (
-                          <Button type="button" variant="secondary" onClick={cancelRecipeEdit}>
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </form>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl border border-slate-200 p-5">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm text-slate-500">
-                      <span>Recipe items</span>
-                      <span>{recipeItems.length} total</span>
+                      <label className="block">
+                        <span className="text-sm font-medium text-text-secondary">Unit</span>
+                        <input type="text" value={recipeForm.unit} onChange={(e) => setRecipeForm({ ...recipeForm, unit: e.target.value })} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-medium text-text-secondary">Unit Cost (GHS)</span>
+                        <input type="number" value={recipeForm.unitCost} onChange={(e) => setRecipeForm({ ...recipeForm, unitCost: Number(e.target.value) })} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" min={0} step={0.01} />
+                      </label>
                     </div>
-                    <div className="rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                      Total Recipe Cost: <span className="font-semibold text-slate-900">
-                        {formatCurrency(recipeItems.reduce((sum, recipeItem) => sum + Number(recipeItem.ingredient.currentCost) * recipeItem.quantity, 0))}
-                      </span>
+                    <div className="flex flex-wrap gap-3">
+                      <Button type="submit" loading={recipeSaving}>{editingRecipeId ? 'Save Changes' : 'Add to Recipe'}</Button>
+                      {editingRecipeId && <Button type="button" variant="secondary" onClick={cancelRecipeEdit}>Cancel</Button>}
                     </div>
-                  </div>
-                </Card>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Edit Item — fullscreen overlay */}
       {editItem && (
         <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
           <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
-            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-text-primary">Edit {editItem.name}</h2>
-                <p className="text-sm text-text-secondary mt-1">Update the menu item details and save.</p>
+                <h2 className="text-xl font-semibold text-text-primary">Edit — {editItem.name}</h2>
+                <p className="text-sm text-text-secondary mt-1">Update details and save.</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Button variant="secondary" onClick={closeEditItem}>
-                  Close
-                </Button>
-              </div>
+              <Button variant="secondary" onClick={closeEditItem}>Close</Button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
-              {editError && (
-                <div className="rounded-3xl bg-error-muted p-4 text-sm text-error">{editError}</div>
-              )}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {editError && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{editError}</div>}
               <form className="space-y-4" onSubmit={handleEditItemSubmit}>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-sm font-medium text-text-secondary">Item Name</span>
-                    <input
-                      type="text"
-                      value={editItemData.name}
-                      onChange={(e) => setEditItemData({ ...editItemData, name: e.target.value })}
-                      required
-                      className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    />
+                    <input type="text" value={editItemData.name} onChange={(e) => setEditItemData({ ...editItemData, name: e.target.value })} required className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
                   </label>
                   <label className="block">
-                    <span className="text-sm font-medium text-text-secondary">Price</span>
-                    <input
-                      type="number"
-                      value={editItemData.price}
-                      onChange={(e) => setEditItemData({ ...editItemData, price: Number(e.target.value) })}
-                      required
-                      min={0}
-                      step={0.01}
-                      className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    />
+                    <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
+                    <input type="number" value={editItemData.price} onChange={(e) => setEditItemData({ ...editItemData, price: Number(e.target.value) })} required min={0} step={0.01} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
                   </label>
                 </div>
                 <label className="block">
                   <span className="text-sm font-medium text-text-secondary">Description</span>
-                  <textarea
-                    value={editItemData.description}
-                    onChange={(e) => setEditItemData({ ...editItemData, description: e.target.value })}
-                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                    rows={4}
-                  />
+                  <textarea value={editItemData.description} onChange={(e) => setEditItemData({ ...editItemData, description: e.target.value })} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" rows={3} />
                 </label>
-                <div className="rounded-3xl border border-border-default bg-surface-base p-4 space-y-4">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Variations</h3>
-                      <p className="text-xs text-text-secondary">Edit the option groups and values available for this menu item.</p>
+                      <p className="text-sm font-semibold text-text-primary">Variations</p>
+                      <p className="text-xs text-text-secondary">Edit option groups for this item</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={addEditItemOption}
-                      className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm font-semibold text-text-secondary hover:border-gold hover:text-gold"
-                    >
-                      Add Option
+                    <button type="button" onClick={addEditItemOption} className="rounded-2xl border border-border-default bg-surface-raised px-3 py-1.5 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors">
+                      + Add Option
                     </button>
                   </div>
                   {editItemOptions.length === 0 ? (
@@ -1070,103 +1003,45 @@ export default function OwnerMenuPage() {
                   ) : (
                     <div className="space-y-4">
                       {editItemOptions.map((option, optionIndex) => (
-                        <div key={option.id} className="rounded-3xl border border-slate-200 bg-white p-4 space-y-4">
-                          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                        <div key={option.id} className="rounded-2xl border border-border-subtle bg-surface-raised p-4 space-y-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                             <label className="block flex-1">
-                              <span className="text-sm font-medium text-text-secondary">Option name</span>
-                              <input
-                                type="text"
-                                value={option.name}
-                                onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { name: e.target.value }))}
-                                className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                placeholder="Soup type, Protein style"
-                              />
+                              <span className="text-xs font-medium text-text-secondary">Option name</span>
+                              <input type="text" value={option.name} onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { name: e.target.value }))} className="mt-1 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" placeholder="e.g. Soup type" />
                             </label>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-3">
                               <label className="flex items-center gap-2 text-sm text-text-secondary">
-                                <input
-                                  type="checkbox"
-                                  checked={option.required}
-                                  onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { required: e.target.checked }))}
-                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
-                                />
+                                <input type="checkbox" checked={option.required} onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { required: e.target.checked }))} className="h-4 w-4 rounded" />
                                 Required
                               </label>
                               <label className="flex items-center gap-2 text-sm text-text-secondary">
-                                <input
-                                  type="checkbox"
-                                  checked={option.multiple}
-                                  onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { multiple: e.target.checked }))}
-                                  className="h-4 w-4 rounded border-border-default text-gold focus:ring-gold"
-                                />
+                                <input type="checkbox" checked={option.multiple} onChange={(e) => setEditItemOptions(updateOption(editItemOptions, optionIndex, { multiple: e.target.checked }))} className="h-4 w-4 rounded" />
                                 Multiple
                               </label>
+                              <button type="button" onClick={() => removeEditItemOption(optionIndex)} className="text-xs text-error hover:underline">Remove</button>
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-semibold text-text-primary">Option values</span>
-                              <button
-                                type="button"
-                                onClick={() => addEditItemOptionValue(optionIndex)}
-                                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-2 text-sm text-text-secondary hover:border-gold hover:text-gold"
-                              >
-                                Add Value
-                              </button>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-text-secondary">Values</span>
+                              <button type="button" onClick={() => addEditItemOptionValue(optionIndex)} className="text-xs text-[var(--color-gold)] hover:underline">+ Add Value</button>
                             </div>
                             {option.values.map((value, valueIndex) => (
-                              <div key={value.id} className="grid gap-3 md:grid-cols-[1fr_0.8fr_0.4fr] items-end">
-                                <label className="block">
-                                  <span className="text-sm font-medium text-text-secondary">Value</span>
-                                  <input
-                                    type="text"
-                                    value={value.label}
-                                    onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
-                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                    placeholder="Light broth, Grilled, Fried"
-                                  />
-                                </label>
-                                <label className="block">
-                                  <span className="text-sm font-medium text-text-secondary">Extra</span>
-                                  <input
-                                    type="number"
-                                    value={value.priceAdjustment}
-                                    onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
-                                    className="mt-2 w-full rounded-2xl border border-border-default px-4 py-3 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-                                    placeholder="0"
-                                    step="0.01"
-                                    min="0"
-                                  />
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => removeEditItemOptionValue(optionIndex, valueIndex)}
-                                  className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
-                                >
-                                  Remove
-                                </button>
+                              <div key={value.id} className="grid gap-2 grid-cols-[1fr_0.6fr_auto] items-center">
+                                <input type="text" value={value.label} onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { label: e.target.value }))} className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" placeholder="Label" />
+                                <input type="number" value={value.priceAdjustment} onChange={(e) => setEditItemOptions(updateOptionValue(editItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))} className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" placeholder="+0.00" step="0.01" min="0" />
+                                <button type="button" onClick={() => removeEditItemOptionValue(optionIndex, valueIndex)} className="rounded-xl border border-border-subtle px-2 py-2 text-xs text-error hover:border-error transition-colors">✕</button>
                               </div>
                             ))}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeEditItemOption(optionIndex)}
-                            className="rounded-2xl border border-border-default bg-white px-3 py-2 text-sm text-error hover:border-error"
-                          >
-                            Remove Option
-                          </button>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <Button type="submit" loading={editSaving}>
-                    Save Changes
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={closeEditItem}>
-                    Cancel
-                  </Button>
+                <div className="flex flex-wrap gap-3 pb-4">
+                  <Button type="submit" loading={editSaving}>Save Changes</Button>
+                  <Button type="button" variant="secondary" onClick={closeEditItem}>Cancel</Button>
                 </div>
               </form>
             </div>

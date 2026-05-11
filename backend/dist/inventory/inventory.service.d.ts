@@ -63,8 +63,8 @@ export declare class InventoryService {
         id: string;
         createdAt: Date;
         quantity: Prisma.Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     }>;
@@ -84,8 +84,8 @@ export declare class InventoryService {
         id: string;
         createdAt: Date;
         quantity: Prisma.Decimal;
-        ingredientId: string;
         type: import("@prisma/client").$Enums.MovementType;
+        ingredientId: string;
         reason: string | null;
         referenceId: string | null;
     })[]>;

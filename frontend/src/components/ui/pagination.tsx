@@ -48,7 +48,7 @@ export function PaginationControls({
           <select
             value={limit}
             onChange={(event) => onLimitChange(Number(event.target.value))}
-            className="rounded-xl border border-border-default bg-surface-raised px-3 py-2 text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
+            className="rounded-xl border border-border-default bg-surface-raised px-3 py-2 text-base text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
           >
             {pageSizes.map((size) => (
               <option key={size} value={size}>{size}</option>

@@ -5,321 +5,279 @@ import { useAuth } from '@/lib/auth';
 import { get, patch } from '@/lib/api';
 import { API_PATHS, ORDER_STATUS_FLOW } from '@/lib/constants';
 import { buildQueryString } from '@/lib/utils';
-import { PaginationControls } from '@/components/ui/pagination';
-import { ChefHat, Clock, ArrowRight, RefreshCw } from 'lucide-react';
+import { ChefHat, RefreshCw, Clock, CheckCircle2, Bell } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
-interface MenuOptionValue {
-  id: string;
-  label: string;
-}
-
-interface MenuOption {
-  id: string;
-  name: string;
-  values: MenuOptionValue[];
-}
-
-interface SelectedOption {
-  optionId: string;
-  values: string[];
-}
-
+interface MenuOptionValue { id: string; label: string }
+interface MenuOption { id: string; name: string; values: MenuOptionValue[] }
+interface SelectedOption { optionId: string; values: string[] }
 interface OrderItem {
-  id: string;
-  quantity: number;
-  notes?: string;
+  id: string; quantity: number; notes?: string;
   selectedOptions?: SelectedOption[];
   menuItem: { name: string; options?: MenuOption[] };
 }
-
 interface Order {
-  id: string;
-  channel: string;
-  status: string;
-  createdAt: string;
-  notes?: string;
-  items: OrderItem[];
+  id: string; channel: string; status: string; createdAt: string;
+  notes?: string; items: OrderItem[];
 }
 
 const formatSelectedOptions = (menuItem: OrderItem['menuItem'], selectedOptions?: SelectedOption[]) => {
   if (!selectedOptions?.length || !menuItem?.options?.length) return [];
-  const optionMap = new Map(menuItem.options.map((option) => [option.id, option]));
-  return selectedOptions.flatMap((selected) => {
-    const option = optionMap.get(selected.optionId);
-    if (!option) return [];
-    const labels = option.values
-      .filter((value) => selected.values.includes(value.id))
-      .map((value) => value.label);
-    return labels.length ? [`${option.name}: ${labels.join(', ')}`] : [];
+  const optionMap = new Map(menuItem.options.map((o) => [o.id, o]));
+  return selectedOptions.flatMap((sel) => {
+    const opt = optionMap.get(sel.optionId);
+    if (!opt) return [];
+    const labels = opt.values.filter((v) => sel.values.includes(v.id)).map((v) => v.label);
+    return labels.length ? [`${opt.name}: ${labels.join(', ')}`] : [];
   });
 };
 
 const statusFlow = ORDER_STATUS_FLOW;
 
-const STATUS_COLORS: Record<string, { bg: string; border: string; header: string; dot: string }> = {
-  NEW: { bg: 'bg-info-muted/60', border: 'border-l-blue-500', header: 'text-info', dot: 'bg-info-muted0' },
-  PREPARING: { bg: 'bg-amber-50/60', border: 'border-l-amber-500', header: 'text-amber-700', dot: 'bg-amber-500' },
-  READY: { bg: 'bg-success-muted/60', border: 'border-l-success', header: 'text-success', dot: 'bg-success' },
+const TABS = [
+  { key: 'ALL', label: 'All', emoji: '📋' },
+  { key: 'NEW', label: 'New', emoji: '🔔' },
+  { key: 'PREPARING', label: 'Cooking', emoji: '🔥' },
+  { key: 'READY', label: 'Ready', emoji: '✅' },
+];
+
+const STATUS_CONFIG: Record<string, { headerBg: string; borderColor: string; btnClass: string; btnLabel: string }> = {
+  NEW: {
+    headerBg: 'bg-blue-50 border-b border-blue-100',
+    borderColor: 'border-l-blue-500',
+    btnClass: 'bg-amber-500 hover:bg-amber-600 active:scale-95 text-white',
+    btnLabel: '🔥  Start Cooking',
+  },
+  PREPARING: {
+    headerBg: 'bg-amber-50 border-b border-amber-100',
+    borderColor: 'border-l-amber-500',
+    btnClass: 'bg-success hover:brightness-110 active:scale-95 text-white',
+    btnLabel: '✅  Mark as Ready',
+  },
+  READY: {
+    headerBg: 'bg-green-50 border-b border-green-100',
+    borderColor: 'border-l-green-500',
+    btnClass: '',
+    btnLabel: '',
+  },
 };
+
+function getTimeSince(dateStr: string) {
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
 
 export default function KitchenLiveBoard() {
   const { token } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [stationLoad, setStationLoad] = useState<{ station: string; count: number }[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('ALL');
-  const [livePage, setLivePage] = useState(0);
-  const [liveLimit, setLiveLimit] = useState(10);
-  const [stationPage, setStationPage] = useState(0);
-  const [stationLimit, setStationLimit] = useState(10);
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [advancingId, setAdvancingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (silent = false) => {
     if (!token) return;
+    if (!silent) setRefreshing(true);
     try {
-      if (!loading) setRefreshing(true);
-      const [liveOrders, stations] = await Promise.all([
-        get(`/api/v1/kitchen/orders/live${buildQueryString({ page: livePage, limit: liveLimit })}`, token),
-        get(`/api/v1/kitchen/station-load${buildQueryString({ page: stationPage, limit: stationLimit })}`, token),
-      ]);
-      setOrders(liveOrders);
-      setStationLoad(stations);
+      const data = await get(`/api/v1/kitchen/orders/live${buildQueryString({ page: 0, limit: 50 })}`, token);
+      setOrders(data);
     } catch (err) {
-      console.error(err);
-      toast('error', 'Unable to refresh kitchen orders', err instanceof Error ? err.message : 'Please try again.');
+      if (!silent) toast('error', 'Could not refresh orders', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, livePage, liveLimit, stationPage, stationLimit, loading, toast]);
+  }, [token, toast]);
 
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
+    fetchOrders(true);
+    const iv = setInterval(() => fetchOrders(true), 10000);
+    return () => clearInterval(iv);
   }, [fetchOrders]);
 
   const advanceOrder = async (orderId: string, currentStatus: string) => {
-    const nextStatus = statusFlow[currentStatus];
-    if (!nextStatus || !token) return;
+    const next = statusFlow[currentStatus];
+    if (!next || !token || advancingId) return;
+    setAdvancingId(orderId);
     try {
-      await patch(API_PATHS.kitchen.updateOrderStatus(orderId), { status: nextStatus }, token);
-      fetchOrders();
+      await patch(API_PATHS.kitchen.updateOrderStatus(orderId), { status: next }, token);
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: next } : o)));
     } catch (err) {
-      console.error(err);
+      toast('error', 'Could not update order', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      setAdvancingId(null);
     }
   };
 
-  const getTimeSince = (dateStr: string) => {
-    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  const counts = {
+    ALL: orders.length,
+    NEW: orders.filter((o) => o.status === 'NEW').length,
+    PREPARING: orders.filter((o) => o.status === 'PREPARING').length,
+    READY: orders.filter((o) => o.status === 'READY').length,
   };
+  const urgentCount = orders.filter(
+    (o) => (o.status === 'NEW' || o.status === 'PREPARING') &&
+      Date.now() - new Date(o.createdAt).getTime() > 15 * 60000
+  ).length;
+  const visibleOrders = activeTab === 'ALL' ? orders : orders.filter((o) => o.status === activeTab);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gold" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="w-14 h-14 rounded-full border-4 border-[var(--color-gold)] border-t-transparent animate-spin" />
+        <p className="text-text-secondary text-sm font-medium">Loading orders…</p>
       </div>
     );
   }
 
-  const newOrders = orders.filter((o) => o.status === 'NEW');
-  const preparing = orders.filter((o) => o.status === 'PREPARING');
-  const ready = orders.filter((o) => o.status === 'READY');
-
-  const columns = [
-    { key: 'NEW', label: 'New', orders: newOrders },
-    { key: 'PREPARING', label: 'Preparing', orders: preparing },
-    { key: 'READY', label: 'Ready', orders: ready },
-  ];
-
-  const mobileOrders = activeTab === 'ALL' ? orders : orders.filter(o => o.status === activeTab);
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
-            <ChefHat className="text-gold" /> Kitchen
+            <ChefHat className="text-[var(--color-gold)]" size={22} /> Kitchen
           </h1>
-          <p className="text-xs text-text-tertiary mt-0.5">
-            {orders.length} active · auto-refreshes every 10s
-          </p>
+          <p className="text-xs text-text-tertiary mt-0.5">{orders.length} active · refreshes every 10s</p>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="p-2 rounded-xl bg-surface-elevated text-text-secondary hover:bg-gold-muted hover:text-gold transition-all"
-          aria-label="Refresh kitchen orders"
-        >
-          {refreshing ? (
-            <span className="animate-spin inline-block">
-              <RefreshCw size={18} />
+        <div className="flex items-center gap-2">
+          {urgentCount > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-error-muted border border-error/30 px-3 py-1 text-xs font-bold text-error animate-pulse">
+              <Bell size={12} /> {urgentCount} urgent
             </span>
-          ) : (
-            <RefreshCw size={18} />
           )}
-        </button>
+          <button
+            onClick={() => fetchOrders()}
+            disabled={refreshing}
+            className="p-2.5 rounded-2xl bg-surface-elevated text-text-secondary hover:text-[var(--color-gold)] transition-colors disabled:opacity-40"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
-      {/* Station Load Pills */}
-      {stationLoad.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {stationLoad.map((s) => (
-            <div key={s.station} className="flex-shrink-0 bg-surface-raised rounded-xl border border-border-subtle px-3 py-1.5 flex items-center gap-2">
-              <span className="text-xs text-text-secondary">{s.station}</span>
-              <span className="text-sm font-bold text-gold">{s.count}</span>
-            </div>
+      {/* Tab bar */}
+      <div className="grid grid-cols-4 gap-1 bg-surface-elevated rounded-2xl p-1">
+        {TABS.map((tab) => {
+          const count = counts[tab.key as keyof typeof counts];
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex flex-col items-center py-2.5 rounded-xl text-xs font-semibold transition-all gap-0.5 ${
+                active ? 'bg-surface-raised text-[var(--color-gold)] shadow-sm' : 'text-text-secondary'
+              }`}
+            >
+              <span className="text-base">{tab.emoji}</span>
+              <span>{tab.label}</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
+                active ? 'bg-[var(--color-gold)] text-white' : 'bg-surface-raised text-text-tertiary'
+              }`}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Orders */}
+      {visibleOrders.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-20 text-center">
+          <CheckCircle2 size={52} className="text-success opacity-30" />
+          <p className="text-base font-semibold text-text-secondary">
+            {activeTab === 'ALL' ? 'No active orders right now' : `No ${activeTab.toLowerCase()} orders`}
+          </p>
+          <p className="text-sm text-text-tertiary">New orders appear here automatically</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visibleOrders.map((order) => (
+            <OrderCard key={order.id} order={order} onAdvance={advanceOrder} isAdvancing={advancingId === order.id} />
           ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Mobile Tab Bar */}
-      <div className="md:hidden flex gap-1 bg-surface-elevated rounded-xl p-0.5">
-        {[{ key: 'ALL', label: 'All', count: orders.length }, ...columns.map(c => ({ key: c.key, label: c.label, count: c.orders.length }))].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === tab.key ? 'bg-surface-raised text-gold shadow-sm' : 'text-text-secondary'
-            }`}
-          >
-            {tab.label} <span className="opacity-60">({tab.count})</span>
-          </button>
-        ))}
+function OrderCard({ order, onAdvance, isAdvancing }: {
+  order: Order; onAdvance: (id: string, status: string) => void; isAdvancing: boolean;
+}) {
+  const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.NEW;
+  const next = statusFlow[order.status];
+  const urgent = Date.now() - new Date(order.createdAt).getTime() > 15 * 60000;
+  const time = getTimeSince(order.createdAt);
+
+  return (
+    <div className={`rounded-3xl border-2 border-l-4 bg-surface-raised overflow-hidden ${config.borderColor} ${urgent ? 'border-error/30 ring-2 ring-error/20' : 'border-border-default'}`}>
+      {/* Header */}
+      <div className={`px-4 py-3 flex items-center justify-between gap-2 ${config.headerBg}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="shrink-0 rounded-xl bg-white/80 px-2.5 py-1 text-sm font-black text-text-primary tracking-widest">
+            #{order.id.slice(-4).toUpperCase()}
+          </span>
+          <span className="text-xs font-medium text-text-secondary capitalize truncate">
+            {order.channel.replace(/_/g, ' ').toLowerCase()}
+          </span>
+        </div>
+        <span className={`shrink-0 flex items-center gap-1 text-xs font-bold ${urgent ? 'text-error' : 'text-text-secondary'}`}>
+          <Clock size={11} /> {time}
+          {urgent && ' ⚠️'}
+        </span>
       </div>
 
-      {/* Mobile Order List */}
-      <div className="md:hidden space-y-2">
-        {mobileOrders.map(order => (
-          <KitchenOrderCard key={order.id} order={order} onAdvance={advanceOrder} getTimeSince={getTimeSince} />
-        ))}
-        {mobileOrders.length === 0 && (
-          <div className="text-center py-12 text-text-tertiary text-sm">No orders in this status</div>
-        )}
-      </div>
-
-      {/* Desktop 3-Column Kanban */}
-      <div className="hidden md:grid md:grid-cols-3 gap-4">
-        {columns.map(col => {
-          const colors = STATUS_COLORS[col.key];
+      {/* Items list */}
+      <div className="px-4 pt-3 pb-2 space-y-2">
+        {order.items.map((item) => {
+          const opts = formatSelectedOptions(item.menuItem, item.selectedOptions);
           return (
-            <div key={col.key} className="flex flex-col">
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`w-2 h-2 rounded-full ${colors.dot} animate-pulse`} />
-                <h2 className={`text-sm font-bold uppercase tracking-wide ${colors.header}`}>
-                  {col.label}
-                </h2>
-                <span className={`text-xs font-semibold ${colors.header} opacity-60`}>
-                  ({col.orders.length})
-                </span>
-              </div>
-              <div className="space-y-2 flex-1">
-                {col.orders.map(order => (
-                  <KitchenOrderCard key={order.id} order={order} onAdvance={advanceOrder} getTimeSince={getTimeSince} />
-                ))}
-                {col.orders.length === 0 && (
-                  <div className={`${colors.bg} rounded-2xl border border-dashed border-border-default p-6 text-center text-text-tertiary text-xs`}>
-                    No orders
-                  </div>
+            <div key={item.id} className="flex items-start gap-3">
+              <span className="shrink-0 w-9 h-9 rounded-xl bg-[var(--color-gold)] text-white text-base font-black flex items-center justify-center">
+                {item.quantity}
+              </span>
+              <div className="flex-1 min-w-0 pt-1">
+                <p className="text-sm font-bold text-text-primary leading-tight">{item.menuItem.name}</p>
+                {opts.length > 0 && (
+                  <p className="text-xs text-text-secondary mt-0.5 leading-snug">{opts.join(' · ')}</p>
+                )}
+                {item.notes && (
+                  <span className="inline-block mt-1 text-[11px] italic text-warning bg-warning-muted border border-warning/20 px-2 py-0.5 rounded-lg">
+                    📝 {item.notes}
+                  </span>
                 )}
               </div>
             </div>
           );
         })}
-      </div>
-      <PaginationControls
-        page={livePage}
-        limit={liveLimit}
-        onPageChange={setLivePage}
-        onLimitChange={(value) => { setLiveLimit(value); setLivePage(0); }}
-        hasMore={orders.length === liveLimit}
-      />
-    </div>
-  );
-}
 
-function KitchenOrderCard({
-  order,
-  onAdvance,
-  getTimeSince,
-}: {
-  order: Order;
-  onAdvance: (id: string, status: string) => void;
-  getTimeSince: (d: string) => string;
-}) {
-  const nextStatus = statusFlow[order.status];
-  const colors = STATUS_COLORS[order.status] || STATUS_COLORS.NEW;
-  const timeSince = getTimeSince(order.createdAt);
-  const isUrgent = (Date.now() - new Date(order.createdAt).getTime()) > 15 * 60000;
-
-  return (
-    <div className={`bg-surface-raised rounded-2xl border-l-4 ${colors.border} shadow-sm p-4 transition-all ${isUrgent ? 'ring-2 ring-error-muted' : ''}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="bg-surface-elevated text-text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">
-            #{order.id.slice(-4).toUpperCase()}
-          </span>
-          <span className="text-[10px] text-text-tertiary uppercase">{order.channel.replace('_', ' ')}</span>
-        </div>
-        <span className={`text-xs font-semibold flex items-center gap-1 ${isUrgent ? 'text-error' : 'text-text-tertiary'}`}>
-          <Clock size={12} />
-          {timeSince}
-        </span>
+        {order.notes && (
+          <div className="mt-1 rounded-xl bg-surface-base px-3 py-2 text-xs text-text-secondary italic leading-snug">
+            🗒 {order.notes}
+          </div>
+        )}
       </div>
 
-      <ul className="space-y-1.5 my-3">
-        {order.items.map((item) => (
-          <li key={item.id} className="space-y-2 rounded-2xl border border-border-subtle bg-surface-base p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2">
-                <span className="bg-gold-muted text-gold text-xs font-bold rounded-lg px-1.5 py-0.5 min-w-[24px] text-center">
-                  {item.quantity}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{item.menuItem.name}</p>
-                  {item.selectedOptions?.length ? (
-                    <div className="text-[10px] text-text-secondary space-y-1 mt-1">
-                      {formatSelectedOptions(item.menuItem, item.selectedOptions).map((label) => (
-                        <p key={label}>{label}</p>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-              {item.notes && (
-                <span className="text-[10px] text-warning bg-warning-muted px-1.5 py-0.5 rounded-md italic flex-shrink-0">
-                  {item.notes}
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {order.notes && (
-        <p className="text-xs text-text-tertiary italic mb-3 bg-surface-base rounded-lg px-3 py-1.5">
-          📝 {order.notes}
-        </p>
-      )}
-
-      {nextStatus && (
-        <button
-          onClick={() => onAdvance(order.id, order.status)}
-          aria-label={`Advance order ${order.id.slice(-4).toUpperCase()} to ${nextStatus.replace('_', ' ').toLowerCase()}`}
-          className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised ${
-            order.status === 'NEW'
-              ? 'bg-warning text-text-inverse hover:brightness-110 focus-visible:ring-warning'
-              : 'bg-success text-text-inverse hover:brightness-110 focus-visible:ring-success'
-          }`}
-        >
-          Move to {nextStatus.replace('_', ' ')} <ArrowRight size={16} aria-hidden="true" />
-        </button>
-      )}
+      {/* Action */}
+      <div className="px-4 pb-4 pt-2">
+        {next && config.btnLabel ? (
+          <button
+            onClick={() => onAdvance(order.id, order.status)}
+            disabled={isAdvancing}
+            className={`w-full h-14 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${config.btnClass} disabled:opacity-60`}
+          >
+            {isAdvancing ? (
+              <><RefreshCw size={18} className="animate-spin" /> Updating…</>
+            ) : config.btnLabel}
+          </button>
+        ) : (
+          <div className="w-full h-12 rounded-2xl bg-success-muted border border-success/20 flex items-center justify-center gap-2 text-success text-sm font-semibold">
+            <CheckCircle2 size={18} /> Ready for pickup
+          </div>
+        )}
+      </div>
     </div>
   );
 }

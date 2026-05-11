@@ -3,13 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
-import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
 import { formatTime } from '@/lib/utils';
-import { Users, Clock, UserCheck, UserX } from 'lucide-react';
+import { Users, UserCheck, Clock, Plus } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface Shift {
@@ -27,19 +25,19 @@ interface ActiveAttendance {
   clockOut?: string | null;
 }
 
+interface LaborRatio {
+  totalSales: number;
+  totalHours: number;
+  staffCount: number;
+  laborRatio: number;
+}
+
 function getWeekStart(date: Date): string {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   d.setDate(diff);
   return d.toISOString().split('T')[0];
-}
-
-interface LaborRatio {
-  totalSales: number;
-  totalHours: number;
-  staffCount: number;
-  laborRatio: number;
 }
 
 export default function OpsStaffPage() {
@@ -50,25 +48,33 @@ export default function OpsStaffPage() {
   const [creatingShift, setCreatingShift] = useState(false);
   const [laborRatio, setLaborRatio] = useState<LaborRatio | null>(null);
   const [activeAttendance, setActiveAttendance] = useState<ActiveAttendance | null>(null);
-  const [attendanceMessage, setAttendanceMessage] = useState<string | null>(null);
-  const [newShift, setNewShift] = useState({ role: 'KITCHEN_STAFF', slot: 'MORNING', date: new Date().toISOString().split('T')[0], startTime: '08:00', endTime: '16:00' });
+  const [attendanceMessage, setAttendanceMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [newShift, setNewShift] = useState({
+    role: 'KITCHEN_STAFF',
+    slot: 'MORNING',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '08:00',
+    endTime: '16:00',
+  });
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!token) return;
     const weekStart = getWeekStart(new Date());
     const today = new Date().toISOString().split('T')[0];
-    Promise.all([
+    const [s, ratio, active] = await Promise.all([
       get(`/api/v1/shifts?weekStart=${weekStart}`, token),
       get(`/api/v1/labor/daily-ratio?date=${today}`, token),
       get('/api/v1/attendance/active', token).catch(() => null),
-    ])
-      .then(([s, ratio, active]) => {
-        setShifts(s);
-        setLaborRatio(ratio);
-        setActiveAttendance(active);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    ]);
+    setShifts(s);
+    setLaborRatio(ratio);
+    setActiveAttendance(active);
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    loadData().catch(console.error).finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const handleClockIn = async () => {
@@ -77,29 +83,27 @@ export default function OpsStaffPage() {
     try {
       const attendance = await post('/api/v1/attendance/clock-in', { branchId: user.branchId }, token);
       setActiveAttendance(attendance);
-      setAttendanceMessage('Clocked in successfully.');
+      setAttendanceMessage({ text: 'Clocked in successfully. Have a great shift!', ok: true });
     } catch (err: any) {
-      setAttendanceMessage(err?.message || 'Unable to clock in.');
-      console.error(err);
+      setAttendanceMessage({ text: err?.message || 'Unable to clock in. Please try again.', ok: false });
     }
   };
 
   const handleClockOut = async () => {
     if (!token || !activeAttendance) {
-      setAttendanceMessage('No active clock-in found. Please clock in first.');
+      setAttendanceMessage({ text: 'You are not clocked in yet.', ok: false });
       return;
     }
     setAttendanceMessage(null);
     try {
       await post('/api/v1/attendance/clock-out', {}, token);
       setActiveAttendance(null);
-      setAttendanceMessage('Clocked out successfully.');
+      setAttendanceMessage({ text: 'Clocked out. See you next shift!', ok: true });
     } catch (err: any) {
-      const message = err?.message?.includes('No active clock-in')
-        ? 'No active clock-in found. Please clock in before clocking out.'
-        : 'Unable to clock out at this time.';
-      setAttendanceMessage(message);
-      console.error(err);
+      const msg = err?.message?.includes('No active clock-in')
+        ? 'No active clock-in found. Please clock in first.'
+        : 'Unable to clock out right now. Please try again.';
+      setAttendanceMessage({ text: msg, ok: false });
     }
   };
 
@@ -117,15 +121,7 @@ export default function OpsStaffPage() {
         endTime: newShift.endTime,
       }, token);
       setShowShiftModal(false);
-      setLoading(true);
-      const weekStart = getWeekStart(new Date());
-      const today = new Date().toISOString().split('T')[0];
-      const [s, ratio] = await Promise.all([
-        get(`/api/v1/shifts?weekStart=${weekStart}`, token),
-        get(`/api/v1/labor/daily-ratio?date=${today}`, token),
-      ]);
-      setShifts(s);
-      setLaborRatio(ratio);
+      await loadData();
     } catch (err) {
       console.error(err);
     } finally {
@@ -133,171 +129,216 @@ export default function OpsStaffPage() {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayShifts = shifts.filter((s) => s.date === today);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayShifts = shifts.filter((s) => s.date === todayStr);
   const clockedIn = todayShifts.filter((s) => s.clockIn && !s.clockOut);
 
-  if (loading) {
-    return (
-      <PageSkeleton />
-    );
-  }
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Users className="text-gold" /> Staff Management
+            <Users className="text-gold" /> Staff
           </h1>
-          <p className="text-sm text-text-secondary mt-1">Schedule shifts, track who&apos;s on duty, and make labor decisions with confidence.</p>
+          <p className="text-sm text-text-secondary mt-1">
+            {clockedIn.length > 0
+              ? `${clockedIn.length} staff member${clockedIn.length > 1 ? 's' : ''} currently on duty`
+              : 'No one is clocked in right now'}
+          </p>
         </div>
-        <Button onClick={() => setShowShiftModal(true)}>Create Shift</Button>
+        <Button onClick={() => setShowShiftModal(true)} size="sm">
+          <Plus size={15} /> Add Shift
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KPICard title="Scheduled" value={todayShifts.length} icon={<Clock size={20} />} />
-        <KPICard title="On Duty" value={clockedIn.length} icon={<UserCheck size={20} />} severity="healthy" />
-        <KPICard title="Total Shifts" value={shifts.length} icon={<Users size={20} />} />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KPICard title="Labor Hours" value={laborRatio ? laborRatio.totalHours : 0} icon={<Clock size={20} />} />
-        <KPICard title="Staff Count" value={laborRatio ? laborRatio.staffCount : 0} icon={<Users size={20} />} />
-        <KPICard title="Labor Ratio" value={`${laborRatio ? laborRatio.laborRatio : 0}%`} icon={<UserX size={20} />} severity={(laborRatio?.laborRatio || 0) < 30 ? 'healthy' : 'warning'} />
-      </div>
+      {/* Clock In / Out — most important action, prominent placement */}
+      <div className="rounded-2xl bg-surface-raised border border-border-subtle p-5 space-y-4">
+        <h2 className="font-semibold text-text-primary text-sm">Your Attendance</h2>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-3">
-          <Button size="sm" onClick={handleClockIn} disabled={!!activeAttendance}>
+        {activeAttendance ? (
+          <div className="rounded-xl bg-success-muted border border-success/30 p-3 text-sm text-success font-medium flex items-center gap-2">
+            <UserCheck size={16} className="shrink-0" />
+            You clocked in at {formatTime(activeAttendance.clockIn)}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-warning-muted border border-warning/30 p-3 text-sm text-warning font-medium flex items-center gap-2">
+            <Clock size={16} className="shrink-0" />
+            You are not clocked in yet
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            onClick={handleClockIn}
+            disabled={!!activeAttendance}
+            className="flex-1"
+          >
             Clock In
           </Button>
-          <Button size="sm" variant="secondary" onClick={handleClockOut} disabled={!activeAttendance}>
+          <Button
+            variant="secondary"
+            onClick={handleClockOut}
+            disabled={!activeAttendance}
+            className="flex-1"
+          >
             Clock Out
           </Button>
         </div>
+
         {attendanceMessage && (
-          <div className="rounded-3xl border border-border-default bg-surface-base p-3 text-sm text-text-secondary">
-            {attendanceMessage}
-          </div>
-        )}
-        {activeAttendance ? (
-          <div className="rounded-3xl bg-success-muted p-3 text-sm text-success">
-            You are currently clocked in since {formatTime(activeAttendance.clockIn)}.
-          </div>
-        ) : (
-          <div className="rounded-3xl bg-warning-muted p-3 text-warning">
-            No active clock-in detected. Use Clock In to start your shift.
-          </div>
+          <p className={`text-sm font-medium ${attendanceMessage.ok ? 'text-success' : 'text-error'}`}>
+            {attendanceMessage.text}
+          </p>
         )}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Today&apos;s Schedule</CardTitle></CardHeader>
-        <CardContent>
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
+          <p className="text-xs text-text-secondary">On duty now</p>
+          <p className="text-2xl font-bold font-mono text-success mt-1">{clockedIn.length}</p>
+          <p className="text-xs text-text-tertiary mt-0.5">Clocked in</p>
+        </div>
+        <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
+          <p className="text-xs text-text-secondary">Scheduled today</p>
+          <p className="text-2xl font-bold font-mono text-text-primary mt-1">{todayShifts.length}</p>
+          <p className="text-xs text-text-tertiary mt-0.5">Shifts</p>
+        </div>
+        <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
+          <p className="text-xs text-text-secondary">Labor ratio</p>
+          <p className={`text-2xl font-bold font-mono mt-1 ${(laborRatio?.laborRatio ?? 0) > 30 ? 'text-warning' : 'text-text-primary'}`}>
+            {laborRatio?.laborRatio ?? 0}%
+          </p>
+          <p className="text-xs text-text-tertiary mt-0.5">Staff cost vs revenue</p>
+        </div>
+      </div>
+
+      {/* Today's schedule */}
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Today&apos;s Schedule</p>
+        </div>
+        <div className="p-4">
           {todayShifts.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No shifts today</p>
+            <div className="py-8 text-center">
+              <p className="text-sm text-text-secondary">No shifts scheduled for today</p>
+              <button
+                onClick={() => setShowShiftModal(true)}
+                className="mt-3 text-sm text-gold font-semibold hover:underline"
+              >
+                + Add a shift
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
-              {todayShifts.map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 bg-surface-base rounded-xl">
-                  <div>
-                    <span className="text-sm font-medium text-text-primary">{s.user?.name}</span>
-                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gold-muted text-gold">{s.slot}</span>
+              {todayShifts.map((s) => {
+                const isOnDuty = !!s.clockIn && !s.clockOut;
+                return (
+                  <div key={s.id} className={`flex items-center justify-between p-3 rounded-xl ${isOnDuty ? 'bg-success-muted border border-success/30' : 'bg-surface-elevated border border-border-subtle'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isOnDuty ? 'bg-success text-white' : 'bg-surface-raised text-text-secondary'}`}>
+                        {s.user?.name?.charAt(0)?.toUpperCase() ?? '?'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{s.user?.name}</p>
+                        <p className="text-xs text-text-tertiary capitalize">{s.slot.toLowerCase()} shift</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isOnDuty ? 'text-success bg-success-muted' : 'text-text-tertiary bg-surface-raised'}`}>
+                      {isOnDuty ? 'On Duty' : s.clockIn ? `Left ${formatTime(s.clockOut!)}` : 'Not started'}
+                    </span>
                   </div>
-                  {s.clockIn && !s.clockOut && (
-                    <span className="text-xs text-success font-medium">On Duty</span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck size={18} className="text-success" /> Currently On Duty
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {clockedIn.length === 0 ? (
-            <p className="text-sm text-text-tertiary text-center py-4">No one on duty</p>
-          ) : (
-            <div className="space-y-2">
-              {clockedIn.map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 bg-success-muted rounded-xl">
-                  <span className="text-sm font-medium text-text-primary">{s.user?.name}</span>
-                  <span className="text-xs text-text-secondary">Since {formatTime(s.clockIn!)}</span>
-                </div>
-              ))}
+      {/* This week's shifts (collapsed summary) */}
+      {shifts.length > todayShifts.length && (
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-subtle"><p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">This Week ({shifts.length} total shifts)</p></div>
+          <div className="p-4">
+            <div className="space-y-1.5">
+              {shifts
+                .filter((s) => s.date !== todayStr)
+                .slice(0, 10)
+                .map((s) => (
+                  <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-xl bg-surface-elevated">
+                    <span className="text-sm text-text-primary">{s.user?.name}</span>
+                    <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                      <span>{new Date(s.date).toLocaleDateString('en-GH', { weekday: 'short', day: 'numeric' })}</span>
+                      <span className="capitalize">{s.slot.toLowerCase()}</span>
+                    </div>
+                  </div>
+                ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      )}
 
+      {/* Create Shift Modal */}
       <Modal
         open={showShiftModal}
         onClose={() => setShowShiftModal(false)}
-        title="Create Shift"
+        title="Add a Shift"
         footer={
           <>
             <Button variant="secondary" onClick={() => setShowShiftModal(false)}>Cancel</Button>
-            <Button loading={creatingShift} onClick={handleCreateShift}>Create Shift</Button>
+            <Button loading={creatingShift} onClick={handleCreateShift}>Save Shift</Button>
           </>
         }
       >
         <form className="space-y-4" onSubmit={handleCreateShift}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            label="Date"
+            type="date"
+            value={newShift.date}
+            onChange={(e) => setNewShift({ ...newShift, date: e.target.value })}
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Role</label>
+            <select
+              className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+              value={newShift.role}
+              onChange={(e) => setNewShift({ ...newShift, role: e.target.value })}
+            >
+              <option value="KITCHEN_STAFF">Kitchen Staff</option>
+              <option value="OPERATIONS_MANAGER">Operations Manager</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Shift Time</label>
+            <select
+              className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
+              value={newShift.slot}
+              onChange={(e) => setNewShift({ ...newShift, slot: e.target.value })}
+            >
+              <option value="MORNING">Morning</option>
+              <option value="AFTERNOON">Afternoon</option>
+              <option value="EVENING">Evening</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <Input
-              label="Date"
-              type="date"
-              value={newShift.date}
-              onChange={(e) => setNewShift({ ...newShift, date: e.target.value })}
+              label="Start time"
+              type="time"
+              value={newShift.startTime}
+              onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
               required
             />
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">Role</label>
-              <select
-                className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-text-primary"
-                value={newShift.role}
-                onChange={(e) => setNewShift({ ...newShift, role: e.target.value })}
-              >
-                <option value="KITCHEN_STAFF">Kitchen</option>
-                <option value="OPERATIONS_MANAGER">Operations</option>
-                <option value="CASHIER">Cashier</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">Shift Slot</label>
-              <select
-                className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-text-primary"
-                value={newShift.slot}
-                onChange={(e) => setNewShift({ ...newShift, slot: e.target.value })}
-              >
-                <option value="MORNING">Morning</option>
-                <option value="AFTERNOON">Afternoon</option>
-                <option value="EVENING">Evening</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Start"
-                type="time"
-                value={newShift.startTime}
-                onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                required
-              />
-              <Input
-                label="End"
-                type="time"
-                value={newShift.endTime}
-                onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                required
-              />
-            </div>
+            <Input
+              label="End time"
+              type="time"
+              value={newShift.endTime}
+              onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
+              required
+            />
           </div>
         </form>
       </Modal>

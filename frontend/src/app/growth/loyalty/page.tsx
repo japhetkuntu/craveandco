@@ -4,14 +4,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { KPICard } from '@/components/ui/kpi-card';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { HeartHandshake, Gift, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { HeartHandshake, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface LoyaltySummary {
@@ -50,6 +48,8 @@ export default function GrowthLoyaltyPage() {
   const [transactionReference, setTransactionReference] = useState('');
   const [transactionError, setTransactionError] = useState('');
   const [creatingTransaction, setCreatingTransaction] = useState(false);
+  const [customerBalance, setCustomerBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -87,6 +87,16 @@ export default function GrowthLoyaltyPage() {
       })
       .catch(console.error);
   }, [token, transactionCustomerId]);
+
+  // Fetch balance when customer selection changes in modal
+  useEffect(() => {
+    if (!token || !transactionCustomerId || !showTransactionModal) return;
+    setBalanceLoading(true);
+    get(`/api/v1/loyalty/balance/${transactionCustomerId}`, token)
+      .then((data) => setCustomerBalance(data.balance ?? 0))
+      .catch(() => setCustomerBalance(null))
+      .finally(() => setBalanceLoading(false));
+  }, [token, transactionCustomerId, showTransactionModal]);
 
   const fetchData = async () => {
     if (!token) return;
@@ -155,7 +165,7 @@ export default function GrowthLoyaltyPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
-          <HeartHandshake className="text-gold" /> Loyalty Program
+          <HeartHandshake className="text-[var(--color-gold)]" /> Loyalty Program
         </h1>
         <Button onClick={() => setShowTransactionModal(true)}>
           Create Loyalty Transaction
@@ -192,6 +202,15 @@ export default function GrowthLoyaltyPage() {
                   </option>
                 ))}
               </select>
+              {transactionCustomerId && (
+                <p className="mt-1.5 text-xs font-semibold">
+                  {balanceLoading ? 'Loading balance…' : customerBalance !== null ? (
+                    <span className={customerBalance >= 0 ? 'text-success' : 'text-error'}>
+                      Current balance: {customerBalance} pts
+                    </span>
+                  ) : null}
+                </p>
+              )}
             </label>
 
             <label className="block text-sm text-text-secondary">
@@ -228,36 +247,30 @@ export default function GrowthLoyaltyPage() {
         </form>
       </Modal>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <KPICard
-          title="Points Issued"
-          value={(summary?.totalEarned || 0).toLocaleString()}
-          icon={<Gift size={20} />}
-          severity="healthy"
-        />
-        <KPICard
-          title="Points Redeemed"
-          value={(summary?.totalRedeemed || 0).toLocaleString()}
-          icon={<Gift size={20} />}
-          severity="warning"
-        />
-        <KPICard
-          title="Outstanding Points"
-          value={(summary?.netOutstanding || 0).toLocaleString()}
-          icon={<HeartHandshake size={20} />}
-        />
-        <KPICard
-          title="Redemption Rate"
-          value={`${redemptionRate}%`}
-          icon={<HeartHandshake size={20} />}
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Points Issued</p>
+          <p className="text-3xl font-bold font-mono text-text-primary mt-1">{(summary?.totalEarned || 0).toLocaleString()}</p>
+        </div>
+        <div className="rounded-2xl border border-warning/30 bg-warning-muted p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-warning">Points Redeemed</p>
+          <p className="text-3xl font-bold font-mono text-warning mt-1">{(summary?.totalRedeemed || 0).toLocaleString()}</p>
+        </div>
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Outstanding Points</p>
+          <p className="text-3xl font-bold font-mono text-text-primary mt-1">{(summary?.netOutstanding || 0).toLocaleString()}</p>
+        </div>
+        <div className="rounded-2xl border border-success/30 bg-success-muted p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-success">Redemption Rate</p>
+          <p className="text-3xl font-bold font-mono text-success mt-1">{redemptionRate}%</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+        <div className="px-4 py-3 border-b border-border-subtle">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Recent Transactions</p>
+        </div>
+        <div className="p-4">
           {transactions.length === 0 ? (
             <div className="space-y-4 py-6 text-center text-sm text-text-secondary">
               <p>No loyalty transactions have been recorded yet.</p>
@@ -304,8 +317,8 @@ export default function GrowthLoyaltyPage() {
               />
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
