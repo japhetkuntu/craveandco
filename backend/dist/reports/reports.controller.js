@@ -76,7 +76,7 @@ __decorate([
 exports.ReportsController = ReportsController = __decorate([
     (0, common_1.Controller)('api/v1/reports'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);
 //# sourceMappingURL=reports.controller.js.map

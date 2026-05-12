@@ -199,6 +199,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Orders', href: '/ops/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Inventory', href: '/ops/inventory', icon: <Package size={20} /> },
     { label: 'Purchasing', href: '/ops/purchasing', icon: <Truck size={20} /> },
+    { label: 'Expenses', href: '/ops/expenses', icon: <Receipt size={20} /> },
     { label: 'Staff', href: '/ops/staff', icon: <Users size={20} /> },
     { label: 'Alerts', href: '/ops/alerts', icon: <Bell size={20} /> },
     { label: 'Checklists', href: '/ops/checklists', icon: <ClipboardList size={20} /> },

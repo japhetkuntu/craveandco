@@ -57,7 +57,7 @@ __decorate([
 ], FinanceController.prototype, "createExpense", null);
 __decorate([
     (0, common_1.Get)('expenses'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('from')),
     __param(2, (0, common_1.Query)('to')),
@@ -87,7 +87,7 @@ __decorate([
 ], FinanceController.prototype, "reconcileCash", null);
 __decorate([
     (0, common_1.Get)('finance/daily-summary'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'ACCOUNTANT'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('date')),
     __metadata("design:type", Function),

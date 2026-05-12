@@ -17,6 +17,7 @@ import {
   Lock,
   TrendingUp,
   Clock,
+  Receipt,
 } from 'lucide-react';
 
 interface CommandCenterData {
@@ -131,6 +132,10 @@ export default function OpsDashboard() {
 
   const handleDayClose = () => {
     router.push('/ops/day-close');
+  };
+
+  const handleExpenses = () => {
+    router.push('/ops/expenses');
   };
 
   if (loading) return <PageSkeleton />;
@@ -316,7 +321,7 @@ export default function OpsDashboard() {
 
       {/* Close Day */}
       <div className="rounded-2xl bg-surface-raised border border-border-subtle p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
               <Lock size={16} className="text-text-secondary" />
@@ -327,14 +332,20 @@ export default function OpsDashboard() {
             </p>
             <p className="text-xs text-warning font-medium mt-1">Only do this once, at the very end of the day.</p>
           </div>
-          <Button
-            variant="danger"
-            onClick={handleDayClose}
-            className="shrink-0"
-          >
-            <Lock size={16} />
-            Close Day
-          </Button>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button variant="secondary" onClick={handleExpenses} className="shrink-0">
+              <Receipt size={16} />
+              Record Expense
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDayClose}
+              className="shrink-0"
+            >
+              <Lock size={16} />
+              Close Day
+            </Button>
+          </div>
         </div>
       </div>
 

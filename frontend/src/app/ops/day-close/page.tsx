@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Receipt } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface DayCloseSummary {
@@ -61,6 +62,8 @@ export default function OpsDayClosePage() {
   const floatNum = parseFloat(openingFloat) || 0;
   const countedNum = parseFloat(cashCounted) || 0;
 
+  const router = useRouter();
+
   const handleClose = async () => {
     if (!token) return;
     setClosing(true);
@@ -77,6 +80,10 @@ export default function OpsDayClosePage() {
     } finally {
       setClosing(false);
     }
+  };
+
+  const handleExpenses = () => {
+    router.push('/ops/expenses');
   };
 
   const todayLabel = new Date().toLocaleDateString('en-GH', {
@@ -157,9 +164,23 @@ export default function OpsDayClosePage() {
           </div>
         </div>
 
-        <Button onClick={() => setStep(2)} className="w-full">
-          Next: Count the cash →
-        </Button>
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-border-subtle bg-surface-default p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Need to record an extra expense?</p>
+                <p className="text-xs text-text-secondary mt-1">Capture soap, utilities, waste disposal, or other branch costs before closing.</p>
+              </div>
+              <Button variant="secondary" onClick={handleExpenses}>
+                <Receipt size={16} />
+                Record Expense
+              </Button>
+            </div>
+          </div>
+          <Button onClick={() => setStep(2)} className="w-full">
+            Next: Count the cash →
+          </Button>
+        </div>
       </div>
     );
   }
