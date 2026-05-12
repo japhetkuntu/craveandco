@@ -40,6 +40,7 @@ export class UpdateMenuItemDto {
   @IsOptional() @IsNumber() price?: number;
   @IsOptional() @IsString() imageUrl?: string;
   @IsOptional() @IsBoolean() available?: boolean;
+  @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsArray() dayparts?: string[];
   @IsOptional()
   @IsArray()

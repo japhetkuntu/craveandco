@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
-import { buildQueryString } from '@/lib/utils';
+import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Package, AlertTriangle, Plus, X, Pencil } from 'lucide-react';
@@ -31,6 +31,7 @@ interface StockResponse {
   items: StockItem[];
   totalCount: number;
   lowStockCount: number;
+  totalAssetValue?: number;
 }
 
 // Human-readable movement type labels
@@ -172,6 +173,7 @@ export default function OpsInventoryPage() {
 
   const stockItems = stockData?.items || [];
   const lowStockCount = stockData?.lowStockCount ?? 0;
+  const totalAssetValue = stockData?.totalAssetValue ?? 0;
 
   return (
     <div className="space-y-6">
@@ -195,7 +197,7 @@ export default function OpsInventoryPage() {
       </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
           <p className="text-xs text-text-secondary">Total ingredients</p>
           <p className="text-2xl font-bold font-mono text-text-primary mt-1">{stockData?.totalCount ?? 0}</p>
@@ -203,6 +205,10 @@ export default function OpsInventoryPage() {
         <div className={`rounded-2xl border p-4 ${lowStockCount > 0 ? 'bg-warning-muted border-warning/30' : 'bg-success-muted border-success/30'}`}>
           <p className="text-xs text-text-secondary">Running low</p>
           <p className={`text-2xl font-bold font-mono mt-1 ${lowStockCount > 0 ? 'text-warning' : 'text-success'}`}>{lowStockCount}</p>
+        </div>
+        <div className="rounded-2xl bg-surface-raised border border-border-subtle p-4">
+          <p className="text-xs text-text-secondary">Inventory asset value</p>
+          <p className="text-2xl font-bold font-mono text-text-primary mt-1">{formatCurrency(totalAssetValue)}</p>
         </div>
       </div>
 

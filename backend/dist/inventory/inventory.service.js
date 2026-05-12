@@ -106,12 +106,14 @@ let InventoryService = class InventoryService {
                 supplier: ing.supplier,
             };
         });
+        const totalAssetValue = items.reduce((sum, item) => sum + item.onHand * item.currentCost, 0);
         const pageLowStockCount = items.filter((item) => item.belowReorder).length;
         return {
             items,
             totalCount,
             lowStockCount,
             pageLowStockCount,
+            totalAssetValue,
         };
     }
     async getCurrentOnHand(branchId, ingredientId) {

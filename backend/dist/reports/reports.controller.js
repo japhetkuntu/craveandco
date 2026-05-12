@@ -24,14 +24,14 @@ let ReportsController = class ReportsController {
     constructor(reports) {
         this.reports = reports;
     }
-    getDashboard(branchId, date) {
-        return this.reports.getDashboard(branchId, date);
+    getDashboard(branchId, date, from, to) {
+        return this.reports.getDashboard(branchId, date, from, to);
     }
     getWeeklyReport(branchId, weekStart) {
         return this.reports.getWeeklyReport(branchId, weekStart);
     }
-    getReportSummary(branchId, period, date) {
-        return this.reports.getSummary(branchId, period, date);
+    getReportSummary(branchId, period, date, from, to) {
+        return this.reports.getSummary(branchId, period, date, from, to);
     }
     getMenuProfitability(branchId, from, to) {
         return this.reports.getMenuProfitability(branchId, from, to);
@@ -42,8 +42,10 @@ __decorate([
     (0, common_1.Get)('dashboard'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('date')),
+    __param(2, (0, common_1.Query)('from')),
+    __param(3, (0, common_1.Query)('to')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getDashboard", null);
 __decorate([
@@ -59,8 +61,10 @@ __decorate([
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('period')),
     __param(2, (0, common_1.Query)('date')),
+    __param(3, (0, common_1.Query)('from')),
+    __param(4, (0, common_1.Query)('to')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getReportSummary", null);
 __decorate([

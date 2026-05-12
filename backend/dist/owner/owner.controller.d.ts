@@ -22,6 +22,8 @@ export declare class OwnerController {
         ordersWithoutCustomer: number;
         discountsGiven: number;
         lowStockAlerts: number;
+        inventoryAssetValue: number;
+        inventoryItemCount: number;
         openAlerts: number;
         pendingApprovals: number;
     }>;

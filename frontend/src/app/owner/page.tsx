@@ -46,8 +46,18 @@ interface DashboardData {
   ordersWithoutCustomer: number;
   discountsGiven: number;
   lowStockAlerts: number;
+  inventoryAssetValue: number;
+  inventoryItemCount: number;
   openAlerts: number;
   pendingApprovals: number;
+}
+
+interface MenuProfitabilityItem {
+  id: string;
+  name: string;
+  totalSold: number;
+  grossProfit: number;
+  marginPercent: number;
 }
 
 interface PurchaseOrderItem {
@@ -149,6 +159,7 @@ export default function OwnerDashboard() {
   const approvalLimit = 10;
   const [approvalsHasMore, setApprovalsHasMore] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [menuProfitability, setMenuProfitability] = useState<MenuProfitabilityItem[]>([]);
   const [purchaseOrdersPage, setPurchaseOrdersPage] = useState(0);
   const purchaseOrdersLimit = 5;
   const [purchaseOrdersHasMore, setPurchaseOrdersHasMore] = useState(false);
@@ -178,16 +189,18 @@ export default function OwnerDashboard() {
     setLoading(true);
     const { from, to } = dateRange(preset);
     try {
-      const [dash, apps, pos] = await Promise.all([
+      const [dash, apps, pos, profitability] = await Promise.all([
         get(`/api/v1/owner/dashboard?from=${from}&to=${to}`, token),
         get(`/api/v1/owner/approvals/pending?page=${appPage}&limit=${approvalLimit}`, token),
         get(`/api/v1/purchase-orders?page=${poPage}&limit=${purchaseOrdersLimit}`, token),
+        get(`/api/v1/reports/menu-profitability?from=${from}&to=${to}`, token),
       ]);
       setData(dash);
       setApprovals(apps);
       setApprovalsHasMore(apps.length === approvalLimit);
       setPurchaseOrders(pos);
       setPurchaseOrdersHasMore(pos.length === purchaseOrdersLimit);
+      setMenuProfitability(profitability as MenuProfitabilityItem[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -300,11 +313,11 @@ export default function OwnerDashboard() {
             tone={(d?.averageTicket || 0) > 0 ? 'green' : 'default'}
           />
           <StatTile
-            icon={<TrendingUp size={18} />}
-            label="Estimated Profit"
-            value={formatCurrency(d?.grossEstimate || 0)}
-            helper="Sales minus estimated food costs"
-            tone={(d?.grossEstimate || 0) > 0 ? 'green' : (d?.grossEstimate || 0) < 0 ? 'red' : 'default'}
+            icon={<Package size={18} />}
+            label="Inventory Worth"
+            value={formatCurrency(d?.inventoryAssetValue || 0)}
+            helper="Total value of inventory on hand"
+            tone={(d?.inventoryAssetValue || 0) > 0 ? 'green' : 'default'}
           />
         </div>
       </div>
@@ -375,6 +388,39 @@ export default function OwnerDashboard() {
             value={formatCurrency(d?.discountsGiven || 0)}
             helper="Total promotional discounts applied"
             tone={(d?.discountsGiven || 0) > 0 ? 'yellow' : 'default'}
+          />
+        </div>
+      </div>
+
+      {/* ── Inventory Health ── */}
+      <div className="space-y-3">
+        <SectionTitle title="Inventory Health" description="Track stock value and item count at a glance" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatTile
+            icon={<Package size={18} />}
+            label="Inventory Worth"
+            value={formatCurrency(d?.inventoryAssetValue || 0)}
+            helper="Current value of stock on hand"
+          />
+          <StatTile
+            icon={<Package size={18} />}
+            label="Inventory Items"
+            value={d?.inventoryItemCount || 0}
+            helper="Unique ingredients currently stocked"
+          />
+          <StatTile
+            icon={<AlertTriangle size={18} />}
+            label="Low Stock Items"
+            value={d?.lowStockAlerts || 0}
+            helper="Ingredients below reorder level"
+            tone={(d?.lowStockAlerts || 0) > 0 ? 'yellow' : 'green'}
+          />
+          <StatTile
+            icon={<Clock size={18} />}
+            label="Pending Approvals"
+            value={d?.pendingApprovals || 0}
+            helper="Staff expense requests awaiting review"
+            tone={(d?.pendingApprovals || 0) > 0 ? 'yellow' : 'green'}
           />
         </div>
       </div>
@@ -465,6 +511,43 @@ export default function OwnerDashboard() {
               hasMore={approvalsHasMore}
             />
           </div>
+        </div>
+      </div>
+
+      {/* ── Menu Profitability ── */}
+      <div className="space-y-3">
+        <SectionTitle title="Menu Profitability" description="See which items are selling best and making the most money." />
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          {menuProfitability.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <Package size={32} className="text-text-tertiary opacity-60" />
+              <p className="text-sm font-semibold text-text-secondary">No menu profitability data yet</p>
+              <p className="text-xs text-text-tertiary">Sales and cost data will appear here for the selected period.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-subtle text-left text-text-tertiary text-xs uppercase tracking-widest">
+                    <th className="px-4 py-3 font-medium">Item</th>
+                    <th className="px-4 py-3 font-medium text-right">Sold</th>
+                    <th className="px-4 py-3 font-medium text-right">Profit</th>
+                    <th className="px-4 py-3 font-medium text-right">Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {menuProfitability.slice(0, 5).map((item) => (
+                    <tr key={item.id} className="border-b border-border-subtle last:border-0">
+                      <td className="px-4 py-3 font-medium text-text-primary">{item.name}</td>
+                      <td className="px-4 py-3 text-right text-text-secondary">{item.totalSold}</td>
+                      <td className="px-4 py-3 text-right text-text-primary font-mono">{formatCurrency(item.grossProfit)}</td>
+                      <td className="px-4 py-3 text-right text-text-secondary">{item.marginPercent}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

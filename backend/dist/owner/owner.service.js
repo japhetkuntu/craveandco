@@ -112,6 +112,8 @@ let OwnerService = class OwnerService {
             const subtotal = order.items.reduce((itemSum, item) => itemSum + Number(item.unitPrice) * item.quantity, 0);
             return sum + Math.max(subtotal - Number(order.total), 0);
         }, 0);
+        const inventoryAssetValue = Number(stockResult.totalAssetValue || 0);
+        const inventoryItemCount = Number(stockResult.totalCount || 0);
         const [customerOrdersToday, customerRevenueToday] = await Promise.all([
             this.prisma.order.count({
                 where: {
@@ -152,6 +154,8 @@ let OwnerService = class OwnerService {
             ordersWithoutCustomer,
             discountsGiven: Number(totalDiscounts.toFixed(2)),
             lowStockAlerts: lowStock,
+            inventoryAssetValue,
+            inventoryItemCount,
             openAlerts,
             pendingApprovals,
         };

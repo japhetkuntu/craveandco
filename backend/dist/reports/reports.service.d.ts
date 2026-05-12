@@ -2,8 +2,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export declare class ReportsService {
     private prisma;
     constructor(prisma: PrismaService);
-    getDashboard(branchId: string, date: string): Promise<{
-        date: string;
+    getDashboard(branchId: string, date?: string, from?: string, to?: string): Promise<{
+        date: string | undefined;
         totalSales: number;
         orderCount: number;
         averageTicket: number;
@@ -44,9 +44,9 @@ export declare class ReportsService {
             averageTicket: number;
         }[];
     }>;
-    getSummary(branchId: string, period: 'day' | 'week' | 'month' | 'year', date: string): Promise<{
-        periodStart: string;
-        period: "year" | "week" | "day" | "month";
+    getSummary(branchId: string, period?: 'day' | 'week' | 'month' | 'year' | 'custom', date?: string, from?: string, to?: string): Promise<{
+        periodStart: string | undefined;
+        period: "year" | "week" | "day" | "month" | "custom";
         totalSales: number;
         totalOrders: number;
         totalExpenses: number;

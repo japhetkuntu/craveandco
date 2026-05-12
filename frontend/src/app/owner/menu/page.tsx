@@ -65,6 +65,7 @@ export default function OwnerMenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -78,10 +79,15 @@ export default function OwnerMenuPage() {
   const [newItemOptions, setNewItemOptions] = useState<MenuOption[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
-  const [editItemData, setEditItemData] = useState({ name: '', description: '', price: 0 });
+  const [editItemData, setEditItemData] = useState({ name: '', description: '', price: 0, categoryId: '' });
   const [editItemOptions, setEditItemOptions] = useState<MenuOption[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [editCategory, setEditCategory] = useState<Category | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
   const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([]);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [recipeSaving, setRecipeSaving] = useState(false);
@@ -128,6 +134,9 @@ export default function OwnerMenuPage() {
       setItems(itemsRes);
       setCategories(categoriesRes);
       setIngredients(ingredientsRes);
+      if (categoriesRes.length > 0) {
+        setSelectedCategoryId((prev) => prev || categoriesRes[0].id);
+      }
       if (categoriesRes.length > 0 && !newItem.categoryId) {
         setNewItem((prev) => ({ ...prev, categoryId: categoriesRes[0].id }));
       }
@@ -379,6 +388,7 @@ export default function OwnerMenuPage() {
       name: item.name,
       description: item.description ?? '',
       price: item.price,
+      categoryId: item.category?.id ?? '',
     });
     setEditItemOptions(item.options ?? []);
   };
@@ -386,15 +396,15 @@ export default function OwnerMenuPage() {
   const closeEditItem = () => {
     setEditItem(null);
     setEditError('');
-    setEditItemData({ name: '', description: '', price: 0 });
+    setEditItemData({ name: '', description: '', price: 0, categoryId: '' });
     setEditItemOptions([]);
   };
 
   const handleEditItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !editItem) return;
-    if (!editItemData.name.trim() || editItemData.price <= 0) {
-      setEditError('Name and price are required');
+    if (!editItemData.name.trim() || editItemData.price <= 0 || !editItemData.categoryId) {
+      setEditError('Name, price and category are required');
       return;
     }
     setEditSaving(true);
@@ -406,6 +416,7 @@ export default function OwnerMenuPage() {
           name: editItemData.name.trim(),
           description: editItemData.description.trim(),
           price: Number(editItemData.price),
+          categoryId: editItemData.categoryId,
           options: editItemOptions.map((option) => ({
             id: option.id,
             name: option.name.trim(),
@@ -448,6 +459,47 @@ export default function OwnerMenuPage() {
       return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEditCategory = (category: Category) => {
+    setCategoryError('');
+    setEditCategory(category);
+    setEditCategoryName(category.name);
+    setShowEditCategoryModal(true);
+  };
+
+  const closeEditCategory = () => {
+    setShowEditCategoryModal(false);
+    setEditCategory(null);
+    setEditCategoryName('');
+    setCategoryError('');
+  };
+
+  const handleEditCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editCategory) return;
+    if (!editCategoryName.trim()) {
+      setCategoryError('Category name is required');
+      return;
+    }
+    setCategorySaving(true);
+    setCategoryError('');
+    try {
+      const updated = await patch(
+        `/api/v1/menu/categories/${editCategory.id}`,
+        { name: editCategoryName.trim() },
+        token ?? undefined,
+      );
+      setCategories((prev) => prev.map((cat) => (cat.id === updated.id ? updated : cat)));
+      if (activeCategory === editCategory.name) {
+        setActiveCategory(updated.name);
+      }
+      closeEditCategory();
+    } catch (err: any) {
+      setCategoryError(err.message || 'Failed to update category');
+    } finally {
+      setCategorySaving(false);
     }
   };
 
@@ -572,6 +624,52 @@ export default function OwnerMenuPage() {
         ))}
       </div>
 
+      <div className="rounded-3xl border border-border-subtle bg-surface-raised p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Categories</p>
+            <p className="text-xs text-text-secondary">Rename categories or keep them organized.</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => setShowCategoryModal(true)}>
+            Add Category
+          </Button>
+        </div>
+        <div className="mt-4 grid gap-4">
+          {categories.length === 0 ? (
+            <div className="rounded-2xl border border-border-subtle bg-surface-input px-4 py-4 text-sm text-text-secondary">
+              No categories yet. Add one to create menu groups.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+              <div>
+                <label htmlFor="category-select" className="text-sm font-medium text-text-secondary">Select a category</label>
+                <select
+                  id="category-select"
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-border-subtle bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const category = categories.find((cat) => cat.id === selectedCategoryId);
+                  if (category) startEditCategory(category);
+                }}
+                disabled={!selectedCategoryId}
+              >
+                Edit selected category
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Items grid */}
       {filteredItems.length === 0 ? (
         <div className="rounded-3xl border border-border-default bg-surface-raised flex flex-col items-center gap-2 py-16 text-center">
@@ -660,6 +758,34 @@ export default function OwnerMenuPage() {
               autoFocus
               className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
               placeholder="e.g. Breakfast, Main Course, Dessert"
+            />
+          </label>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showEditCategoryModal}
+        onClose={closeEditCategory}
+        title="Edit Category"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeEditCategory}>Cancel</Button>
+            <Button type="submit" form="edit-category-form" loading={categorySaving}>Save</Button>
+          </>
+        }
+      >
+        {categoryError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{categoryError}</div>}
+        <form id="edit-category-form" onSubmit={handleEditCategory} className="pt-1">
+          <label className="block">
+            <span className="text-sm font-medium text-text-secondary">Category Name</span>
+            <input
+              type="text"
+              value={editCategoryName}
+              onChange={(e) => setEditCategoryName(e.target.value)}
+              required
+              autoFocus
+              className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+              placeholder="Category name"
             />
           </label>
         </form>
@@ -980,7 +1106,7 @@ export default function OwnerMenuPage() {
             <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               {editError && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{editError}</div>}
               <form className="space-y-4" onSubmit={handleEditItemSubmit}>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <label className="block">
                     <span className="text-sm font-medium text-text-secondary">Item Name</span>
                     <input type="text" value={editItemData.name} onChange={(e) => setEditItemData({ ...editItemData, name: e.target.value })} required className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
@@ -988,6 +1114,20 @@ export default function OwnerMenuPage() {
                   <label className="block">
                     <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
                     <input type="number" value={editItemData.price} onChange={(e) => setEditItemData({ ...editItemData, price: Number(e.target.value) })} required min={0} step={0.01} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">Category</span>
+                    <select
+                      value={editItemData.categoryId}
+                      onChange={(e) => setEditItemData({ ...editItemData, categoryId: e.target.value })}
+                      required
+                      className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    >
+                      <option value="" disabled>Select category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 <label className="block">

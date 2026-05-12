@@ -14,9 +14,11 @@ export class ReportsController {
   @Get('dashboard')
   getDashboard(
     @CurrentUser('branchId') branchId: string,
-    @Query('date') date: string,
+    @Query('date') date?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.reports.getDashboard(branchId, date);
+    return this.reports.getDashboard(branchId, date, from, to);
   }
 
   @Get('weekly')
@@ -30,10 +32,12 @@ export class ReportsController {
   @Get('summary')
   getReportSummary(
     @CurrentUser('branchId') branchId: string,
-    @Query('period') period: 'day' | 'week' | 'month' | 'year',
-    @Query('date') date: string,
+    @Query('period') period?: 'day' | 'week' | 'month' | 'year' | 'custom',
+    @Query('date') date?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.reports.getSummary(branchId, period, date);
+    return this.reports.getSummary(branchId, period, date, from, to);
   }
 
   @Get('menu-profitability')

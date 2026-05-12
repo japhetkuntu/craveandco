@@ -99,6 +99,7 @@ export class InventoryService {
       };
     });
 
+    const totalAssetValue = items.reduce((sum, item) => sum + item.onHand * item.currentCost, 0);
     const pageLowStockCount = items.filter((item) => item.belowReorder).length;
 
     return {
@@ -106,6 +107,7 @@ export class InventoryService {
       totalCount,
       lowStockCount,
       pageLowStockCount,
+      totalAssetValue,
     };
   }
 

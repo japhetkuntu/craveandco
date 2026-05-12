@@ -56,6 +56,7 @@ export declare class InventoryService {
         totalCount: number;
         lowStockCount: number;
         pageLowStockCount: number;
+        totalAssetValue: number;
     }>;
     private getCurrentOnHand;
     createMovement(dto: CreateMovementDto): Promise<{

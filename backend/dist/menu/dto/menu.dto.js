@@ -124,6 +124,7 @@ class UpdateMenuItemDto {
     price;
     imageUrl;
     available;
+    categoryId;
     dayparts;
     options;
 }
@@ -153,6 +154,11 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateMenuItemDto.prototype, "available", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateMenuItemDto.prototype, "categoryId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

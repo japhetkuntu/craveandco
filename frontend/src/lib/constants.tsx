@@ -100,8 +100,10 @@ export const API_PATHS = {
   },
   reports: {
     dashboard: (date: string) => `/api/v1/reports/dashboard?date=${date}`,
+    dashboardRange: (from: string, to: string) => `/api/v1/reports/dashboard?from=${from}&to=${to}`,
     weekly: (weekStart: string) => `/api/v1/reports/weekly?weekStart=${weekStart}`,
     summary: (period: string, date: string) => `/api/v1/reports/summary?period=${period}&date=${date}`,
+    summaryRange: (from: string, to: string) => `/api/v1/reports/summary?from=${from}&to=${to}`,
   },
   alerts: {
     list: '/api/v1/alerts',

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
-import { buildQueryString } from '@/lib/utils';
+import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/ui/modal';
@@ -26,6 +26,7 @@ interface StockResponse {
   totalCount: number;
   lowStockCount: number;
   pageLowStockCount: number;
+  totalAssetValue?: number;
 }
 
 export default function OwnerInventoryPage() {
@@ -34,6 +35,7 @@ export default function OwnerInventoryPage() {
   const [lowStock, setLowStock] = useState<StockItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [totalAssetValue, setTotalAssetValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -120,6 +122,7 @@ export default function OwnerInventoryPage() {
       setStock(normalizedItems);
       setTotalItems(response.totalCount);
       setLowStockCount(response.lowStockCount);
+      setTotalAssetValue(response.totalAssetValue ?? 0);
       setLowStock(lowStockItems);
       setMovementAnalytics(movementAnalyticsResponse);
       setMovements(movementHistory);
@@ -159,6 +162,7 @@ export default function OwnerInventoryPage() {
         {[
           { icon: <Package size={18} />, label: 'Total Items', value: totalItems, tone: undefined },
           { icon: <AlertTriangle size={18} />, label: 'Low Stock', value: lowStockCount, tone: lowStockCount > 0 ? 'red' as const : 'green' as const },
+          { icon: <Package size={18} />, label: 'Inventory Worth', value: formatCurrency(totalAssetValue), tone: undefined },
           { icon: <Package size={18} />, label: 'Total Quantity', value: totalOnHand, tone: undefined },
           { icon: <AlertTriangle size={18} />, label: 'Low Stock %', value: `${lowStockPercent}%`, tone: lowStockPercent > 20 ? 'yellow' as const : undefined },
         ].map(({ icon, label, value, tone }) => {

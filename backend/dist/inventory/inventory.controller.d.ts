@@ -52,6 +52,7 @@ export declare class InventoryController {
         totalCount: number;
         lowStockCount: number;
         pageLowStockCount: number;
+        totalAssetValue: number;
     }>;
     createMovement(dto: CreateMovementDto): Promise<{
         branchId: string;

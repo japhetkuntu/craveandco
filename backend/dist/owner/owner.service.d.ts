@@ -25,6 +25,8 @@ export declare class OwnerService {
         ordersWithoutCustomer: number;
         discountsGiven: number;
         lowStockAlerts: number;
+        inventoryAssetValue: number;
+        inventoryItemCount: number;
         openAlerts: number;
         pendingApprovals: number;
     }>;

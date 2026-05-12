@@ -18,27 +18,49 @@ let ReportsService = class ReportsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getDashboard(branchId, date) {
-        const targetDate = new Date(date);
-        const nextDate = new Date(targetDate);
-        nextDate.setDate(nextDate.getDate() + 1);
+    async getDashboard(branchId, date, from, to) {
+        const cleanFrom = from?.trim();
+        const cleanTo = to?.trim();
+        let start;
+        let end;
+        if (cleanFrom && cleanTo) {
+            start = new Date(cleanFrom);
+            end = new Date(cleanTo);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                throw new common_1.BadRequestException('Invalid from/to dates');
+            }
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            end.setDate(end.getDate() + 1);
+        }
+        else if (date?.trim()) {
+            start = new Date(date.trim());
+            if (Number.isNaN(start.getTime())) {
+                throw new common_1.BadRequestException('Invalid date');
+            }
+            end = new Date(start);
+            end.setDate(end.getDate() + 1);
+        }
+        else {
+            throw new common_1.BadRequestException('date or from/to is required');
+        }
         const [sales, orderCount, topItems, expenses] = await Promise.all([
             this.prisma.order.aggregate({
-                where: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, createdAt: { gte: start, lt: end }, status: { not: client_1.OrderStatus.CANCELLED } },
                 _sum: { total: true },
             }),
             this.prisma.order.count({
-                where: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, createdAt: { gte: start, lt: end }, status: { not: client_1.OrderStatus.CANCELLED } },
             }),
             this.prisma.orderItem.groupBy({
                 by: ['menuItemId'],
-                where: { order: { branchId, createdAt: { gte: targetDate, lt: nextDate } } },
+                where: { order: { branchId, createdAt: { gte: start, lt: end } } },
                 _sum: { quantity: true },
                 orderBy: { _sum: { quantity: 'desc' } },
                 take: 5,
             }),
             this.prisma.expense.aggregate({
-                where: { branchId, paidAt: { gte: targetDate, lt: nextDate }, approved: true },
+                where: { branchId, paidAt: { gte: start, lt: end }, approved: true },
                 _sum: { amount: true },
             }),
         ]);
@@ -141,15 +163,37 @@ let ReportsService = class ReportsService {
             days,
         };
     }
-    async getSummary(branchId, period, date) {
-        if (!period || !date) {
-            throw new common_1.BadRequestException('period and date are required');
+    async getSummary(branchId, period = 'day', date, from, to) {
+        const cleanFrom = from?.trim();
+        const cleanTo = to?.trim();
+        let start;
+        let end;
+        if (cleanFrom && cleanTo) {
+            start = new Date(cleanFrom);
+            end = new Date(cleanTo);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                throw new common_1.BadRequestException('Invalid from/to dates');
+            }
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            end.setDate(end.getDate() + 1);
+            period = 'custom';
         }
-        const targetDate = new Date(date);
-        if (Number.isNaN(targetDate.getTime())) {
-            throw new common_1.BadRequestException('Invalid date');
+        else {
+            if (period === 'custom') {
+                throw new common_1.BadRequestException('Custom period requires from/to dates');
+            }
+            if (!period || !date?.trim()) {
+                throw new common_1.BadRequestException('period and date are required');
+            }
+            const targetDate = new Date(date.trim());
+            if (Number.isNaN(targetDate.getTime())) {
+                throw new common_1.BadRequestException('Invalid date');
+            }
+            const range = this.getRangeForPeriod(period, targetDate);
+            start = range.start;
+            end = range.end;
         }
-        const { start, end } = this.getRangeForPeriod(period, targetDate);
         const orders = await this.prisma.order.findMany({
             where: {
                 branchId,
@@ -187,7 +231,7 @@ let ReportsService = class ReportsService {
             const key = this.getPeriodKey(expense.paidAt, period);
             expensesMap.set(key, (expensesMap.get(key) ?? 0) + Number(expense.amount));
         });
-        const periods = this.buildPeriodKeys(period, start);
+        const periods = this.buildPeriodKeys(period, start, end);
         const days = periods.map((periodKey) => {
             const orderRow = ordersMap.get(periodKey);
             const daySales = orderRow?.totalSales ?? 0;
@@ -206,7 +250,7 @@ let ReportsService = class ReportsService {
         const totalOrders = days.reduce((sum, day) => sum + day.orderCount, 0);
         const totalExpenses = days.reduce((sum, day) => sum + day.totalExpenses, 0);
         return {
-            periodStart: date,
+            periodStart: from || date,
             period,
             totalSales,
             totalOrders,
@@ -251,9 +295,20 @@ let ReportsService = class ReportsService {
         }
         return d.toISOString().split('T')[0];
     }
-    buildPeriodKeys(period, start) {
+    buildPeriodKeys(period, start, end) {
         const keys = [];
         const date = new Date(start);
+        if (period === 'custom') {
+            if (!end) {
+                throw new common_1.BadRequestException('Custom range requires an end date');
+            }
+            const cursor = new Date(start);
+            while (cursor < end) {
+                keys.push(cursor.toISOString().split('T')[0]);
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            return keys;
+        }
         if (period === 'year') {
             for (let month = 0; month < 12; month += 1) {
                 const keyDate = new Date(start.getFullYear(), month, 1);

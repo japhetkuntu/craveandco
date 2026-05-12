@@ -27,6 +27,7 @@ export declare class UpdateMenuItemDto {
     price?: number;
     imageUrl?: string;
     available?: boolean;
+    categoryId?: string;
     dayparts?: string[];
     options?: MenuItemOptionDto[];
 }
