@@ -1,0 +1,21 @@
+<svg viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dishGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF7EE" />
+      <stop offset="100%" stop-color="#FBE8C3" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" rx="56" fill="url(#dishGrad)" />
+  <ellipse cx="600" cy="520" rx="420" ry="300" fill="#FBF4E6" stroke="#C9A646" stroke-width="22" />
+  <path d="M400 540c60-60 160-90 260-66s180 96 200 188" stroke="#C9A646" stroke-width="28" stroke-linecap="round" />
+  <path d="M500 420c40-36 108-48 160-28" stroke="#8D7247" stroke-width="22" stroke-linecap="round" />
+  <path d="M540 540c18-18 52-22 84-10" stroke="#8D7247" stroke-width="18" stroke-linecap="round" />
+  <circle cx="520" cy="590" r="26" fill="#E9C86A" />
+  <circle cx="680" cy="580" r="34" fill="#E07C24" />
+  <circle cx="630" cy="470" r="20" fill="#C54425" />
+  <path d="M400 260c120-90 320-90 440 0" stroke="#C9A646" stroke-width="24" stroke-linecap="round" />
+  <circle cx="500" cy="300" r="20" fill="#C9A646" />
+  <circle cx="740" cy="300" r="18" fill="#E07C24" />
+  <path d="M260 700h680" stroke="#C9A646" stroke-width="34" stroke-linecap="round" />
+  <path d="M320 720h560" stroke="#E3D6AF" stroke-width="14" stroke-linecap="round" />
+</svg>

@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Crave & Co Portal",
-  description: "Restaurant management portal for Crave and Co",
-  applicationName: "Crave & Co Portal",
-  themeColor: "#d39e37",
+  title: "Crave & Co Restaurant",
+  description: "Crave & Co restaurant – fresh food, cozy vibes, and neighborhood favorites.",
+  applicationName: "Crave & Co",
+  themeColor: "#c9a646",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",

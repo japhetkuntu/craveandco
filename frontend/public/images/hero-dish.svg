@@ -1,0 +1,29 @@
+<svg viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C9A646" />
+      <stop offset="100%" stop-color="#F7E4C2" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" rx="64" fill="#FFF8E9" />
+  <circle cx="600" cy="470" r="330" fill="#FBF4E6" stroke="#E3D6AF" stroke-width="24" />
+  <circle cx="600" cy="470" r="260" fill="url(#goldGradient)" fill-opacity="0.18" />
+  <path d="M400 520c20-70 100-130 200-130s180 60 200 130" stroke="#C9A646" stroke-width="24" stroke-linecap="round" />
+  <path d="M420 520c24-50 80-80 140-80s116 30 140 80" stroke="#8D7247" stroke-width="18" stroke-linecap="round" />
+  <path d="M470 480c25-30 72-42 110-30" stroke="#5A3D1A" stroke-width="16" stroke-linecap="round" />
+  <path d="M630 460c18-45 60-60 100-40" stroke="#5A3D1A" stroke-width="16" stroke-linecap="round" />
+  <circle cx="500" cy="560" r="26" fill="#E07C24" />
+  <circle cx="640" cy="530" r="24" fill="#C54425" />
+  <circle cx="680" cy="620" r="18" fill="#E9C86A" />
+  <path d="M520 380c18-24 52-28 78-12" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+  <path d="M560 570c20-24 62-40 110-18" stroke="#ffffff" stroke-width="16" stroke-linecap="round" />
+  <path d="M540 720c34 0 128-14 195-34" stroke="#C9A646" stroke-width="20" stroke-linecap="round" />
+  <path d="M325 312c-35 36-56 84-56 135 0 123 100 223 223 223s223-100 223-223c0-51-21-99-56-135" stroke="#C9A646" stroke-width="24" fill="#FFF" />
+  <circle cx="355" cy="320" r="16" fill="#C9A646" />
+  <circle cx="445" cy="347" r="12" fill="#C9A646" />
+  <circle cx="395" cy="250" r="14" fill="#C9A646" />
+  <path d="M820 280c28 24 44 58 44 96 0 87-70 157-157 157s-157-70-157-157c0-38 16-72 44-96" stroke="#C9A646" stroke-width="24" fill="#FFF" />
+  <circle cx="790" cy="300" r="16" fill="#E07C24" />
+  <circle cx="820" cy="360" r="14" fill="#C54425" />
+  <circle cx="760" cy="330" r="12" fill="#E9C86A" />
+</svg>
