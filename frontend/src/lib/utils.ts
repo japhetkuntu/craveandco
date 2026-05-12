@@ -48,7 +48,8 @@ export function printPurchaseOrderInvoice(
   po: {
     id: string;
     supplier: { name: string };
-    createdAt: string;
+    createdAt?: string;
+    orderedAt?: string;
     receivedAt?: string;
     notes?: string;
     items: Array<{ ingredient?: { name: string }; quantity: number; unitCost: number }>;
@@ -57,12 +58,13 @@ export function printPurchaseOrderInvoice(
   },
   branchName?: string,
 ) {
-  const orderDate = new Date(po.createdAt).toLocaleDateString('en-GH', {
+  const createdAt = po.createdAt || po.orderedAt;
+  const orderDate = new Date(createdAt || '').toLocaleDateString('en-GH', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-  const orderTime = new Date(po.createdAt).toLocaleTimeString('en-GH', {
+  const orderTime = new Date(createdAt || '').toLocaleTimeString('en-GH', {
     hour: '2-digit',
     minute: '2-digit',
   });

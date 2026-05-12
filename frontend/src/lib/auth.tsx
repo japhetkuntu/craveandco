@@ -8,6 +8,7 @@ interface User {
   userId: string;
   role: string;
   branchId: string;
+  name?: string;
 }
 
 interface AuthState {
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(parsed.accessToken);
         // Decode JWT payload
         const payload = JSON.parse(atob(parsed.accessToken.split('.')[1]));
-        setUser({ userId: payload.sub, role: payload.role, branchId: payload.branchId });
+        setUser({ userId: payload.sub, role: payload.role, branchId: payload.branchId, name: payload.name });
       } catch {
         localStorage.removeItem('crave_auth');
       }
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('crave_auth', JSON.stringify(res));
     setToken(res.accessToken);
     const payload = JSON.parse(atob(res.accessToken.split('.')[1]));
-    setUser({ userId: payload.sub, role: payload.role, branchId: payload.branchId });
+    setUser({ userId: payload.sub, role: payload.role, branchId: payload.branchId, name: payload.name });
   };
 
   const logout = () => {
