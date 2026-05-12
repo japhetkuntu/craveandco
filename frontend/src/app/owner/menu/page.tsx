@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { API_PATHS } from '@/lib/constants';
 import { get, post, patch, del } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, buildQueryString } from '@/lib/utils';
 import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { Modal } from '@/components/ui/modal';
@@ -161,7 +161,10 @@ export default function OwnerMenuPage() {
     setRecipeLoading(true);
     setRecipeError('');
     try {
-      const recipeRes = await get(API_PATHS.menu.recipeItems(item.id), token ?? undefined);
+      const recipeRes = await get(
+        `${API_PATHS.menu.recipeItems(item.id)}${buildQueryString({ page: 0, limit: 1000 })}`,
+        token ?? undefined,
+      );
       setRecipeItems(recipeRes);
       setEditingRecipeId(null);
       setRecipeForm({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
@@ -197,7 +200,10 @@ export default function OwnerMenuPage() {
   const refreshRecipe = async () => {
     if (!selectedMenuItem) return;
     try {
-      const recipeRes = await get(API_PATHS.menu.recipeItems(selectedMenuItem.id), token ?? undefined);
+      const recipeRes = await get(
+        `${API_PATHS.menu.recipeItems(selectedMenuItem.id)}${buildQueryString({ page: 0, limit: 1000 })}`,
+        token ?? undefined,
+      );
       setRecipeItems(recipeRes);
     } catch (err) {
       console.error(err);
