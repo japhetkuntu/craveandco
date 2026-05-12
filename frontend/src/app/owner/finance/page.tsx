@@ -29,6 +29,7 @@ interface FinanceSummary {
 interface Expense {
   id: string;
   description: string;
+  category?: string;
   amount: number;
   approved: boolean | null;
   createdAt: string;
