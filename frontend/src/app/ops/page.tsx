@@ -85,6 +85,13 @@ function StatTile({
   );
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function OpsDashboard() {
   const { token } = useAuth();
   const router = useRouter();
@@ -154,13 +161,15 @@ export default function OpsDashboard() {
   if (lowStock > 0) needsAttention.push(`${lowStock} item${lowStock > 1 ? 's' : ''} running low — check Inventory`);
   if ((data?.pendingPurchaseOrders ?? 0) > 0) needsAttention.push(`${data!.pendingPurchaseOrders} purchase request${data!.pendingPurchaseOrders > 1 ? 's' : ''} waiting — check Purchasing`);
 
+  const greeting = getGreeting();
+
   return (
     <div className="space-y-6">
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Good morning 👋</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{greeting} 👋</h1>
           <p className="text-sm text-text-secondary mt-1">{today}</p>
         </div>
 
