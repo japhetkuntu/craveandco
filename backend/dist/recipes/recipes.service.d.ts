@@ -2,7 +2,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeItemDto, UpdateRecipeItemDto } from './dto/recipes.dto';
 export declare class RecipesService {
     private prisma;
+    private readonly groupedComponentsOptionId;
     constructor(prisma: PrismaService);
+    private stripGroupedComponentsOption;
+    private clearGroupedComponentsOption;
+    private setGroupedComponentsOption;
     private resolveIngredient;
     getRecipeItems(menuItemId: string, page?: number, limit?: number): Promise<({
         ingredient: {
@@ -74,7 +78,7 @@ export declare class RecipesService {
             id: string;
         };
     }[]>;
-    importRecipeItems(menuItemId: string, sourceMenuItemId: string): Promise<({
+    importRecipeItems(menuItemId: string, sourceMenuItemIds: string[], importMode?: 'SNAPSHOT' | 'GROUPED'): Promise<({
         ingredient: {
             name: string;
             id: string;

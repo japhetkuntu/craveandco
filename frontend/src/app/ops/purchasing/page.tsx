@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency, printPurchaseOrderInvoice } from '@/lib/utils';
@@ -59,9 +59,11 @@ const PO_STATUS_HELP: Record<string, string> = {
 
 export default function OpsPurchasingPage() {
   const { token, user } = useAuth();
+  const INGREDIENTS_LIMIT = 100;
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [ordersPage, setOrdersPage] = useState(0);
   const [ordersLimit] = useState(10);
@@ -77,22 +79,51 @@ export default function OpsPurchasingPage() {
     notes: '',
     items: [{ id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }],
   });
+  const [ingredientSearchByItemId, setIngredientSearchByItemId] = useState<Record<string, string>>({});
 
-  const loadData = async () => {
+  const getIngredientLabel = (ingredientId: string) => ingredients.find((ing) => ing.id === ingredientId)?.name ?? '';
+
+  const initializeIngredientSearch = (items: NewOrderItem[]) => {
+    setIngredientSearchByItemId(
+      items.reduce<Record<string, string>>((acc, item) => {
+        acc[item.id] = getIngredientLabel(item.ingredientId);
+        return acc;
+      }, {}),
+    );
+  };
+
+  const fetchIngredients = useCallback(async (search = '') => {
+    if (!token) return;
+    setIngredientsLoading(true);
+    try {
+      const data = await get(
+        `/api/v1/inventory/ingredients${buildQueryString({ page: 0, limit: INGREDIENTS_LIMIT, search: search.trim() || undefined })}`,
+        token,
+      ) as Ingredient[];
+      setIngredients(data);
+    } finally {
+      setIngredientsLoading(false);
+    }
+  }, [token]);
+
+  const loadData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    const [o, s, ing] = await Promise.all([
+    const [o, s] = await Promise.all([
       get(`/api/v1/purchase-orders${buildQueryString({ page: ordersPage, limit: ordersLimit })}`, token),
       get(`/api/v1/suppliers${buildQueryString({ page: suppliersPage, limit: suppliersLimit })}`, token),
-      get('/api/v1/inventory/ingredients', token),
     ]);
     setOrders(o);
     setSuppliers(s);
-    setIngredients(ing);
     setLoading(false);
-  };
+  }, [token, ordersPage, ordersLimit, suppliersPage, suppliersLimit]);
 
-  useEffect(() => { loadData().catch(console.error); }, [token, ordersPage, suppliersPage]);
+  useEffect(() => { loadData().catch(console.error); }, [loadData]);
+
+  useEffect(() => {
+    if (!showCreateOrder) return;
+    fetchIngredients().catch(console.error);
+  }, [showCreateOrder, fetchIngredients]);
 
   const handleReceive = async (po: PurchaseOrder) => {
     if (!token) return;
@@ -113,10 +144,12 @@ export default function OpsPurchasingPage() {
   };
 
   const addOrderItem = () => {
+    const newItem = { id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' };
     setNewOrder((prev) => ({
       ...prev,
-      items: [...prev.items, { id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }],
+      items: [...prev.items, newItem],
     }));
+    setIngredientSearchByItemId((prev) => ({ ...prev, [newItem.id]: '' }));
   };
 
   const updateOrderItem = (index: number, key: keyof NewOrderItem, value: string) => {
@@ -128,7 +161,15 @@ export default function OpsPurchasingPage() {
 
   const removeOrderItem = (index: number) => {
     if (newOrder.items.length === 1) return; // keep at least one
+    const removedItemId = newOrder.items[index]?.id;
     setNewOrder((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== index) }));
+    if (removedItemId) {
+      setIngredientSearchByItemId((prev) => {
+        const next = { ...prev };
+        delete next[removedItemId];
+        return next;
+      });
+    }
   };
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
@@ -162,7 +203,9 @@ export default function OpsPurchasingPage() {
           })),
       }, token);
       setShowCreateOrder(false);
-      setNewOrder({ supplierId: '', notes: '', items: [{ id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }] });
+      const resetItems = [{ id: crypto.randomUUID(), ingredientId: '', quantity: '', unitCost: '' }];
+      setNewOrder({ supplierId: '', notes: '', items: resetItems });
+      initializeIngredientSearch(resetItems);
       await loadData();
     } catch (err) { console.error(err); }
     finally { setCreatingOrder(false); }
@@ -367,12 +410,23 @@ export default function OpsPurchasingPage() {
       {/* Create Purchase Order Modal */}
       <Modal
         open={showCreateOrder}
-        onClose={() => setShowCreateOrder(false)}
+        onClose={() => {
+          setShowCreateOrder(false);
+          initializeIngredientSearch(newOrder.items);
+        }}
         title="Create Purchase Order"
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowCreateOrder(false)}>Cancel</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowCreateOrder(false);
+                initializeIngredientSearch(newOrder.items);
+              }}
+            >
+              Cancel
+            </Button>
             <Button loading={creatingOrder} disabled={!newOrder.supplierId} onClick={handleCreateOrder}>
               Save Order
             </Button>
@@ -397,6 +451,9 @@ export default function OpsPurchasingPage() {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">What are you ordering?</label>
+            {ingredientsLoading && (
+              <p className="mb-2 text-xs text-text-tertiary">Loading ingredients...</p>
+            )}
             <div className="space-y-3">
               {newOrder.items.map((item, index) => (
                 <div key={item.id} className="rounded-xl border border-border-subtle bg-surface-elevated p-3 space-y-3">
@@ -408,9 +465,30 @@ export default function OpsPurchasingPage() {
                       </button>
                     )}
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Search ingredient</label>
+                    <input
+                      type="text"
+                      placeholder="Type ingredient name or unit"
+                      value={ingredientSearchByItemId[item.id] ?? getIngredientLabel(item.ingredientId)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setIngredientSearchByItemId((prev) => ({ ...prev, [item.id]: value }));
+                        fetchIngredients(value).catch(console.error);
+                      }}
+                      className="w-full h-11 px-3 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary"
+                    />
+                  </div>
                   <select
                     value={item.ingredientId}
-                    onChange={(e) => updateOrderItem(index, 'ingredientId', e.target.value)}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      updateOrderItem(index, 'ingredientId', selectedId);
+                      setIngredientSearchByItemId((prev) => ({
+                        ...prev,
+                        [item.id]: selectedId ? getIngredientLabel(selectedId) : prev[item.id] ?? '',
+                      }));
+                    }}
                     className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
                     required
                   >
@@ -419,6 +497,9 @@ export default function OpsPurchasingPage() {
                       <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
                     ))}
                   </select>
+                  <p className="text-[11px] text-text-tertiary">
+                    {ingredients.length} ingredient(s) found
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs font-medium text-text-secondary mb-1">Quantity</label>

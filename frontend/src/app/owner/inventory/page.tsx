@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
@@ -29,6 +29,15 @@ interface StockResponse {
   totalAssetValue?: number;
 }
 
+interface MovementEntry {
+  id: string;
+  createdAt: string;
+  ingredient?: { name: string };
+  type: string;
+  quantity: number;
+  reason?: string;
+}
+
 export default function OwnerInventoryPage() {
   const { token } = useAuth();
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -39,9 +48,11 @@ export default function OwnerInventoryPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
+  const [lowStockPage, setLowStockPage] = useState(0);
+  const [lowStockLimit] = useState(10);
   const [movementPage, setMovementPage] = useState(0);
   const [movementLimit, setMovementLimit] = useState(10);
-  const [movements, setMovements] = useState<any[]>([]);
+  const [movements, setMovements] = useState<MovementEntry[]>([]);
   const [movementAnalytics, setMovementAnalytics] = useState<{ totalMovements: number; typeCounts: Record<string, number>; typeQuantities: Record<string, number>; } | null>(null);
   const [inventoryForm, setInventoryForm] = useState({ id: '', name: '', unit: '', reorderLevel: 0, currentCost: 0 });
   const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
@@ -95,21 +106,22 @@ export default function OwnerInventoryPage() {
 
       resetInventoryForm();
       await loadStock();
-    } catch (err: any) {
-      setInventoryError(err?.message || 'Failed to save inventory item');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save inventory item';
+      setInventoryError(message);
       console.error(err);
     } finally {
       setInventorySaving(false);
     }
   };
 
-  const loadStock = async () => {
+  const loadStock = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
       const [stockResponse, lowStockItems, movementAnalyticsResponse, movementHistory] = await Promise.all([
         get(`/api/v1/inventory/stock${buildQueryString({ page, limit })}`, token),
-        get('/api/v1/inventory/alerts/low-stock', token),
+        get(`/api/v1/inventory/alerts/low-stock${buildQueryString({ page: lowStockPage, limit: lowStockLimit })}`, token),
         get('/api/v1/inventory/movements/analytics', token),
         get(`/api/v1/inventory/movements${buildQueryString({ page: movementPage, limit: movementLimit })}`, token),
       ]);
@@ -131,15 +143,13 @@ export default function OwnerInventoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, page, limit, lowStockPage, lowStockLimit, movementPage, movementLimit]);
 
   useEffect(() => {
     void loadStock();
-  }, [token, page, limit, movementPage, movementLimit]);
+  }, [loadStock]);
 
   if (loading) return <PageSkeleton />;
-
-  const showForm = !!editingIngredientId || false;
 
   return (
     <div className="space-y-6 pb-8">
@@ -209,6 +219,13 @@ export default function OwnerInventoryPage() {
               </div>
             ))}
           </div>
+          <PaginationControls
+            page={lowStockPage}
+            limit={lowStockLimit}
+            onPageChange={setLowStockPage}
+            onLimitChange={() => {}}
+            hasMore={lowStock.length === lowStockLimit}
+          />
         </div>
       )}
 

@@ -83,10 +83,25 @@ __decorate([
 ], UpdateRecipeItemDto.prototype, "unit", void 0);
 class ImportRecipeItemsDto {
     sourceMenuItemId;
+    sourceMenuItemIds;
+    importMode;
 }
 exports.ImportRecipeItemsDto = ImportRecipeItemsDto;
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ImportRecipeItemsDto.prototype, "sourceMenuItemId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], ImportRecipeItemsDto.prototype, "sourceMenuItemIds", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['SNAPSHOT', 'GROUPED']),
+    __metadata("design:type", String)
+], ImportRecipeItemsDto.prototype, "importMode", void 0);
 //# sourceMappingURL=recipes.dto.js.map

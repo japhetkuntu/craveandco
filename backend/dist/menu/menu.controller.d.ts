@@ -72,6 +72,8 @@ export declare class MenuController {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
     findItems(branchId: string, categoryId?: string, page?: string, limit?: string): Promise<({
         category: {
@@ -95,6 +97,8 @@ export declare class MenuController {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     })[]>;
     updateItem(id: string, dto: UpdateMenuItemDto): Promise<{
         category: {
@@ -118,6 +122,8 @@ export declare class MenuController {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
     deleteItem(id: string): Promise<{
         name: string;
@@ -146,5 +152,7 @@ export declare class MenuController {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
 }

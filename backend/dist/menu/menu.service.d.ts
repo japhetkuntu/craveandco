@@ -2,7 +2,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateMenuItemDto, UpdateMenuItemDto, CreateCategoryDto, UpdateCategoryDto } from './dto/menu.dto';
 export declare class MenuService {
     private prisma;
+    private readonly groupedComponentsOptionId;
     constructor(prisma: PrismaService);
+    private splitVisibleAndHiddenOptions;
+    private toPublicMenuItem;
     createCategory(dto: CreateCategoryDto): Promise<{
         name: string;
         id: string;
@@ -72,6 +75,8 @@ export declare class MenuService {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
     findItems(branchId: string, categoryId?: string, page?: number, limit?: number): Promise<({
         category: {
@@ -95,6 +100,8 @@ export declare class MenuService {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     })[]>;
     updateItem(id: string, dto: UpdateMenuItemDto): Promise<{
         category: {
@@ -118,6 +125,8 @@ export declare class MenuService {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
     deleteItem(id: string): Promise<{
         name: string;
@@ -146,5 +155,7 @@ export declare class MenuService {
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
+    } & {
+        groupedComponentIds: string[];
     }>;
 }

@@ -23,10 +23,19 @@ export class InventoryService {
     return value;
   }
 
-  async getIngredients(page = 0, limit = 10) {
+  async getIngredients(page = 0, limit = 10, search?: string) {
     const take = Math.min(Math.max(limit, 10), 100);
     const skip = Math.max(page, 0) * take;
+    const query = search?.trim();
     return this.prisma.ingredient.findMany({
+      where: query
+        ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { unit: { contains: query, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
       select: { id: true, name: true, unit: true, currentCost: true, reorderLevel: true },
       orderBy: { name: 'asc' },
       take,

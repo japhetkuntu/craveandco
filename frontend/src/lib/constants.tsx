@@ -20,7 +20,7 @@ import {
   Tag,
 } from 'lucide-react';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5001';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export type NavItem = {
   label: string;
@@ -216,5 +216,6 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Promotions', href: '/growth/promotions', icon: <Tag size={20} /> },
     { label: 'Feedback', href: '/growth/feedback', icon: <MessageSquare size={20} /> },
     { label: 'Churn Risk', href: '/growth/churn', icon: <Bell size={20} /> },
+    { label: 'Checklists', href: '/ops/checklists', icon: <ClipboardList size={20} /> },
   ],
 };

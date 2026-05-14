@@ -3,7 +3,7 @@ import { CreateIngredientDto, CreateMovementDto, CreateStockCountDto, UpdateIngr
 export declare class InventoryController {
     private inventory;
     constructor(inventory: InventoryService);
-    getIngredients(page?: string, limit?: string): Promise<{
+    getIngredients(page?: string, limit?: string, search?: string): Promise<{
         name: string;
         id: string;
         unit: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { API_PATHS } from '@/lib/constants';
 import { get, post, patch, del } from '@/lib/api';
@@ -33,6 +33,7 @@ interface MenuItem {
   available: boolean;
   category: { id: string; name: string };
   options?: MenuOption[];
+  groupedComponentIds?: string[];
 }
 
 interface Category {
@@ -61,6 +62,7 @@ interface Ingredient {
 }
 
 export default function OwnerMenuPage() {
+  const groupedComponentsOptionId = '__meta_grouped_menu_components';
   const { token } = useAuth();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -81,6 +83,7 @@ export default function OwnerMenuPage() {
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [editItemData, setEditItemData] = useState({ name: '', description: '', price: 0, categoryId: '' });
   const [editItemOptions, setEditItemOptions] = useState<MenuOption[]>([]);
+  const [editItemHiddenOptions, setEditItemHiddenOptions] = useState<MenuOption[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
@@ -96,11 +99,30 @@ export default function OwnerMenuPage() {
   const [recipeError, setRecipeError] = useState('');
   const [recipeImportError, setRecipeImportError] = useState('');
   const [recipeImportSources, setRecipeImportSources] = useState<MenuItem[]>([]);
-  const [recipeImportSourceId, setRecipeImportSourceId] = useState('');
+  const [recipeImportSourceIds, setRecipeImportSourceIds] = useState<string[]>([]);
+  const [recipeImportMode, setRecipeImportMode] = useState<'SNAPSHOT' | 'GROUPED'>('GROUPED');
+  const [recipeGroupedSources, setRecipeGroupedSources] = useState<MenuItem[] | null>(null);
+  const [groupedSourceRecipes, setGroupedSourceRecipes] = useState<Record<string, RecipeItem[]>>({});
+  const [showRelinkPanel, setShowRelinkPanel] = useState(false);
   const [recipeForm, setRecipeForm] = useState({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
+
+  const splitVisibleAndHiddenOptions = (options?: MenuOption[]) => {
+    const visible: MenuOption[] = [];
+    const hidden: MenuOption[] = [];
+
+    (options ?? []).forEach((option) => {
+      if (option.id === groupedComponentsOptionId) {
+        hidden.push(option);
+      } else {
+        visible.push(option);
+      }
+    });
+
+    return { visible, hidden };
+  };
 
   const createOption = () => ({
     id: `opt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -123,17 +145,27 @@ export default function OwnerMenuPage() {
     priceAdjustment: 0,
   });
 
+  const fetchIngredientSuggestions = async (search = '') => {
+    try {
+      const suggestions = await get(
+        `${API_PATHS.inventory.ingredients}${buildQueryString({ page: 0, limit: 50, search: search.trim() || undefined })}`,
+        token ?? undefined,
+      );
+      setIngredients(suggestions);
+    } catch {
+      setIngredients([]);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, categoriesRes, ingredientsRes] = await Promise.all([
+      const [itemsRes, categoriesRes] = await Promise.all([
         get('/api/v1/menu/items', token ?? undefined),
         get('/api/v1/menu/categories', token ?? undefined),
-        get(`${API_PATHS.inventory.ingredients}?limit=100`, token ?? undefined),
       ]);
       setItems(itemsRes);
       setCategories(categoriesRes);
-      setIngredients(ingredientsRes);
       if (categoriesRes.length > 0) {
         setSelectedCategoryId((prev) => prev || categoriesRes[0].id);
       }
@@ -158,7 +190,7 @@ export default function OwnerMenuPage() {
       const sources = await get(API_PATHS.menu.recipeImportSources(itemId), token ?? undefined);
       setRecipeImportSources(sources);
       if (sources.length > 0) {
-        setRecipeImportSourceId(sources[0].id);
+        setRecipeImportSourceIds([sources[0].id]);
       }
     } catch (err: any) {
       setRecipeImportError(err.message || 'Failed to load import sources');
@@ -169,19 +201,33 @@ export default function OwnerMenuPage() {
     setSelectedMenuItem(item);
     setRecipeLoading(true);
     setRecipeError('');
+    setRecipeGroupedSources(null);
+    setShowRelinkPanel(false);
     try {
       const recipeRes = await get(
-        `${API_PATHS.menu.recipeItems(item.id)}${buildQueryString({ page: 0, limit: 1000 })}`,
+        `${API_PATHS.menu.recipeItems(item.id)}${buildQueryString({ page: 0, limit: 100 })}`,
         token ?? undefined,
       );
       setRecipeItems(recipeRes);
       setEditingRecipeId(null);
       setRecipeForm({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
-      if (recipeRes.length === 0) {
+
+      const componentIds = item.groupedComponentIds ?? [];
+      if (recipeRes.length === 0 && componentIds.length > 0) {
+        // Item is grouped — restore banner from items already in state
+        const allItems: MenuItem[] = items;
+        const linked = componentIds
+          .map((id) => allItems.find((m) => m.id === id))
+          .filter((m): m is MenuItem => m !== undefined);
+        setRecipeGroupedSources(linked);
+        setRecipeImportSources([]);
+        setRecipeImportSourceIds([]);
+        await fetchGroupedSourceRecipes(linked);
+      } else if (recipeRes.length === 0) {
         await fetchRecipeImportSources(item.id);
       } else {
         setRecipeImportSources([]);
-        setRecipeImportSourceId('');
+        setRecipeImportSourceIds([]);
       }
     } catch (err: any) {
       setRecipeError(err.message || 'Failed to load recipe details');
@@ -192,28 +238,57 @@ export default function OwnerMenuPage() {
 
   const openRecipeEditor = async (item: MenuItem) => {
     await fetchRecipeData(item);
+    await fetchIngredientSuggestions();
+  };
+
+  const fetchGroupedSourceRecipes = async (sources: MenuItem[]) => {
+    const results: Record<string, RecipeItem[]> = {};
+    await Promise.all(
+      sources.map(async (source) => {
+        try {
+          const res = await get(
+            `${API_PATHS.menu.recipeItems(source.id)}${buildQueryString({ page: 0, limit: 100 })}`,
+            token ?? undefined,
+          );
+          results[source.id] = res;
+        } catch {
+          results[source.id] = [];
+        }
+      }),
+    );
+    setGroupedSourceRecipes(results);
   };
 
   const closeRecipeEditor = () => {
     setSelectedMenuItem(null);
     setRecipeItems([]);
     setRecipeImportSources([]);
-    setRecipeImportSourceId('');
+    setRecipeImportSourceIds([]);
     setRecipeImportError('');
-
+    setRecipeGroupedSources(null);
+    setGroupedSourceRecipes({});
+    setShowRelinkPanel(false);
     setRecipeForm({ ingredientName: '', quantity: 0, unit: '', unitCost: 0 });
     setEditingRecipeId(null);
     setRecipeError('');
   };
 
-  const refreshRecipe = async () => {
+  const refreshRecipe = async (isGroupedItem?: boolean) => {
     if (!selectedMenuItem) return;
     try {
       const recipeRes = await get(
-        `${API_PATHS.menu.recipeItems(selectedMenuItem.id)}${buildQueryString({ page: 0, limit: 1000 })}`,
+        `${API_PATHS.menu.recipeItems(selectedMenuItem.id)}${buildQueryString({ page: 0, limit: 100 })}`,
         token ?? undefined,
       );
       setRecipeItems(recipeRes);
+      if (recipeRes.length === 0 && !isGroupedItem) {
+        await fetchRecipeImportSources(selectedMenuItem.id);
+      } else if (recipeRes.length > 0) {
+        setRecipeGroupedSources(null);
+        setGroupedSourceRecipes({});
+        setRecipeImportSources([]);
+        setRecipeImportSourceIds([]);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -340,18 +415,27 @@ export default function OwnerMenuPage() {
   };
 
   const importRecipeItems = async () => {
-    if (!token || !selectedMenuItem || !recipeImportSourceId) return;
+    if (!token || !selectedMenuItem || recipeImportSourceIds.length === 0) return;
     setRecipeImportLoading(true);
     setRecipeImportError('');
     try {
       await post(
         API_PATHS.menu.importRecipeItems(selectedMenuItem.id),
-        { sourceMenuItemId: recipeImportSourceId },
+        { sourceMenuItemIds: recipeImportSourceIds, importMode: recipeImportMode },
         token ?? undefined,
       );
-      await refreshRecipe();
-      setRecipeImportSources([]);
-      setRecipeImportSourceId('');
+      if (recipeImportMode === 'GROUPED') {
+        const linkedItems = recipeImportSources.filter((s) => recipeImportSourceIds.includes(s.id));
+        setRecipeGroupedSources(linkedItems);
+        setShowRelinkPanel(false);
+        setRecipeImportSourceIds([]);
+        await refreshRecipe(true);
+        await fetchGroupedSourceRecipes(linkedItems);
+      } else {
+        setRecipeGroupedSources(null);
+        await refreshRecipe(false);
+      }
+      await fetchData();
     } catch (err: any) {
       setRecipeImportError(err.message || 'Failed to import recipe items');
     } finally {
@@ -390,7 +474,9 @@ export default function OwnerMenuPage() {
       price: item.price,
       categoryId: item.category?.id ?? '',
     });
-    setEditItemOptions(item.options ?? []);
+    const { visible, hidden } = splitVisibleAndHiddenOptions(item.options);
+    setEditItemOptions(visible);
+    setEditItemHiddenOptions(hidden);
   };
 
   const closeEditItem = () => {
@@ -398,6 +484,7 @@ export default function OwnerMenuPage() {
     setEditError('');
     setEditItemData({ name: '', description: '', price: 0, categoryId: '' });
     setEditItemOptions([]);
+    setEditItemHiddenOptions([]);
   };
 
   const handleEditItemSubmit = async (e: React.FormEvent) => {
@@ -417,18 +504,21 @@ export default function OwnerMenuPage() {
           description: editItemData.description.trim(),
           price: Number(editItemData.price),
           categoryId: editItemData.categoryId,
-          options: editItemOptions.map((option) => ({
-            id: option.id,
-            name: option.name.trim(),
-            label: option.label?.trim(),
-            required: option.required,
-            multiple: option.multiple,
-            values: option.values.map((value) => ({
-              id: value.id,
-              label: value.label.trim(),
-              priceAdjustment: Number(value.priceAdjustment || 0),
+          options: [
+            ...editItemOptions.map((option) => ({
+              id: option.id,
+              name: option.name.trim(),
+              label: option.label?.trim(),
+              required: option.required,
+              multiple: option.multiple,
+              values: option.values.map((value) => ({
+                id: value.id,
+                label: value.label.trim(),
+                priceAdjustment: Number(value.priceAdjustment || 0),
+              })),
             })),
-          })),
+            ...editItemHiddenOptions,
+          ],
         },
         token ?? undefined,
       );
@@ -555,6 +645,15 @@ export default function OwnerMenuPage() {
   const filteredItems = activeCategory
     ? items.filter((item) => item.category?.name === activeCategory)
     : items;
+
+  const visibleOptionCountByItemId = useMemo(() => {
+    const map = new Map<string, number>();
+    items.forEach((item) => {
+      const { visible } = splitVisibleAndHiddenOptions(item.options);
+      map.set(item.id, visible.length);
+    });
+    return map;
+  }, [items]);
 
   if (loading) {
     return (
@@ -711,9 +810,9 @@ export default function OwnerMenuPage() {
                 </div>
               </div>
               <p className="text-sm text-text-secondary flex-1">{item.description || 'No description.'}</p>
-              {item.options?.length ? (
+              {(visibleOptionCountByItemId.get(item.id) || 0) > 0 ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-surface-elevated px-3 py-1 text-xs text-text-secondary self-start">
-                  {item.options.length} variation{item.options.length > 1 ? 's' : ''}
+                  {visibleOptionCountByItemId.get(item.id)} variation{(visibleOptionCountByItemId.get(item.id) || 0) > 1 ? 's' : ''}
                 </span>
               ) : null}
               <div className="flex items-center justify-between pt-2 border-t border-border-subtle mt-auto">
@@ -956,30 +1055,140 @@ export default function OwnerMenuPage() {
             >
               {recipeError && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{recipeError}</div>}
 
-              {recipeItems.length === 0 && (
+              {/* Grouped banner — shown when item is grouped */}
+              {recipeGroupedSources !== null && !showRelinkPanel && (() => {
+                const allItems = recipeGroupedSources;
+                const totalCost = allItems.reduce((sum, s) => {
+                  const r = groupedSourceRecipes[s.id] ?? [];
+                  return sum + r.reduce((s2, ri) => s2 + Number(ri.ingredient.currentCost) * ri.quantity, 0);
+                }, 0);
+                return (
+                  <div className="rounded-2xl border border-[var(--color-gold)]/30 bg-surface-raised overflow-hidden">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border-subtle">
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">Grouped recipe</p>
+                        <p className="text-xs text-text-tertiary mt-0.5">Food costs are resolved live from the linked items below.</p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={async () => {
+                          setShowRelinkPanel(true);
+                          await fetchRecipeImportSources(selectedMenuItem!.id);
+                          setRecipeImportSourceIds(recipeGroupedSources.map((s) => s.id));
+                          setRecipeImportMode('GROUPED');
+                        }}
+                      >
+                        Re-link
+                      </Button>
+                    </div>
+                    {allItems.map((source) => {
+                      const sourceRecipes = groupedSourceRecipes[source.id] ?? [];
+                      const sourceCost = sourceRecipes.reduce((s2, ri) => s2 + Number(ri.ingredient.currentCost) * ri.quantity, 0);
+                      return (
+                        <div key={source.id} className="border-b border-border-subtle last:border-0">
+                          <div className="flex items-center justify-between px-4 py-2.5 bg-surface-base">
+                            <div className="flex items-center gap-2">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)] shrink-0" />
+                              <span className="text-sm font-medium text-text-primary">{source.name}</span>
+                              <span className="text-xs text-text-tertiary">— {source.category.name}</span>
+                            </div>
+                            <span className="text-sm font-mono font-semibold text-text-primary">{formatCurrency(sourceCost)}</span>
+                          </div>
+                          {sourceRecipes.length > 0 && (
+                            <table className="w-full text-xs min-w-[400px]">
+                              <tbody className="divide-y divide-border-subtle">
+                                {sourceRecipes.map((ri) => (
+                                  <tr key={ri.id} className="bg-surface-raised">
+                                    <td className="px-6 py-2 text-text-secondary pl-10">{ri.ingredient.name}</td>
+                                    <td className="px-4 py-2 font-mono text-text-tertiary text-right">{ri.quantity} {ri.unit || ri.ingredient.unit}</td>
+                                    <td className="px-4 py-2 font-mono text-text-tertiary text-right">@ {formatCurrency(ri.ingredient.currentCost)}</td>
+                                    <td className="px-4 py-2 font-mono text-text-secondary text-right font-medium">{formatCurrency(Number(ri.ingredient.currentCost) * ri.quantity)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                          {sourceRecipes.length === 0 && (
+                            <p className="px-10 py-2 text-xs text-text-tertiary italic">No recipe items on this item yet.</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between px-4 py-3 bg-surface-base border-t border-border-default">
+                      <span className="text-sm font-semibold text-text-secondary">Total Food Cost</span>
+                      <span className="text-sm font-mono font-bold text-text-primary">{formatCurrency(totalCost)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Import / re-link panel */}
+              {recipeItems.length === 0 && (recipeGroupedSources === null || showRelinkPanel) && (
                 <div className="rounded-2xl border border-warning/30 bg-warning-muted p-4 text-sm">
-                  <p className="font-semibold text-text-primary">Import cost items from another menu item</p>
-                  <p className="mt-1 text-text-secondary">Select an existing menu item to copy its recipe into this one. Only available when this item has no recipe items yet.</p>
-                  {recipeImportError && <p className="mt-2 text-error">{recipeImportError}</p>}
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <select
-                      value={recipeImportSourceId}
-                      onChange={(e) => setRecipeImportSourceId(e.target.value)}
-                      className="flex-1 rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                    >
-                      {recipeImportSources.length === 0
-                        ? <option value="">No available source items</option>
-                        : recipeImportSources.map((source) => (
-                            <option key={source.id} value={source.id}>{source.name} — {source.category.name}</option>
-                          ))
-                      }
-                    </select>
+                  <div className="flex items-center justify-between gap-4 mb-3">
+                    <p className="font-semibold text-text-primary">{showRelinkPanel ? 'Update grouped link' : 'Build recipe from other menu items'}</p>
+                    {showRelinkPanel && (
+                      <Button variant="secondary" size="sm" onClick={() => setShowRelinkPanel(false)}>Cancel</Button>
+                    )}
+                  </div>
+                  {!showRelinkPanel && <p className="mb-3 text-text-secondary">Use Grouped mode for live-linked combos, or Snapshot mode to copy current cost items once.</p>}
+                  {recipeImportError && <p className="mb-2 text-error">{recipeImportError}</p>}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={recipeImportMode === 'GROUPED' ? 'primary' : 'secondary'}
+                        onClick={() => setRecipeImportMode('GROUPED')}
+                      >
+                        Grouped (Live Link)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={recipeImportMode === 'SNAPSHOT' ? 'primary' : 'secondary'}
+                        onClick={() => setRecipeImportMode('SNAPSHOT')}
+                      >
+                        Snapshot (Copy Once)
+                      </Button>
+                    </div>
+                    <p className="text-xs text-text-tertiary">
+                      {recipeImportMode === 'GROUPED'
+                        ? 'Grouped mode keeps this menu item synced to the latest recipes of selected source items.'
+                        : 'Snapshot mode copies current source cost items and does not auto-sync later changes.'}
+                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Select one or more menu items</p>
+                    <div className="max-h-56 overflow-y-auto rounded-2xl border border-border-default bg-surface-input p-3 space-y-2">
+                      {recipeImportSources.length === 0 ? (
+                        <p className="text-sm text-text-tertiary">No available source items</p>
+                      ) : recipeImportSources.map((source) => {
+                        const checked = recipeImportSourceIds.includes(source.id);
+                        return (
+                          <label key={source.id} className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-raised px-3 py-2 cursor-pointer">
+                            <span className="text-sm text-text-primary">{source.name} — {source.category.name}</span>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const nextChecked = e.target.checked;
+                                setRecipeImportSourceIds((prev) => {
+                                  if (nextChecked) return [...prev, source.id];
+                                  return prev.filter((id) => id !== source.id);
+                                });
+                              }}
+                              className="h-4 w-4 rounded"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
                     <Button
                       onClick={importRecipeItems}
-                      disabled={recipeImportSources.length === 0 || !recipeImportSourceId || recipeImportLoading}
+                      disabled={recipeImportSources.length === 0 || recipeImportSourceIds.length === 0 || recipeImportLoading}
                       loading={recipeImportLoading}
                     >
-                      Import Cost Items
+                      {recipeImportMode === 'GROUPED' ? 'Create Grouped Recipe Link' : 'Import Selected Cost Items'}
                     </Button>
                   </div>
                 </div>
@@ -1056,6 +1265,7 @@ export default function OwnerMenuPage() {
                           const nextValue = e.target.value;
                           const existing = ingredients.find((ingredient) => ingredient.name.toLowerCase() === nextValue.toLowerCase());
                           setRecipeForm({ ...recipeForm, ingredientName: nextValue, unit: existing?.unit ?? recipeForm.unit, unitCost: existing?.currentCost ?? recipeForm.unitCost });
+                          void fetchIngredientSuggestions(nextValue);
                         }}
                         required
                         className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"

@@ -30,26 +30,98 @@ let OrdersService = class OrdersService {
         },
         customer: true,
     };
-    async loadMenuItemsWithCosts(menuItemIds) {
-        const menuItems = await this.prisma.menuItem.findMany({
-            where: { id: { in: menuItemIds } },
-            include: { recipeItems: { include: { ingredient: true } } },
-        });
-        const menuItemsMap = new Map(menuItems.map((m) => [m.id, m]));
-        const ingredientCostsMap = new Map(menuItems.map((m) => [
-            m.id,
-            m.recipeItems.map((ri) => ({
+    groupedComponentsOptionId = '__meta_grouped_menu_components';
+    getGroupedComponentIds(menuItem) {
+        const options = Array.isArray(menuItem?.options) ? menuItem.options : [];
+        const groupedOption = options.find((option) => option?.id === this.groupedComponentsOptionId);
+        const values = Array.isArray(groupedOption?.values) ? groupedOption.values : [];
+        return Array.from(new Set(values
+            .map((value) => value?.id)
+            .filter((id) => typeof id === 'string' && id.trim().length > 0)));
+    }
+    mergeIngredientCosts(costs) {
+        const merged = new Map();
+        for (const cost of costs) {
+            const key = cost.ingredientId;
+            const existing = merged.get(key);
+            if (existing) {
+                existing.quantity += Number(cost.quantity || 0);
+                existing.totalCost += Number(cost.totalCost || 0);
+            }
+            else {
+                merged.set(key, {
+                    ingredientId: cost.ingredientId,
+                    ingredientName: cost.ingredientName,
+                    ingredientUnit: cost.ingredientUnit,
+                    quantity: Number(cost.quantity || 0),
+                    unitCost: Number(cost.unitCost || 0),
+                    totalCost: Number(cost.totalCost || 0),
+                });
+            }
+        }
+        return Array.from(merged.values());
+    }
+    resolveIngredientCostsForMenuItem(menuItemId, menuItemsMap, memo, visiting) {
+        if (memo.has(menuItemId))
+            return memo.get(menuItemId) || [];
+        if (visiting.has(menuItemId))
+            return [];
+        visiting.add(menuItemId);
+        const menuItem = menuItemsMap.get(menuItemId);
+        if (!menuItem) {
+            visiting.delete(menuItemId);
+            memo.set(menuItemId, []);
+            return [];
+        }
+        const groupedComponentIds = this.getGroupedComponentIds(menuItem).filter((id) => id !== menuItemId);
+        let ingredientCosts;
+        if (groupedComponentIds.length > 0) {
+            const componentCosts = groupedComponentIds.flatMap((sourceId) => this.resolveIngredientCostsForMenuItem(sourceId, menuItemsMap, memo, visiting));
+            ingredientCosts = this.mergeIngredientCosts(componentCosts);
+        }
+        else {
+            ingredientCosts = (menuItem.recipeItems || []).map((ri) => ({
                 ingredientId: ri.ingredientId,
                 ingredientName: ri.ingredient.name,
                 ingredientUnit: ri.unit || ri.ingredient.unit,
                 quantity: Number(ri.quantity),
                 unitCost: Number(ri.ingredient.currentCost),
                 totalCost: Number(ri.quantity) * Number(ri.ingredient.currentCost),
-            })),
-        ]));
-        const costMap = new Map(menuItems.map((m) => [
-            m.id,
-            (ingredientCostsMap.get(m.id) || []).reduce((sum, cost) => sum + cost.totalCost, 0),
+            }));
+        }
+        visiting.delete(menuItemId);
+        memo.set(menuItemId, ingredientCosts);
+        return ingredientCosts;
+    }
+    async loadMenuItemsWithCosts(menuItemIds) {
+        const pendingIds = new Set(menuItemIds);
+        const menuItemsMap = new Map();
+        while (pendingIds.size > 0) {
+            const idsToLoad = Array.from(pendingIds).filter((id) => !menuItemsMap.has(id));
+            pendingIds.clear();
+            if (idsToLoad.length === 0)
+                break;
+            const loadedMenuItems = await this.prisma.menuItem.findMany({
+                where: { id: { in: idsToLoad } },
+                include: { recipeItems: { include: { ingredient: true } } },
+            });
+            loadedMenuItems.forEach((menuItem) => {
+                menuItemsMap.set(menuItem.id, menuItem);
+            });
+            loadedMenuItems.forEach((menuItem) => {
+                this.getGroupedComponentIds(menuItem)
+                    .filter((id) => !menuItemsMap.has(id))
+                    .forEach((id) => pendingIds.add(id));
+            });
+        }
+        const ingredientMemo = new Map();
+        const ingredientCostsMap = new Map();
+        menuItemIds.forEach((id) => {
+            ingredientCostsMap.set(id, this.resolveIngredientCostsForMenuItem(id, menuItemsMap, ingredientMemo, new Set()));
+        });
+        const costMap = new Map(menuItemIds.map((id) => [
+            id,
+            (ingredientCostsMap.get(id) || []).reduce((sum, cost) => sum + cost.totalCost, 0),
         ]));
         return { menuItemsMap, ingredientCostsMap, costMap };
     }
@@ -210,13 +282,13 @@ let OrdersService = class OrdersService {
         if (order.status !== client_1.OrderStatus.NEW) {
             throw new common_1.BadRequestException('Can only add items to NEW orders');
         }
-        const menuItem = await this.prisma.menuItem.findUnique({
-            where: { id: dto.menuItemId },
-            include: { recipeItems: { include: { ingredient: true } } },
-        });
+        const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts([
+            dto.menuItemId,
+        ]);
+        const menuItem = menuItemsMap.get(dto.menuItemId);
         if (!menuItem)
             throw new common_1.NotFoundException('Menu item not found');
-        const unitCost = menuItem.recipeItems.reduce((sum, ri) => sum + Number(ri.quantity) * Number(ri.ingredient.currentCost), 0);
+        const unitCost = costMap.get(dto.menuItemId) || 0;
         const unitPrice = this.calculateMenuItemPrice(menuItem, dto.selectedOptions);
         await this.prisma.orderItem.create({
             data: {
@@ -228,13 +300,13 @@ let OrdersService = class OrdersService {
                 notes: dto.notes,
                 selectedOptions: this.normalizeSelectedOptions(menuItem, dto.selectedOptions),
                 ingredientCosts: {
-                    create: menuItem.recipeItems.map((ri) => ({
-                        ingredientId: ri.ingredientId,
-                        ingredientName: ri.ingredient.name,
-                        ingredientUnit: ri.unit || ri.ingredient.unit,
-                        quantity: Number(ri.quantity),
-                        unitCost: Number(ri.ingredient.currentCost),
-                        totalCost: Number(ri.quantity) * Number(ri.ingredient.currentCost),
+                    create: (ingredientCostsMap.get(dto.menuItemId) || []).map((cost) => ({
+                        ingredientId: cost.ingredientId,
+                        ingredientName: cost.ingredientName,
+                        ingredientUnit: cost.ingredientUnit,
+                        quantity: cost.quantity,
+                        unitCost: cost.unitCost,
+                        totalCost: cost.totalCost,
                     })),
                 },
             },

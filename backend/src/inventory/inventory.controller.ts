@@ -17,10 +17,11 @@ export class InventoryController {
   getIngredients(
     @Query('page') page = '0',
     @Query('limit') limit = '10',
+    @Query('search') search?: string,
   ) {
     const pageNumber = normalizePage(page);
     const limitNumber = normalizeLimit(limit);
-    return this.inventory.getIngredients(pageNumber, limitNumber);
+    return this.inventory.getIngredients(pageNumber, limitNumber, search);
   }
 
   @Post('ingredients')

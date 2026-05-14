@@ -14,15 +14,64 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 let RecipesService = class RecipesService {
     prisma;
+    groupedComponentsOptionId = '__meta_grouped_menu_components';
     constructor(prisma) {
         this.prisma = prisma;
     }
+    stripGroupedComponentsOption(options) {
+        if (!Array.isArray(options))
+            return [];
+        return options.filter((option) => option && option.id !== this.groupedComponentsOptionId);
+    }
+    async clearGroupedComponentsOption(menuItemId) {
+        const menuItem = await this.prisma.menuItem.findUnique({
+            where: { id: menuItemId },
+            select: { options: true },
+        });
+        if (!menuItem)
+            return;
+        const visibleOptions = this.stripGroupedComponentsOption(menuItem.options);
+        const currentOptions = Array.isArray(menuItem.options) ? menuItem.options : [];
+        if (visibleOptions.length === currentOptions.length)
+            return;
+        await this.prisma.menuItem.update({
+            where: { id: menuItemId },
+            data: { options: visibleOptions },
+        });
+    }
+    async setGroupedComponentsOption(menuItemId, sourceMenuItems) {
+        const menuItem = await this.prisma.menuItem.findUnique({
+            where: { id: menuItemId },
+            select: { options: true },
+        });
+        if (!menuItem)
+            throw new common_1.NotFoundException('Target menu item not found');
+        const visibleOptions = this.stripGroupedComponentsOption(menuItem.options);
+        const groupedComponentsOption = {
+            id: this.groupedComponentsOptionId,
+            name: 'Grouped Menu Components',
+            required: false,
+            multiple: true,
+            values: sourceMenuItems.map((item) => ({
+                id: item.id,
+                label: item.name,
+                priceAdjustment: 0,
+            })),
+        };
+        await this.prisma.menuItem.update({
+            where: { id: menuItemId },
+            data: { options: [...visibleOptions, groupedComponentsOption] },
+        });
+    }
     async resolveIngredient(ingredientId, ingredientName, unit, ingredientCost) {
         if (ingredientId) {
-            const ingredient = await this.prisma.ingredient.findUnique({ where: { id: ingredientId } });
+            const ingredient = await this.prisma.ingredient.findUnique({
+                where: { id: ingredientId },
+            });
             if (!ingredient)
                 throw new common_1.NotFoundException('Ingredient not found');
-            if (ingredientCost !== undefined && ingredientCost !== Number(ingredient.currentCost)) {
+            if (ingredientCost !== undefined &&
+                ingredientCost !== Number(ingredient.currentCost)) {
                 return this.prisma.ingredient.update({
                     where: { id: ingredientId },
                     data: { currentCost: ingredientCost },
@@ -34,7 +83,9 @@ let RecipesService = class RecipesService {
         if (!name) {
             throw new common_1.BadRequestException('Ingredient id or name is required');
         }
-        let ingredient = await this.prisma.ingredient.findFirst({ where: { name } });
+        let ingredient = await this.prisma.ingredient.findFirst({
+            where: { name },
+        });
         if (!ingredient) {
             ingredient = await this.prisma.ingredient.create({
                 data: {
@@ -45,7 +96,8 @@ let RecipesService = class RecipesService {
                 },
             });
         }
-        else if (ingredientCost !== undefined && ingredientCost !== Number(ingredient.currentCost)) {
+        else if (ingredientCost !== undefined &&
+            ingredientCost !== Number(ingredient.currentCost)) {
             ingredient = await this.prisma.ingredient.update({
                 where: { id: ingredient.id },
                 data: { currentCost: ingredientCost },
@@ -66,7 +118,10 @@ let RecipesService = class RecipesService {
         return recipeItems;
     }
     async createRecipeItem(menuItemId, dto) {
-        const menuItem = await this.prisma.menuItem.findUnique({ where: { id: menuItemId } });
+        const menuItem = await this.prisma.menuItem.findUnique({
+            where: { id: menuItemId },
+        });
+        await this.clearGroupedComponentsOption(menuItemId);
         if (!menuItem)
             throw new common_1.NotFoundException('Menu item not found');
         const ingredient = await this.resolveIngredient(dto.ingredientId, dto.ingredientName, dto.unit, dto.unitCost);
@@ -103,7 +158,8 @@ let RecipesService = class RecipesService {
         const data = {};
         let ingredient = recipeItem.ingredient;
         if ((dto.ingredientId || dto.ingredientName) &&
-            (dto.ingredientId !== recipeItem.ingredientId || dto.ingredientName?.trim() !== recipeItem.ingredient.name)) {
+            (dto.ingredientId !== recipeItem.ingredientId ||
+                dto.ingredientName?.trim() !== recipeItem.ingredient.name)) {
             ingredient = await this.resolveIngredient(dto.ingredientId, dto.ingredientName, dto.unit, dto.unitCost);
             if (ingredient.id !== recipeItem.ingredientId) {
                 const duplicate = await this.prisma.recipeItem.findUnique({
@@ -140,7 +196,9 @@ let RecipesService = class RecipesService {
         });
     }
     async deleteRecipeItem(menuItemId, recipeItemId) {
-        const recipeItem = await this.prisma.recipeItem.findUnique({ where: { id: recipeItemId } });
+        const recipeItem = await this.prisma.recipeItem.findUnique({
+            where: { id: recipeItemId },
+        });
         if (!recipeItem || recipeItem.menuItemId !== menuItemId) {
             throw new common_1.NotFoundException('Recipe item not found');
         }
@@ -158,7 +216,6 @@ let RecipesService = class RecipesService {
             where: {
                 id: { not: menuItemId },
                 branchId: menuItem.branchId,
-                recipeItems: { some: {} },
             },
             select: {
                 id: true,
@@ -169,8 +226,12 @@ let RecipesService = class RecipesService {
             orderBy: { name: 'asc' },
         });
     }
-    async importRecipeItems(menuItemId, sourceMenuItemId) {
-        if (menuItemId === sourceMenuItemId) {
+    async importRecipeItems(menuItemId, sourceMenuItemIds, importMode = 'SNAPSHOT') {
+        const uniqueSourceIds = Array.from(new Set(sourceMenuItemIds.map((id) => id.trim()).filter(Boolean)));
+        if (uniqueSourceIds.length === 0) {
+            throw new common_1.BadRequestException('At least one source menu item is required');
+        }
+        if (uniqueSourceIds.includes(menuItemId)) {
             throw new common_1.BadRequestException('Source and target menu items must be different');
         }
         const targetMenuItem = await this.prisma.menuItem.findUnique({
@@ -180,21 +241,44 @@ let RecipesService = class RecipesService {
         if (!targetMenuItem) {
             throw new common_1.NotFoundException('Target menu item not found');
         }
-        if (targetMenuItem.recipeItems.length > 0) {
+        if (importMode === 'SNAPSHOT' && targetMenuItem.recipeItems.length > 0) {
             throw new common_1.BadRequestException('Target menu item already has cost items');
         }
-        const sourceMenuItem = await this.prisma.menuItem.findUnique({
-            where: { id: sourceMenuItemId },
+        const sourceMenuItems = await this.prisma.menuItem.findMany({
+            where: {
+                id: { in: uniqueSourceIds },
+                branchId: targetMenuItem.branchId,
+            },
             include: { recipeItems: true },
         });
-        if (!sourceMenuItem) {
-            throw new common_1.NotFoundException('Source menu item not found');
+        if (sourceMenuItems.length !== uniqueSourceIds.length) {
+            throw new common_1.NotFoundException('One or more source menu items were not found');
         }
-        if (sourceMenuItem.recipeItems.length === 0) {
-            throw new common_1.BadRequestException('Source menu item does not have any cost items to import');
+        if (importMode === 'GROUPED') {
+            await this.prisma.recipeItem.deleteMany({ where: { menuItemId } });
+            await this.setGroupedComponentsOption(menuItemId, sourceMenuItems.map((item) => ({ id: item.id, name: item.name })));
+            return this.getRecipeItems(menuItemId);
         }
+        const sourceRecipeItems = sourceMenuItems.flatMap((item) => item.recipeItems);
+        if (sourceRecipeItems.length === 0) {
+            throw new common_1.BadRequestException('Selected source menu items do not have any cost items to import');
+        }
+        const mergedRecipeItems = new Map();
+        sourceRecipeItems.forEach((recipeItem) => {
+            const existing = mergedRecipeItems.get(recipeItem.ingredientId);
+            if (existing) {
+                existing.quantity += Number(recipeItem.quantity);
+                return;
+            }
+            mergedRecipeItems.set(recipeItem.ingredientId, {
+                ingredientId: recipeItem.ingredientId,
+                quantity: Number(recipeItem.quantity),
+                unit: recipeItem.unit,
+            });
+        });
+        await this.clearGroupedComponentsOption(menuItemId);
         await this.prisma.recipeItem.createMany({
-            data: sourceMenuItem.recipeItems.map((recipeItem) => ({
+            data: Array.from(mergedRecipeItems.values()).map((recipeItem) => ({
                 menuItemId,
                 ingredientId: recipeItem.ingredientId,
                 quantity: recipeItem.quantity,

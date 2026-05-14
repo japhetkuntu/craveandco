@@ -8,11 +8,11 @@ import { OpsService } from './ops.service';
 
 @Controller('api/v1/ops')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OPERATIONS_MANAGER', 'OWNER')
 export class OpsController {
   constructor(private ops: OpsService) {}
 
   @Get('command-center')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   getCommandCenter(
     @CurrentUser('branchId') branchId: string,
     @Query('from') from?: string,
@@ -23,6 +23,7 @@ export class OpsController {
   }
 
   @Get('service-timeline')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   getServiceTimeline(
     @CurrentUser('branchId') branchId: string,
     @Query('from') from?: string,
@@ -37,6 +38,7 @@ export class OpsController {
   }
 
   @Post('day-close')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   dayClose(
     @CurrentUser('branchId') branchId: string,
     @CurrentUser('userId') userId: string,
@@ -46,6 +48,7 @@ export class OpsController {
   }
 
   @Get('day-close-summary')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   getDayCloseSummary(
     @CurrentUser('branchId') branchId: string,
     @Query('date') date: string,
@@ -54,19 +57,19 @@ export class OpsController {
   }
 
   @Get('checklists')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD')
   getChecklists(
     @CurrentUser('branchId') branchId: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('role') role: string,
     @Query('date') date: string,
   ) {
-    const userId = role === 'KITCHEN_STAFF' ? currentUserId : undefined;
+    const userId = role === 'OWNER' ? undefined : currentUserId;
     return this.ops.getChecklists(branchId, date, userId);
   }
 
   @Get('checklists/history')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD')
   getChecklistHistory(
     @CurrentUser('branchId') branchId: string,
     @CurrentUser('userId') currentUserId: string,
@@ -81,7 +84,7 @@ export class OpsController {
   }
 
   @Post('checklists')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD')
   saveChecklists(
     @CurrentUser('branchId') branchId: string,
     @CurrentUser('userId') userId: string,

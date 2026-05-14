@@ -14,4 +14,6 @@ export declare class UpdateRecipeItemDto {
 }
 export declare class ImportRecipeItemsDto {
     sourceMenuItemId: string;
+    sourceMenuItemIds?: string[];
+    importMode?: 'SNAPSHOT' | 'GROUPED';
 }

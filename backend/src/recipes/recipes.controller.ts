@@ -1,10 +1,24 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { normalizeLimit, normalizePage } from '../common/pagination';
 import { RecipesService } from './recipes.service';
-import { CreateRecipeItemDto, UpdateRecipeItemDto, ImportRecipeItemsDto } from './dto/recipes.dto';
+import {
+  CreateRecipeItemDto,
+  UpdateRecipeItemDto,
+  ImportRecipeItemsDto,
+} from './dto/recipes.dto';
 
 @Controller('api/v1/menu/items/:itemId/recipe-items')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,7 +39,10 @@ export class RecipesController {
 
   @Post()
   @Roles('OWNER', 'OPERATIONS_MANAGER')
-  createRecipeItem(@Param('itemId') itemId: string, @Body() dto: CreateRecipeItemDto) {
+  createRecipeItem(
+    @Param('itemId') itemId: string,
+    @Body() dto: CreateRecipeItemDto,
+  ) {
     return this.recipes.createRecipeItem(itemId, dto);
   }
 
@@ -37,8 +54,17 @@ export class RecipesController {
 
   @Post('import')
   @Roles('OWNER', 'OPERATIONS_MANAGER')
-  importRecipeItems(@Param('itemId') itemId: string, @Body() dto: ImportRecipeItemsDto) {
-    return this.recipes.importRecipeItems(itemId, dto.sourceMenuItemId);
+  importRecipeItems(
+    @Param('itemId') itemId: string,
+    @Body() dto: ImportRecipeItemsDto,
+  ) {
+    const sourceMenuItemIds = dto.sourceMenuItemIds?.length
+      ? dto.sourceMenuItemIds
+      : dto.sourceMenuItemId
+        ? [dto.sourceMenuItemId]
+        : [];
+    const importMode = dto.importMode ?? 'SNAPSHOT';
+    return this.recipes.importRecipeItems(itemId, sourceMenuItemIds, importMode);
   }
 
   @Patch(':id')

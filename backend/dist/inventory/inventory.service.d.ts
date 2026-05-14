@@ -7,7 +7,7 @@ export declare class InventoryService {
     private alerts;
     constructor(prisma: PrismaService, alerts: AlertsService);
     private normalizeMovementQuantity;
-    getIngredients(page?: number, limit?: number): Promise<{
+    getIngredients(page?: number, limit?: number, search?: string): Promise<{
         name: string;
         id: string;
         unit: string;

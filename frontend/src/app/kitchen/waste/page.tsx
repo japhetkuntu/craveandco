@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
@@ -29,38 +29,49 @@ export default function KitchenWastePage() {
   const { token } = useAuth();
   const [waste, setWaste] = useState<WasteEntry[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [page, setPage] = useState(0);
   const [limit] = useState(20);
+  const [ingredientSearch, setIngredientSearch] = useState('');
   const [ingredientId, setIngredientId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [w, ing] = await Promise.all([
-        get(`/api/v1/kitchen/waste-logs${buildQueryString({ page, limit })}`, token),
-        get('/api/v1/inventory/ingredients', token).catch(() => []),
-      ]);
+      const w = await get(`/api/v1/kitchen/waste-logs${buildQueryString({ page, limit })}`, token);
       setWaste(w);
-      setIngredients(ing);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, page, limit]);
 
-  useEffect(() => { fetchData(); }, [token, page]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!token || !showModal) return;
+    setIngredientsLoading(true);
+    get(
+      `/api/v1/inventory/ingredients${buildQueryString({ page: 0, limit: 100, search: ingredientSearch.trim() || undefined })}`,
+      token,
+    )
+      .then((ing) => setIngredients(ing))
+      .catch(() => setIngredients([]))
+      .finally(() => setIngredientsLoading(false));
+  }, [token, showModal, ingredientSearch]);
 
   const openModal = () => {
     setIngredientId('');
     setQuantity('');
     setReason('');
+    setIngredientSearch('');
     setShowModal(true);
   };
 
@@ -176,6 +187,18 @@ export default function KitchenWastePage() {
         <form id="waste-form" onSubmit={handleSubmit} className="space-y-4 pt-1">
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
+              Search ingredient
+            </label>
+            <input
+              type="text"
+              value={ingredientSearch}
+              onChange={(e) => setIngredientSearch(e.target.value)}
+              placeholder="Type ingredient name or unit"
+              className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               What ingredient was wasted?
             </label>
             <select
@@ -191,6 +214,7 @@ export default function KitchenWastePage() {
                 </option>
               ))}
             </select>
+            {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
           </div>
 
           <div>

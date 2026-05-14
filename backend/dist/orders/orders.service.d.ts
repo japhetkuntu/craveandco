@@ -7,6 +7,10 @@ export declare class OrdersService {
     private promotions;
     constructor(prisma: PrismaService, promotions: PromotionsService);
     private orderInclude;
+    private readonly groupedComponentsOptionId;
+    private getGroupedComponentIds;
+    private mergeIngredientCosts;
+    private resolveIngredientCostsForMenuItem;
     private loadMenuItemsWithCosts;
     private getSelectedOptionAdjustment;
     private calculateMenuItemPrice;

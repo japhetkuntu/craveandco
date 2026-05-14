@@ -40,7 +40,7 @@ let OpsController = class OpsController {
         return this.ops.getDayCloseSummary(branchId, date);
     }
     getChecklists(branchId, currentUserId, role, date) {
-        const userId = role === 'KITCHEN_STAFF' ? currentUserId : undefined;
+        const userId = role === 'OWNER' ? undefined : currentUserId;
         return this.ops.getChecklists(branchId, date, userId);
     }
     getChecklistHistory(branchId, currentUserId, role, from, to, userId, roleFilter) {
@@ -54,6 +54,7 @@ let OpsController = class OpsController {
 exports.OpsController = OpsController;
 __decorate([
     (0, common_1.Get)('command-center'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('from')),
     __param(2, (0, common_1.Query)('to')),
@@ -64,6 +65,7 @@ __decorate([
 ], OpsController.prototype, "getCommandCenter", null);
 __decorate([
     (0, common_1.Get)('service-timeline'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('from')),
     __param(2, (0, common_1.Query)('to')),
@@ -76,6 +78,7 @@ __decorate([
 ], OpsController.prototype, "getServiceTimeline", null);
 __decorate([
     (0, common_1.Post)('day-close'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
     __param(2, (0, common_1.Body)()),
@@ -85,6 +88,7 @@ __decorate([
 ], OpsController.prototype, "dayClose", null);
 __decorate([
     (0, common_1.Get)('day-close-summary'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('date')),
     __metadata("design:type", Function),
@@ -93,7 +97,7 @@ __decorate([
 ], OpsController.prototype, "getDayCloseSummary", null);
 __decorate([
     (0, common_1.Get)('checklists'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
     __param(2, (0, current_user_decorator_1.CurrentUser)('role')),
@@ -104,7 +108,7 @@ __decorate([
 ], OpsController.prototype, "getChecklists", null);
 __decorate([
     (0, common_1.Get)('checklists/history'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
     __param(2, (0, current_user_decorator_1.CurrentUser)('role')),
@@ -118,7 +122,7 @@ __decorate([
 ], OpsController.prototype, "getChecklistHistory", null);
 __decorate([
     (0, common_1.Post)('checklists'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF', 'GROWTH_LEAD'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
     __param(2, (0, common_1.Body)()),
@@ -129,7 +133,6 @@ __decorate([
 exports.OpsController = OpsController = __decorate([
     (0, common_1.Controller)('api/v1/ops'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('OPERATIONS_MANAGER', 'OWNER'),
     __metadata("design:paramtypes", [ops_service_1.OpsService])
 ], OpsController);
 //# sourceMappingURL=ops.controller.js.map

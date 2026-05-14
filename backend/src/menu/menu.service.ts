@@ -9,7 +9,36 @@ import {
 
 @Injectable()
 export class MenuService {
+  private readonly groupedComponentsOptionId = '__meta_grouped_menu_components';
+
   constructor(private prisma: PrismaService) {}
+
+  private splitVisibleAndHiddenOptions(options: unknown) {
+    if (!Array.isArray(options)) {
+      return { visible: [], hidden: [] as any[] };
+    }
+
+    const visible: any[] = [];
+    const hidden: any[] = [];
+    options.forEach((option) => {
+      if ((option as { id?: string })?.id === this.groupedComponentsOptionId) {
+        hidden.push(option);
+      } else {
+        visible.push(option);
+      }
+    });
+
+    return { visible, hidden };
+  }
+
+  private toPublicMenuItem<T extends { options?: unknown }>(item: T): T & { groupedComponentIds: string[] } {
+    const { visible, hidden } = this.splitVisibleAndHiddenOptions(item.options);
+    const grouped = hidden.find((h: any) => h.id === this.groupedComponentsOptionId);
+    const groupedComponentIds: string[] = grouped
+      ? (grouped.values ?? []).map((v: any) => v.id as string)
+      : [];
+    return { ...item, options: visible, groupedComponentIds };
+  }
 
   async createCategory(dto: CreateCategoryDto) {
     return this.prisma.menuCategory.create({ data: dto });
@@ -43,7 +72,7 @@ export class MenuService {
   }
 
   async createItem(branchId: string, dto: CreateMenuItemDto) {
-    return this.prisma.menuItem.create({
+    const created = await this.prisma.menuItem.create({
       data: {
         ...dto,
         branchId,
@@ -52,29 +81,40 @@ export class MenuService {
       },
       include: { category: true },
     });
+    return this.toPublicMenuItem(created);
   }
 
   async findItems(branchId: string, categoryId?: string, page = 0, limit = 50) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max(page, 0) * take;
 
-    return this.prisma.menuItem.findMany({
+    const items = await this.prisma.menuItem.findMany({
       where: { branchId, ...(categoryId && { categoryId }) },
       include: { category: true },
       orderBy: { name: 'asc' },
       take,
       skip,
     });
+
+    return items.map((item) => this.toPublicMenuItem(item));
   }
 
   async updateItem(id: string, dto: UpdateMenuItemDto) {
     const item = await this.prisma.menuItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Menu item not found');
-    return this.prisma.menuItem.update({
+
+    const data: any = { ...dto };
+    if (dto.options !== undefined) {
+      const { hidden } = this.splitVisibleAndHiddenOptions(item.options);
+      data.options = [...(dto.options as any[]), ...hidden] as any;
+    }
+
+    const updated = await this.prisma.menuItem.update({
       where: { id },
-      data: { ...dto, options: dto.options as any },
+      data,
       include: { category: true },
     });
+    return this.toPublicMenuItem(updated);
   }
 
   async deleteItem(id: string) {
@@ -86,9 +126,10 @@ export class MenuService {
   async toggleAvailability(id: string) {
     const item = await this.prisma.menuItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Menu item not found');
-    return this.prisma.menuItem.update({
+    const updated = await this.prisma.menuItem.update({
       where: { id },
       data: { available: !item.available },
     });
+    return this.toPublicMenuItem(updated);
   }
 }

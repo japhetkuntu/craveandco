@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
@@ -27,6 +27,15 @@ interface Ingredient {
   reorderLevel: number;
 }
 
+interface MovementEntry {
+  id: string;
+  ingredient?: { name: string };
+  type: string;
+  reason?: string;
+  quantity: number;
+  createdAt: string;
+}
+
 interface StockResponse {
   items: StockItem[];
   totalCount: number;
@@ -47,12 +56,16 @@ export default function OpsInventoryPage() {
   const [stockData, setStockData] = useState<StockResponse | null>(null);
   const [lowStock, setLowStock] = useState<StockItem[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [movements, setMovements] = useState<any[]>([]);
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
+  const [movements, setMovements] = useState<MovementEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [stockPage, setStockPage] = useState(0);
   const [stockLimit] = useState(15);
+  const [lowStockPage, setLowStockPage] = useState(0);
+  const [lowStockLimit] = useState(10);
   const [movementPage, setMovementPage] = useState(0);
   const [movementLimit] = useState(10);
+  const [ingredientSearch, setIngredientSearch] = useState('');
   const [showMovementForm, setShowMovementForm] = useState(false);
   const [movementData, setMovementData] = useState({ ingredientId: '', quantity: '', type: 'PURCHASE_IN', reason: '' });
   const [submittingMovement, setSubmittingMovement] = useState(false);
@@ -69,13 +82,12 @@ export default function OpsInventoryPage() {
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [s, ls, ing, mv] = await Promise.all([
+      const [s, ls, mv] = await Promise.all([
         get(`/api/v1/inventory/stock${buildQueryString({ page: stockPage, limit: stockLimit })}`, token),
-        get('/api/v1/inventory/alerts/low-stock', token),
-        get('/api/v1/inventory/ingredients?limit=100', token).catch(() => []),
+        get(`/api/v1/inventory/alerts/low-stock${buildQueryString({ page: lowStockPage, limit: lowStockLimit })}`, token),
         get(`/api/v1/inventory/movements${buildQueryString({ page: movementPage, limit: movementLimit })}`, token),
       ]);
       const sr = s as StockResponse;
@@ -88,16 +100,24 @@ export default function OpsInventoryPage() {
         })),
       });
       setLowStock(ls);
-      setIngredients(ing);
       setMovements(mv);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, stockPage, stockLimit, lowStockPage, lowStockLimit, movementPage, movementLimit]);
 
-  useEffect(() => { fetchData(); }, [token, stockPage, movementPage]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!token || !showMovementForm) return;
+    setIngredientsLoading(true);
+    get(`/api/v1/inventory/ingredients${buildQueryString({ page: 0, limit: 100, search: ingredientSearch.trim() || undefined })}`, token)
+      .then((ing) => setIngredients(ing))
+      .catch(() => setIngredients([]))
+      .finally(() => setIngredientsLoading(false));
+  }, [token, showMovementForm, ingredientSearch]);
 
   const handleAddIngredient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,6 +246,16 @@ export default function OpsInventoryPage() {
           <div className="p-4">
             <form onSubmit={handleMovement} className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Search ingredient</label>
+                <input
+                  type="text"
+                  placeholder="Type ingredient name or unit"
+                  value={ingredientSearch}
+                  onChange={(e) => setIngredientSearch(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">Which ingredient?</label>
                 <select
                   value={movementData.ingredientId}
@@ -238,6 +268,7 @@ export default function OpsInventoryPage() {
                     <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
                   ))}
                 </select>
+                {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">What happened?</label>
@@ -299,6 +330,15 @@ export default function OpsInventoryPage() {
                 </span>
               </div>
             ))}
+          </div>
+          <div className="mt-3">
+            <PaginationControls
+              page={lowStockPage}
+              limit={lowStockLimit}
+              onPageChange={setLowStockPage}
+              onLimitChange={() => {}}
+              hasMore={lowStock.length === lowStockLimit}
+            />
           </div>
         </div>
       )}

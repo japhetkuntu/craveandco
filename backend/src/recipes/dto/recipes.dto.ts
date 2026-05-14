@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateRecipeItemDto {
@@ -49,6 +56,17 @@ export class UpdateRecipeItemDto {
 }
 
 export class ImportRecipeItemsDto {
+  @IsOptional()
   @IsString()
   sourceMenuItemId: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  sourceMenuItemIds?: string[];
+
+  @IsOptional()
+  @IsIn(['SNAPSHOT', 'GROUPED'])
+  importMode?: 'SNAPSHOT' | 'GROUPED';
 }

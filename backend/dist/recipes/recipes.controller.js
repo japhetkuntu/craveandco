@@ -37,7 +37,13 @@ let RecipesController = class RecipesController {
         return this.recipes.getRecipeImportSources(itemId);
     }
     importRecipeItems(itemId, dto) {
-        return this.recipes.importRecipeItems(itemId, dto.sourceMenuItemId);
+        const sourceMenuItemIds = dto.sourceMenuItemIds?.length
+            ? dto.sourceMenuItemIds
+            : dto.sourceMenuItemId
+                ? [dto.sourceMenuItemId]
+                : [];
+        const importMode = dto.importMode ?? 'SNAPSHOT';
+        return this.recipes.importRecipeItems(itemId, sourceMenuItemIds, importMode);
     }
     updateRecipeItem(itemId, id, dto) {
         return this.recipes.updateRecipeItem(itemId, id, dto);

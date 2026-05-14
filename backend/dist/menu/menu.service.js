@@ -14,8 +14,33 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 let MenuService = class MenuService {
     prisma;
+    groupedComponentsOptionId = '__meta_grouped_menu_components';
     constructor(prisma) {
         this.prisma = prisma;
+    }
+    splitVisibleAndHiddenOptions(options) {
+        if (!Array.isArray(options)) {
+            return { visible: [], hidden: [] };
+        }
+        const visible = [];
+        const hidden = [];
+        options.forEach((option) => {
+            if (option?.id === this.groupedComponentsOptionId) {
+                hidden.push(option);
+            }
+            else {
+                visible.push(option);
+            }
+        });
+        return { visible, hidden };
+    }
+    toPublicMenuItem(item) {
+        const { visible, hidden } = this.splitVisibleAndHiddenOptions(item.options);
+        const grouped = hidden.find((h) => h.id === this.groupedComponentsOptionId);
+        const groupedComponentIds = grouped
+            ? (grouped.values ?? []).map((v) => v.id)
+            : [];
+        return { ...item, options: visible, groupedComponentIds };
     }
     async createCategory(dto) {
         return this.prisma.menuCategory.create({ data: dto });
@@ -45,7 +70,7 @@ let MenuService = class MenuService {
         return this.prisma.menuCategory.delete({ where: { id } });
     }
     async createItem(branchId, dto) {
-        return this.prisma.menuItem.create({
+        const created = await this.prisma.menuItem.create({
             data: {
                 ...dto,
                 branchId,
@@ -54,27 +79,35 @@ let MenuService = class MenuService {
             },
             include: { category: true },
         });
+        return this.toPublicMenuItem(created);
     }
     async findItems(branchId, categoryId, page = 0, limit = 50) {
         const take = Math.min(Math.max(limit, 1), 100);
         const skip = Math.max(page, 0) * take;
-        return this.prisma.menuItem.findMany({
+        const items = await this.prisma.menuItem.findMany({
             where: { branchId, ...(categoryId && { categoryId }) },
             include: { category: true },
             orderBy: { name: 'asc' },
             take,
             skip,
         });
+        return items.map((item) => this.toPublicMenuItem(item));
     }
     async updateItem(id, dto) {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
         if (!item)
             throw new common_1.NotFoundException('Menu item not found');
-        return this.prisma.menuItem.update({
+        const data = { ...dto };
+        if (dto.options !== undefined) {
+            const { hidden } = this.splitVisibleAndHiddenOptions(item.options);
+            data.options = [...dto.options, ...hidden];
+        }
+        const updated = await this.prisma.menuItem.update({
             where: { id },
-            data: { ...dto, options: dto.options },
+            data,
             include: { category: true },
         });
+        return this.toPublicMenuItem(updated);
     }
     async deleteItem(id) {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
@@ -86,10 +119,11 @@ let MenuService = class MenuService {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
         if (!item)
             throw new common_1.NotFoundException('Menu item not found');
-        return this.prisma.menuItem.update({
+        const updated = await this.prisma.menuItem.update({
             where: { id },
             data: { available: !item.available },
         });
+        return this.toPublicMenuItem(updated);
     }
 };
 exports.MenuService = MenuService;
