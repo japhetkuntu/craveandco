@@ -490,7 +490,7 @@ export default function OwnerMenuPage() {
   const handleEditItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !editItem) return;
-    if (!editItemData.name.trim() || editItemData.price <= 0 || !editItemData.categoryId) {
+    if (!editItemData.name.trim() || editItemData.price < 0 || !editItemData.categoryId) {
       setEditError('Name, price and category are required');
       return;
     }
@@ -595,7 +595,7 @@ export default function OwnerMenuPage() {
 
   const handleCreateItem = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault();
-    if (!newItem.name.trim() || newItem.price <= 0 || !newItem.categoryId) return false;
+    if (!newItem.name.trim() || newItem.price < 0 || !newItem.categoryId) return false;
     setSaving(true);
     setError('');
     try {
@@ -926,7 +926,6 @@ export default function OwnerMenuPage() {
                       type="number"
                       value={newItem.price}
                       onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
-                      required
                       min={0}
                       step={0.01}
                       className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
@@ -1327,7 +1326,7 @@ export default function OwnerMenuPage() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
-                    <input type="number" value={editItemData.price} onChange={(e) => setEditItemData({ ...editItemData, price: Number(e.target.value) })} required min={0} step={0.01} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
+                    <input type="number" value={editItemData.price} onChange={(e) => setEditItemData({ ...editItemData, price: Number(e.target.value) })} min={0} step={0.01} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" />
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-text-secondary">Category</span>
