@@ -891,150 +891,154 @@ export default function OwnerMenuPage() {
       </Modal>
 
       {/* Add Item Modal */}
-      <Modal
-        open={showItemModal}
-        onClose={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}
-        title="Add Menu Item"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Cancel</Button>
-            <Button type="submit" form="new-item-form" loading={saving}>Add Item</Button>
-          </>
-        }
-      >
-        {error && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{error}</div>}
-        <form
-          id="new-item-form"
-          onSubmit={async (e) => { const ok = await handleCreateItem(e); if (ok) setShowItemModal(false); }}
-          className="space-y-4 pt-1"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Item Name</span>
-              <input
-                type="text"
-                value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                required
-                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                placeholder="e.g. Jollof Rice"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Category</span>
-              <select
-                value={newItem.categoryId}
-                onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
-                required
-                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-              >
-                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
-              <input
-                type="number"
-                value={newItem.price}
-                onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
-                required
-                min={0}
-                step={0.01}
-                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-text-secondary">Description</span>
-              <input
-                type="text"
-                value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                placeholder="Brief description (optional)"
-              />
-            </label>
-          </div>
-          {/* Variations */}
-          <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
-            <div className="flex items-center justify-between">
+      {showItemModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-text-primary">Variations</p>
-                <p className="text-xs text-text-secondary">Optional or required choices for this item</p>
+                <h2 className="text-xl font-semibold text-text-primary">Add Menu Item</h2>
+                <p className="text-sm text-text-secondary mt-1">Fill in the details below and save.</p>
               </div>
-              <button
-                type="button"
-                onClick={addNewItemOption}
-                className="rounded-2xl border border-border-default bg-surface-raised px-3 py-1.5 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors"
-              >
-                + Add Option
-              </button>
+              <Button variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Close</Button>
             </div>
-            {newItemOptions.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No variations yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {newItemOptions.map((option, optionIndex) => (
-                  <div key={option.id} className="rounded-2xl border border-border-subtle bg-surface-raised p-4 space-y-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <label className="block flex-1">
-                        <span className="text-xs font-medium text-text-secondary">Option name</span>
-                        <input
-                          type="text"
-                          value={option.name}
-                          onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { name: e.target.value }))}
-                          className="mt-1 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                          placeholder="e.g. Soup type"
-                        />
-                      </label>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm text-text-secondary">
-                          <input type="checkbox" checked={option.required} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { required: e.target.checked }))} className="h-4 w-4 rounded" />
-                          Required
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-text-secondary">
-                          <input type="checkbox" checked={option.multiple} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { multiple: e.target.checked }))} className="h-4 w-4 rounded" />
-                          Multiple
-                        </label>
-                        <button type="button" onClick={() => removeNewItemOption(optionIndex)} className="text-xs text-error hover:underline">Remove</button>
-                      </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {error && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{error}</div>}
+              <form
+                id="new-item-form"
+                onSubmit={async (e) => { const ok = await handleCreateItem(e); if (ok) setShowItemModal(false); }}
+                className="space-y-4"
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">Item Name</span>
+                    <input
+                      type="text"
+                      value={newItem.name}
+                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                      required
+                      className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                      placeholder="e.g. Jollof Rice"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">Price (GHS)</span>
+                    <input
+                      type="number"
+                      value={newItem.price}
+                      onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
+                      required
+                      min={0}
+                      step={0.01}
+                      className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">Category</span>
+                    <select
+                      value={newItem.categoryId}
+                      onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
+                      required
+                      className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    >
+                      {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-sm font-medium text-text-secondary">Description</span>
+                  <textarea
+                    value={newItem.description}
+                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    placeholder="Brief description (optional)"
+                    rows={3}
+                  />
+                </label>
+                {/* Variations */}
+                <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">Variations</p>
+                      <p className="text-xs text-text-secondary">Optional or required choices for this item</p>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-text-secondary">Values</span>
-                        <button type="button" onClick={() => addNewItemOptionValue(optionIndex)} className="text-xs text-[var(--color-gold)] hover:underline">+ Add Value</button>
-                      </div>
-                      {option.values.map((value, valueIndex) => (
-                        <div key={value.id} className="grid gap-2 grid-cols-[1fr_0.6fr_auto] items-center">
-                          <input
-                            type="text"
-                            value={value.label}
-                            onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
-                            className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                            placeholder="Label"
-                          />
-                          <input
-                            type="number"
-                            value={value.priceAdjustment}
-                            onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
-                            className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                            placeholder="+0.00"
-                            step="0.01"
-                            min="0"
-                          />
-                          <button type="button" onClick={() => removeNewItemOptionValue(optionIndex, valueIndex)} className="rounded-xl border border-border-subtle px-2 py-2 text-xs text-error hover:border-error transition-colors">✕</button>
+                    <button
+                      type="button"
+                      onClick={addNewItemOption}
+                      className="rounded-2xl border border-border-default bg-surface-raised px-3 py-1.5 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors"
+                    >
+                      + Add Option
+                    </button>
+                  </div>
+                  {newItemOptions.length === 0 ? (
+                    <p className="text-sm text-text-tertiary">No variations yet.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {newItemOptions.map((option, optionIndex) => (
+                        <div key={option.id} className="rounded-2xl border border-border-subtle bg-surface-raised p-4 space-y-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <label className="block flex-1">
+                              <span className="text-xs font-medium text-text-secondary">Option name</span>
+                              <input
+                                type="text"
+                                value={option.name}
+                                onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { name: e.target.value }))}
+                                className="mt-1 w-full rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                                placeholder="e.g. Soup type"
+                              />
+                            </label>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input type="checkbox" checked={option.required} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { required: e.target.checked }))} className="h-4 w-4 rounded" />
+                                Required
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-text-secondary">
+                                <input type="checkbox" checked={option.multiple} onChange={(e) => setNewItemOptions(updateOption(newItemOptions, optionIndex, { multiple: e.target.checked }))} className="h-4 w-4 rounded" />
+                                Multiple
+                              </label>
+                              <button type="button" onClick={() => removeNewItemOption(optionIndex)} className="text-xs text-error hover:underline">Remove</button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-text-secondary">Values</span>
+                              <button type="button" onClick={() => addNewItemOptionValue(optionIndex)} className="text-xs text-[var(--color-gold)] hover:underline">+ Add Value</button>
+                            </div>
+                            {option.values.map((value, valueIndex) => (
+                              <div key={value.id} className="grid gap-2 grid-cols-[1fr_0.6fr_auto] items-center">
+                                <input
+                                  type="text"
+                                  value={value.label}
+                                  onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { label: e.target.value }))}
+                                  className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                                  placeholder="Label"
+                                />
+                                <input
+                                  type="number"
+                                  value={value.priceAdjustment}
+                                  onChange={(e) => setNewItemOptions(updateOptionValue(newItemOptions, optionIndex, valueIndex, { priceAdjustment: Number(e.target.value) }))}
+                                  className="rounded-2xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                                  placeholder="+0.00"
+                                  step="0.01"
+                                  min="0"
+                                />
+                                <button type="button" onClick={() => removeNewItemOptionValue(optionIndex, valueIndex)} className="rounded-xl border border-border-subtle px-2 py-2 text-xs text-error hover:border-error transition-colors">✕</button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 pb-4">
+                  <Button type="submit" loading={saving}>Add Item</Button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Cancel</Button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form>
-      </Modal>
-
+        </div>
+      )}
       {/* Recipe Editor — fullscreen overlay */}
       {selectedMenuItem && (
         <div
