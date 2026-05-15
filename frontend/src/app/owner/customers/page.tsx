@@ -7,7 +7,6 @@ import { buildQueryString, formatCurrency, formatDate } from '@/lib/utils';
 import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, Download } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
@@ -450,46 +449,60 @@ export default function OwnerCustomersPage() {
       />
 
       {/* ── Add Customer Modal ── */}
-      <Modal
-        open={showNew}
-        onClose={() => { setShowNew(false); setError(''); }}
-        title="Add Customer"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowNew(false); setError(''); }}>Cancel</Button>
-            <Button type="submit" form="new-customer-form" loading={saving}>Save Customer</Button>
-          </>
-        }
-      >
-        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
-        <form id="new-customer-form" onSubmit={handleCreate} className="space-y-4 pt-2">
-          <Input label="Customer Name" value={newName} onChange={e => setNewName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
-          <Input label="Phone Number" type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
-          <Input label="Email Address" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
-          <BirthdayFields month={newBirthdayMonth} day={newBirthdayDay} onMonth={setNewBirthdayMonth} onDay={setNewBirthdayDay} />
-        </form>
-      </Modal>
+      {showNew && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Add Customer</h2>
+                <p className="text-sm text-text-secondary mt-1">Create a new customer profile.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowNew(false); setError(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {error && <div className="mb-4 rounded-2xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+              <form id="new-customer-form" onSubmit={handleCreate} className="space-y-4">
+                <Input label="Customer Name" value={newName} onChange={e => setNewName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
+                <Input label="Phone Number" type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
+                <Input label="Email Address" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
+                <BirthdayFields month={newBirthdayMonth} day={newBirthdayDay} onMonth={setNewBirthdayMonth} onDay={setNewBirthdayDay} />
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowNew(false); setError(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-customer-form" loading={saving}>Save Customer</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit Customer Modal ── */}
-      <Modal
-        open={!!editCustomer}
-        onClose={closeEdit}
-        title="Edit Customer"
-        footer={
-          <>
-            <Button variant="secondary" onClick={closeEdit}>Cancel</Button>
-            <Button type="submit" form="edit-customer-form" loading={saving}>Save Changes</Button>
-          </>
-        }
-      >
-        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
-        <form id="edit-customer-form" onSubmit={handleUpdate} className="space-y-4 pt-2">
-          <Input label="Customer Name" value={editName} onChange={e => setEditName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
-          <Input label="Phone Number" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
-          <Input label="Email Address" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
-          <BirthdayFields month={editBirthdayMonth} day={editBirthdayDay} onMonth={setEditBirthdayMonth} onDay={setEditBirthdayDay} />
-        </form>
-      </Modal>
+      {!!editCustomer && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Edit Customer</h2>
+                <p className="text-sm text-text-secondary mt-1">Update customer details.</p>
+              </div>
+              <Button variant="secondary" onClick={closeEdit}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {error && <div className="mb-4 rounded-2xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+              <form id="edit-customer-form" onSubmit={handleUpdate} className="space-y-4">
+                <Input label="Customer Name" value={editName} onChange={e => setEditName(e.target.value)} required placeholder="e.g. Kofi Mensah" />
+                <Input label="Phone Number" type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="e.g. 024 000 0000" />
+                <Input label="Email Address" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="e.g. kofi@email.com" />
+                <BirthdayFields month={editBirthdayMonth} day={editBirthdayDay} onMonth={setEditBirthdayMonth} onDay={setEditBirthdayDay} />
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={closeEdit}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="edit-customer-form" loading={saving}>Save Changes</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

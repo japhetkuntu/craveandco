@@ -373,6 +373,17 @@ let OrdersService = class OrdersService {
             if (promotion.minOrderAmount && paidTotal < Number(promotion.minOrderAmount)) {
                 throw new common_1.BadRequestException(`Order total must be at least ${promotion.minOrderAmount} to apply this promotion`);
             }
+            if (promotion.menuScope === 'SPECIFIC') {
+                const allowedIds = promotion.menuItemIds ?? [];
+                const orderItems = await this.prisma.orderItem.findMany({
+                    where: { orderId: id },
+                    select: { menuItemId: true },
+                });
+                const hasEligibleItem = orderItems.some((oi) => oi.menuItemId && allowedIds.includes(oi.menuItemId));
+                if (!hasEligibleItem) {
+                    throw new common_1.BadRequestException('This promotion does not apply to any items in the order');
+                }
+            }
             const { discountAmount, finalTotal } = this.promotions.calculateDiscount(dto.promotionId, paidTotal, promotion);
             paidTotal = finalTotal;
             appliedPromotionId = dto.promotionId;

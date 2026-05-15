@@ -6,7 +6,6 @@ import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { HeartHandshake, ArrowUpRight, ArrowDownRight } from 'lucide-react';
@@ -172,80 +171,82 @@ export default function GrowthLoyaltyPage() {
         </Button>
       </div>
 
-      <Modal
-        open={showTransactionModal}
-        onClose={() => setShowTransactionModal(false)}
-        title="Create Loyalty Transaction"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowTransactionModal(false)}>
-              Cancel
-            </Button>
-            <Button loading={creatingTransaction} onClick={handleCreateTransaction}>
-              Save Transaction
-            </Button>
-          </>
-        }
-      >
-        <form className="space-y-4" onSubmit={handleCreateTransaction}>
-          <div className="space-y-4">
-            <label className="block text-sm text-text-secondary">
-              Customer
-              <select
-                value={transactionCustomerId}
-                onChange={(e) => setTransactionCustomerId(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none"
-              >
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}{customer.loyaltyPoints != null ? ` (${customer.loyaltyPoints} pts)` : ''}
-                  </option>
-                ))}
-              </select>
-              {transactionCustomerId && (
-                <p className="mt-1.5 text-xs font-semibold">
-                  {balanceLoading ? 'Loading balance…' : customerBalance !== null ? (
-                    <span className={customerBalance >= 0 ? 'text-success' : 'text-error'}>
-                      Current balance: {customerBalance} pts
-                    </span>
-                  ) : null}
-                </p>
-              )}
-            </label>
+      {showTransactionModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Create Loyalty Transaction</h2>
+                <p className="text-sm text-text-secondary mt-1">Manually award or redeem points for a customer.</p>
+              </div>
+              <Button variant="secondary" onClick={() => setShowTransactionModal(false)}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="loyalty-form" className="space-y-4" onSubmit={handleCreateTransaction}>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Customer</label>
+                  <select
+                    value={transactionCustomerId}
+                    onChange={(e) => setTransactionCustomerId(e.target.value)}
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name}{customer.loyaltyPoints != null ? ` (${customer.loyaltyPoints} pts)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {transactionCustomerId && (
+                    <p className="mt-1.5 text-xs font-semibold">
+                      {balanceLoading ? 'Loading balance…' : customerBalance !== null ? (
+                        <span className={customerBalance >= 0 ? 'text-success' : 'text-error'}>
+                          Current balance: {customerBalance} pts
+                        </span>
+                      ) : null}
+                    </p>
+                  )}
+                </div>
 
-            <label className="block text-sm text-text-secondary">
-              Transaction Type
-              <select
-                value={transactionType}
-                onChange={(e) => setTransactionType(e.target.value as 'EARN' | 'REDEEM')}
-                className="mt-2 w-full rounded-xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none"
-              >
-                <option value="EARN">Earn Points</option>
-                <option value="REDEEM">Redeem Points</option>
-              </select>
-            </label>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Transaction Type</label>
+                  <select
+                    value={transactionType}
+                    onChange={(e) => setTransactionType(e.target.value as 'EARN' | 'REDEEM')}
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="EARN">Earn Points</option>
+                    <option value="REDEEM">Redeem Points</option>
+                  </select>
+                </div>
 
-            <Input
-              label="Points"
-              type="number"
-              min={1}
-              value={transactionPoints}
-              onChange={(e) => setTransactionPoints(Number(e.target.value))}
-              required
-            />
+                <Input
+                  label="Points"
+                  type="number"
+                  min={1}
+                  value={transactionPoints}
+                  onChange={(e) => setTransactionPoints(Number(e.target.value))}
+                  required
+                />
 
-            <Input
-              label="Reference"
-              value={transactionReference}
-              onChange={(e) => setTransactionReference(e.target.value)}
-              placeholder="Order # or campaign reference"
-            />
-            {transactionError && (
-              <p className="text-sm text-error">{transactionError}</p>
-            )}
+                <Input
+                  label="Reference"
+                  value={transactionReference}
+                  onChange={(e) => setTransactionReference(e.target.value)}
+                  placeholder="Order # or campaign reference"
+                />
+
+                {transactionError && (
+                  <p className="text-sm text-error">{transactionError}</p>
+                )}
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowTransactionModal(false)}>Cancel</Button>
+              <Button variant="primary" className="flex-1" loading={creatingTransaction} onClick={handleCreateTransaction}>Save Transaction</Button>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">

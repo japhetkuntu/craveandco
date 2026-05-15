@@ -6,7 +6,6 @@ import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Package, AlertTriangle, Plus } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
@@ -328,56 +327,67 @@ export default function OwnerInventoryPage() {
       </div>
 
       {/* Add/Edit Item Modal */}
-      <Modal
-        open={showItemModal}
-        onClose={() => { setShowItemModal(false); resetInventoryForm(); }}
-        title={editingIngredientId ? 'Edit Inventory Item' : 'Add Inventory Item'}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowItemModal(false); resetInventoryForm(); }}>Cancel</Button>
-            <Button type="submit" form="inventory-item-form" loading={inventorySaving}>
-              {editingIngredientId ? 'Save Changes' : 'Add Item'}
-            </Button>
-          </>
-        }
-      >
-        {inventoryError && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{inventoryError}</div>}
-        <form id="inventory-item-form" onSubmit={(e) => { handleInventorySubmit(e).then(() => setShowItemModal(false)); }} className="space-y-4 pt-2">
-          <Input
-            label="Ingredient Name"
-            value={inventoryForm.name}
-            onChange={(e) => setInventoryForm({ ...inventoryForm, name: e.target.value })}
-            required
-            placeholder="e.g. Chicken Breast"
-          />
-          <Input
-            label="Unit of Measurement"
-            value={inventoryForm.unit}
-            onChange={(e) => setInventoryForm({ ...inventoryForm, unit: e.target.value })}
-            required
-            placeholder="e.g. kg, litres, pieces"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Cost per Unit (GHS)"
-              type="number"
-              min="0"
-              step="0.01"
-              value={inventoryForm.currentCost}
-              onChange={(e) => setInventoryForm({ ...inventoryForm, currentCost: e.target.value === '' ? 0 : Number(e.target.value) })}
-              placeholder="0.00"
-            />
-            <Input
-              label="Reorder Level"
-              type="number"
-              min="0"
-              value={inventoryForm.reorderLevel}
-              onChange={(e) => setInventoryForm({ ...inventoryForm, reorderLevel: e.target.value === '' ? 0 : Number(e.target.value) })}
-              placeholder="e.g. 10"
-            />
+      {showItemModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">
+                  {editingIngredientId ? 'Edit Inventory Item' : 'Add Inventory Item'}
+                </h2>
+                <p className="text-sm text-text-secondary mt-1">
+                  {editingIngredientId ? 'Update the item details below.' : 'Add a new ingredient to your inventory.'}
+                </p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowItemModal(false); resetInventoryForm(); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {inventoryError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error">{inventoryError}</div>}
+              <form id="inventory-item-form" onSubmit={(e) => { handleInventorySubmit(e).then(() => setShowItemModal(false)); }} className="space-y-4">
+                <Input
+                  label="Ingredient Name"
+                  value={inventoryForm.name}
+                  onChange={(e) => setInventoryForm({ ...inventoryForm, name: e.target.value })}
+                  required
+                  placeholder="e.g. Chicken Breast"
+                />
+                <Input
+                  label="Unit of Measurement"
+                  value={inventoryForm.unit}
+                  onChange={(e) => setInventoryForm({ ...inventoryForm, unit: e.target.value })}
+                  required
+                  placeholder="e.g. kg, litres, pieces"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Cost per Unit (GHS)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={inventoryForm.currentCost}
+                    onChange={(e) => setInventoryForm({ ...inventoryForm, currentCost: e.target.value === '' ? 0 : Number(e.target.value) })}
+                    placeholder="0.00"
+                  />
+                  <Input
+                    label="Reorder Level"
+                    type="number"
+                    min="0"
+                    value={inventoryForm.reorderLevel}
+                    onChange={(e) => setInventoryForm({ ...inventoryForm, reorderLevel: e.target.value === '' ? 0 : Number(e.target.value) })}
+                    placeholder="e.g. 10"
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowItemModal(false); resetInventoryForm(); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="inventory-item-form" loading={inventorySaving}>
+                {editingIngredientId ? 'Save Changes' : 'Add Item'}
+              </Button>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

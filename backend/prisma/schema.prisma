@@ -564,6 +564,8 @@ model Promotion {
   status         PromotionStatus @default(DRAFT)
   usageCount     Int             @default(0)
   totalDiscount  Decimal         @default(0) @db.Decimal(10, 2)
+  menuScope      String          @default("ALL")
+  menuItemIds    String[]        @default([])
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 

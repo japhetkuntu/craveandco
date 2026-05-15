@@ -145,7 +145,7 @@ export declare class PurchasingService {
         orderedAt: Date;
         receivedAt: Date | null;
     })[]>;
-    sendPurchaseOrder(id: string): Promise<{
+    approvePurchaseOrder(id: string): Promise<{
         supplier: {
             email: string | null;
             name: string;

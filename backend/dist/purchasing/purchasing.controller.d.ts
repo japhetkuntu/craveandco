@@ -104,7 +104,7 @@ export declare class PurchasingController {
         orderedAt: Date;
         receivedAt: Date | null;
     }>;
-    sendPurchaseOrder(id: string): Promise<{
+    approvePurchaseOrder(id: string): Promise<{
         supplier: {
             email: string | null;
             name: string;

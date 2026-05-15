@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, CreateSupplierDto } from './dto/purchasing.dto';
 import { Role } from '@prisma/client';
@@ -101,11 +101,43 @@ export class PurchasingService {
     });
   }
 
-  async sendPurchaseOrder(id: string) {
-    return this.prisma.purchaseOrder.update({
+  async approvePurchaseOrder(id: string) {
+    const po = await this.prisma.purchaseOrder.findUnique({
       where: { id },
-      data: { status: 'SENT' },
-      include: { items: { include: { ingredient: true } }, supplier: true },
+      include: { items: true },
+    });
+    if (!po) throw new NotFoundException('Purchase order not found');
+    if (po.status === 'RECEIVED') {
+      return this.prisma.purchaseOrder.findUnique({
+        where: { id },
+        include: { items: { include: { ingredient: true } }, supplier: true },
+      });
+    }
+    if (po.status !== 'DRAFT') {
+      throw new BadRequestException(`Cannot approve a purchase order with status ${po.status}`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const item of po.items) {
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: { receivedQty: Number(item.quantity) },
+        });
+        await tx.inventoryMovement.create({
+          data: {
+            ingredientId: item.ingredientId,
+            branchId: po.branchId,
+            type: 'PURCHASE_IN',
+            quantity: Number(item.quantity),
+            referenceId: po.id,
+          },
+        });
+      }
+      return tx.purchaseOrder.update({
+        where: { id },
+        data: { status: 'RECEIVED', receivedAt: new Date() },
+        include: { items: { include: { ingredient: true } }, supplier: true },
+      });
     });
   }
 }

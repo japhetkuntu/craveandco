@@ -441,6 +441,20 @@ export class OrdersService {
           `Order total must be at least ${promotion.minOrderAmount} to apply this promotion`,
         );
       }
+      // Enforce menu item scope
+      if ((promotion as any).menuScope === 'SPECIFIC') {
+        const allowedIds: string[] = (promotion as any).menuItemIds ?? [];
+        const orderItems = await this.prisma.orderItem.findMany({
+          where: { orderId: id },
+          select: { menuItemId: true },
+        });
+        const hasEligibleItem = orderItems.some(
+          (oi) => oi.menuItemId && allowedIds.includes(oi.menuItemId),
+        );
+        if (!hasEligibleItem) {
+          throw new BadRequestException('This promotion does not apply to any items in the order');
+        }
+      }
       const { discountAmount, finalTotal } = this.promotions.calculateDiscount(
         dto.promotionId,
         paidTotal,

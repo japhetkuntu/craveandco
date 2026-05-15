@@ -8,7 +8,6 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { Megaphone, Plus, Send } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
@@ -87,55 +86,58 @@ export default function GrowthCampaignsPage() {
         </Button>
       </div>
 
-      <Modal
-        open={showForm}
-        onClose={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}
-        title="New Campaign"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}>
-              Cancel
-            </Button>
-            <Button type="submit" form="new-campaign-form" loading={submitting}>
-              Create Campaign
-            </Button>
-          </>
-        }
-      >
-        <form id="new-campaign-form" onSubmit={handleCreate} className="space-y-4 pt-2">
-          <Input
-            label="Campaign Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Weekend Special, Birthday Reward"
-            required
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Campaign Type</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-border-default bg-surface-raised text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-            >
-              <option value="BIRTHDAY">Birthday — send on customer birthdays</option>
-              <option value="REACTIVATION">Win-Back — bring back inactive customers</option>
-              <option value="PROMOTION">Promotion — special offer or discount</option>
-              <option value="CUSTOM">Custom — any other message</option>
-            </select>
+      {showForm && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">New Campaign</h2>
+                <p className="text-sm text-text-secondary mt-1">Send a message to your customer base.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="new-campaign-form" onSubmit={handleCreate} className="space-y-4">
+                <Input
+                  label="Campaign Name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Weekend Special, Birthday Reward"
+                  required
+                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Campaign Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="BIRTHDAY">Birthday — send on customer birthdays</option>
+                    <option value="REACTIVATION">Win-Back — bring back inactive customers</option>
+                    <option value="PROMOTION">Promotion — special offer or discount</option>
+                    <option value="CUSTOM">Custom — any other message</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Message</label>
+                  <textarea
+                    value={form.message}
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    placeholder="Write the message your customers will receive..."
+                    rows={4}
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)] resize-none"
+                    required
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowForm(false); setForm({ name: '', type: 'PROMOTION', message: '' }); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-campaign-form" loading={submitting}>Create Campaign</Button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Message</label>
-            <textarea
-              value={form.message}
-              onChange={(e) => setForm({ ...form, message: e.target.value })}
-              placeholder="Write the message your customers will receive..."
-              rows={4}
-              className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none resize-none"
-              required
-            />
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
 
       {campaigns.length === 0 ? (
         <p className="text-center text-text-tertiary py-12">No campaigns created yet</p>

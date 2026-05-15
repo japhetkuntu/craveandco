@@ -7,7 +7,6 @@ import { buildQueryString } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { Users, Clock, UserCheck, UserX, Plus, UserMinus, Trash2, Pencil } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
@@ -274,104 +273,118 @@ export default function OwnerStaffPage() {
       </div>
 
       {/* Edit Staff Modal */}
-      <Modal
-        open={!!editingMember}
-        onClose={() => { setEditingMember(null); setEditError(''); }}
-        title="Edit Staff Member"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setEditingMember(null); setEditError(''); }}>Cancel</Button>
-            <Button type="submit" form="edit-staff-form" loading={saving}>Save Changes</Button>
-          </>
-        }
-      >
-        {editError && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{editError}</div>}
-        <form id="edit-staff-form" onSubmit={handleEditSave} className="space-y-4 pt-2">
-          <Input
-            label="Full Name"
-            value={editForm.name}
-            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-            required
-          />
-          <Input
-            label="Email Address"
-            type="email"
-            value={editForm.email}
-            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-            required
-          />
-          <Input
-            label="Phone (optional)"
-            value={editForm.phone}
-            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-            placeholder="e.g. 0244000000"
-          />
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-text-secondary">Role</label>
-            <select
-              value={editForm.role}
-              onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-              className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
-            >
-              <option value="OPERATIONS_MANAGER">Operations Manager</option>
-              <option value="KITCHEN_STAFF">Kitchen Staff</option>
-              <option value="GROWTH_LEAD">Growth Lead</option>
-            </select>
+      {!!editingMember && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Edit Staff Member</h2>
+                <p className="text-sm text-text-secondary mt-1">Update staff details below.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setEditingMember(null); setEditError(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {editError && <div className="mb-4 rounded-2xl bg-error-muted p-3 text-sm text-error">{editError}</div>}
+              <form id="edit-staff-form" onSubmit={handleEditSave} className="space-y-4">
+                <Input
+                  label="Full Name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Email Address"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Phone (optional)"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="e.g. 0244000000"
+                />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-text-secondary">Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="OPERATIONS_MANAGER">Operations Manager</option>
+                    <option value="KITCHEN_STAFF">Kitchen Staff</option>
+                    <option value="GROWTH_LEAD">Growth Lead</option>
+                  </select>
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setEditingMember(null); setEditError(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="edit-staff-form" loading={saving}>Save Changes</Button>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
 
       {/* Add Staff Modal */}
-      <Modal
-        open={showCreateModal}
-        onClose={() => { setShowCreateModal(false); setError(''); }}
-        title="Add Staff Member"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowCreateModal(false); setError(''); }}>Cancel</Button>
-            <Button type="submit" form="new-staff-form" loading={saving}>Add Staff Member</Button>
-          </>
-        }
-      >
-        {error && <div className="mb-4 rounded-xl bg-error-muted p-3 text-sm text-error">{error}</div>}
-        <form id="new-staff-form" onSubmit={handleCreateStaff} className="space-y-4 pt-2">
-          <Input
-            label="Full Name"
-            value={newStaff.name}
-            onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-            required
-            placeholder="e.g. Ama Owusu"
-          />
-          <Input
-            label="Email Address"
-            type="email"
-            value={newStaff.email}
-            onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
-            required
-            placeholder="e.g. ama@crave.com"
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={newStaff.password}
-            onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-            required
-            placeholder="At least 6 characters"
-          />
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-text-secondary">Role</label>
-            <select
-              value={newStaff.role}
-              onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
-              className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
-            >
-              <option value="OPERATIONS_MANAGER">Operations Manager</option>
-              <option value="KITCHEN_STAFF">Kitchen Staff</option>
-              <option value="GROWTH_LEAD">Growth Lead</option>
-            </select>
+      {showCreateModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Add Staff Member</h2>
+                <p className="text-sm text-text-secondary mt-1">Create a new account for your team.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowCreateModal(false); setError(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              {error && <div className="mb-4 rounded-2xl bg-error-muted p-3 text-sm text-error">{error}</div>}
+              <form id="new-staff-form" onSubmit={handleCreateStaff} className="space-y-4">
+                <Input
+                  label="Full Name"
+                  value={newStaff.name}
+                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                  required
+                  placeholder="e.g. Ama Owusu"
+                />
+                <Input
+                  label="Email Address"
+                  type="email"
+                  value={newStaff.email}
+                  onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                  required
+                  placeholder="e.g. ama@crave.com"
+                />
+                <Input
+                  label="Password"
+                  type="password"
+                  value={newStaff.password}
+                  onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+                  required
+                  placeholder="At least 6 characters"
+                />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-text-secondary">Role</label>
+                  <select
+                    value={newStaff.role}
+                    onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="OPERATIONS_MANAGER">Operations Manager</option>
+                    <option value="KITCHEN_STAFF">Kitchen Staff</option>
+                    <option value="GROWTH_LEAD">Growth Lead</option>
+                  </select>
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateModal(false); setError(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-staff-form" loading={saving}>Add Staff Member</Button>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

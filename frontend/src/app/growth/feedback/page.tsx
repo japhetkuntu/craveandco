@@ -7,7 +7,6 @@ import { buildQueryString } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
 import { MessageSquare, CheckCircle, Plus, User, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
@@ -211,94 +210,94 @@ export default function GrowthFeedbackPage() {
       </>
       )}
 
-      <Modal
-        open={showNew}
-        onClose={() => { setShowNew(false); setNewCustomerId(''); setNewSubject(''); setNewBody(''); }}
-        title="New Feedback Ticket"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowNew(false); setNewCustomerId(''); setNewSubject(''); setNewBody(''); }}>
-              Cancel
-            </Button>
-            <Button type="submit" form="new-ticket-form" loading={saving}>
-              Submit
-            </Button>
-          </>
-        }
-      >
-        <form id="new-ticket-form" onSubmit={handleCreate} className="space-y-4 pt-2">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">
-              Customer
-            </label>
-            <select
-              value={newCustomerId}
-              onChange={e => setNewCustomerId(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-2xl border border-border-default bg-surface-raised text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none"
-            >
-              <option value="">Select customer...</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.phone ? ` (${c.phone})` : ''}{c.loyaltyPoints != null ? ` — ${c.loyaltyPoints} pts` : ''}
-                </option>
-              ))}
-            </select>
+      {showNew && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">New Feedback Ticket</h2>
+                <p className="text-sm text-text-secondary mt-1">Log a customer complaint or suggestion.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowNew(false); setNewCustomerId(''); setNewSubject(''); setNewBody(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="new-ticket-form" onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Customer</label>
+                  <select
+                    value={newCustomerId}
+                    onChange={e => setNewCustomerId(e.target.value)}
+                    required
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="">Select customer...</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.phone ? ` (${c.phone})` : ''}{c.loyaltyPoints != null ? ` — ${c.loyaltyPoints} pts` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label="Subject"
+                  value={newSubject}
+                  onChange={e => setNewSubject(e.target.value)}
+                  required
+                  placeholder="What is the feedback about?"
+                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Details <span className="text-text-tertiary font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={newBody}
+                    onChange={e => setNewBody(e.target.value)}
+                    placeholder="Describe the issue or feedback in more detail"
+                    rows={3}
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)] resize-none"
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowNew(false); setNewCustomerId(''); setNewSubject(''); setNewBody(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-ticket-form" loading={saving}>Submit</Button>
+            </div>
           </div>
-          <Input
-            label="Subject"
-            value={newSubject}
-            onChange={e => setNewSubject(e.target.value)}
-            required
-            placeholder="What is the feedback about?"
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">
-              Details <span className="text-text-tertiary font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={newBody}
-              onChange={e => setNewBody(e.target.value)}
-              placeholder="Describe the issue or feedback in more detail"
-              rows={3}
-              className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none resize-none"
-            />
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!showResolve}
-        onClose={() => { setShowResolve(null); setResolveText(''); }}
-        title="Resolve Ticket"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowResolve(null); setResolveText(''); }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => showResolve && handleResolve(showResolve)}
-              loading={saving}
-              disabled={!resolveText.trim()}
-            >
-              <CheckCircle size={16} /> Resolve
-            </Button>
-          </>
-        }
-      >
-        <div className="pt-2">
-          <label className="block text-sm font-medium text-text-secondary mb-1.5">
-            How was it resolved?
-          </label>
-          <textarea
-            value={resolveText}
-            onChange={e => setResolveText(e.target.value)}
-            placeholder="Describe how the issue was resolved or what action was taken"
-            rows={4}
-            className="w-full px-4 py-3 rounded-2xl border border-border-default text-sm text-text-primary focus:border-gold focus:ring-2 focus:ring-gold outline-none resize-none"
-          />
         </div>
-      </Modal>
+      )}
+
+      {!!showResolve && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Resolve Ticket</h2>
+                <p className="text-sm text-text-secondary mt-1">Describe how the issue was handled.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowResolve(null); setResolveText(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-text-secondary">How was it resolved?</label>
+                <textarea
+                  value={resolveText}
+                  onChange={e => setResolveText(e.target.value)}
+                  placeholder="Describe how the issue was resolved or what action was taken"
+                  rows={4}
+                  className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)] resize-none"
+                />
+              </div>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowResolve(null); setResolveText(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" onClick={() => showResolve && handleResolve(showResolve)} loading={saving} disabled={!resolveText.trim()}>
+                <CheckCircle size={16} /> Resolve
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

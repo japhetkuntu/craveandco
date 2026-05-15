@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsDateString, IsArray, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum PromotionTypeEnum {
@@ -41,4 +41,13 @@ export class CreatePromotionDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @IsOptional()
+  @IsIn(['ALL', 'SPECIFIC'])
+  menuScope?: 'ALL' | 'SPECIFIC';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  menuItemIds?: string[];
 }

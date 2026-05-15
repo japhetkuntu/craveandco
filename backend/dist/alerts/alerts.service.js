@@ -25,6 +25,7 @@ let AlertsService = class AlertsService {
         const skip = Math.max(page, 0) * take;
         return this.prisma.alertRule.findMany({
             where: { active: true },
+            orderBy: { createdAt: 'desc' },
             take,
             skip,
         });

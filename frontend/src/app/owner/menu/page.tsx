@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, buildQueryString } from '@/lib/utils';
 import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
-import { Modal } from '@/components/ui/modal';
 
 interface MenuOptionValue {
   id: string;
@@ -830,65 +829,75 @@ export default function OwnerMenuPage() {
       )}
 
       {/* Add Category Modal */}
-      <Modal
-        open={showCategoryModal}
-        onClose={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}
-        title="Add Category"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}>Cancel</Button>
-            <Button type="submit" form="new-category-form" loading={saving}>Add Category</Button>
-          </>
-        }
-      >
-        {error && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{error}</div>}
-        <form
-          id="new-category-form"
-          onSubmit={async (e) => { const ok = await handleCreateCategory(e); if (ok) setShowCategoryModal(false); }}
-          className="pt-1"
-        >
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Category Name</span>
-            <input
-              type="text"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              required
-              autoFocus
-              className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-              placeholder="e.g. Breakfast, Main Course, Dessert"
-            />
-          </label>
-        </form>
-      </Modal>
+      {showCategoryModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Add Category</h2>
+                <p className="text-sm text-text-secondary mt-1">Create a new menu category.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}>Close</Button>
+            </div>
+            <div className="p-6">
+              {error && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{error}</div>}
+              <form id="new-category-form" onSubmit={async (e) => { const ok = await handleCreateCategory(e); if (ok) setShowCategoryModal(false); }}>
+                <label className="block">
+                  <span className="text-sm font-medium text-text-secondary">Category Name</span>
+                  <input
+                    type="text"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    required
+                    autoFocus
+                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    placeholder="e.g. Breakfast, Main Course, Dessert"
+                  />
+                </label>
+              </form>
+            </div>
+            <div className="border-t border-border-subtle px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCategoryModal(false); setNewCategory(''); setError(''); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-category-form" loading={saving}>Add Category</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Modal
-        open={showEditCategoryModal}
-        onClose={closeEditCategory}
-        title="Edit Category"
-        footer={
-          <>
-            <Button variant="secondary" onClick={closeEditCategory}>Cancel</Button>
-            <Button type="submit" form="edit-category-form" loading={categorySaving}>Save</Button>
-          </>
-        }
-      >
-        {categoryError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{categoryError}</div>}
-        <form id="edit-category-form" onSubmit={handleEditCategory} className="pt-1">
-          <label className="block">
-            <span className="text-sm font-medium text-text-secondary">Category Name</span>
-            <input
-              type="text"
-              value={editCategoryName}
-              onChange={(e) => setEditCategoryName(e.target.value)}
-              required
-              autoFocus
-              className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-              placeholder="Category name"
-            />
-          </label>
-        </form>
-      </Modal>
+      {showEditCategoryModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Edit Category</h2>
+                <p className="text-sm text-text-secondary mt-1">Rename this menu category.</p>
+              </div>
+              <Button variant="secondary" onClick={closeEditCategory}>Close</Button>
+            </div>
+            <div className="p-6">
+              {categoryError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{categoryError}</div>}
+              <form id="edit-category-form" onSubmit={handleEditCategory}>
+                <label className="block">
+                  <span className="text-sm font-medium text-text-secondary">Category Name</span>
+                  <input
+                    type="text"
+                    value={editCategoryName}
+                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    required
+                    autoFocus
+                    className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    placeholder="Category name"
+                  />
+                </label>
+              </form>
+            </div>
+            <div className="border-t border-border-subtle px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={closeEditCategory}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="edit-category-form" loading={categorySaving}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Item Modal */}
       {showItemModal && (

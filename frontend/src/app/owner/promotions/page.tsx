@@ -6,7 +6,6 @@ import { get, post, patch, del } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { API_PATHS } from '@/lib/constants';
@@ -20,6 +19,7 @@ import {
   Percent,
   DollarSign,
   AlertCircle,
+  Search,
 } from 'lucide-react';
 
 interface Promotion {
@@ -35,7 +35,15 @@ interface Promotion {
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'EXPIRED';
   usageCount: number;
   totalDiscount: number;
+  menuScope: 'ALL' | 'SPECIFIC';
+  menuItemIds: string[];
   createdAt: string;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  category?: { name: string };
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -98,6 +106,14 @@ function PromotionCard({
         {promo.endDate && (
           <span>Until: {new Date(promo.endDate).toLocaleDateString()}</span>
         )}
+        {promo.menuScope === 'SPECIFIC' && promo.menuItemIds?.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded-md bg-[var(--color-gold)]/10 text-[var(--color-gold)] font-semibold">
+            {promo.menuItemIds.length} item{promo.menuItemIds.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        {promo.menuScope === 'ALL' && (
+          <span className="px-1.5 py-0.5 rounded-md bg-surface-input text-text-tertiary">All items</span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-xs pt-1 border-t border-border-subtle">
@@ -136,12 +152,15 @@ function PromotionCard({
 export default function OwnerPromotionsPage() {
   const { token } = useAuth();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuItemsLoading, setMenuItemsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [itemSearch, setItemSearch] = useState('');
 
   // Form state
   const [form, setForm] = useState({
@@ -153,17 +172,32 @@ export default function OwnerPromotionsPage() {
     maxDiscount: '',
     startDate: '',
     endDate: '',
+    menuScope: 'ALL' as 'ALL' | 'SPECIFIC',
+    selectedMenuItemIds: [] as string[],
   });
 
   const fetchData = async () => {
     if (!token) return;
     try {
-      const data = await get(API_PATHS.promotions.list, token);
-      setPromotions(data);
+      const promos = await get(API_PATHS.promotions.list, token);
+      setPromotions(promos);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMenuItems = async () => {
+    if (!token || menuItems.length > 0) return;
+    setMenuItemsLoading(true);
+    try {
+      const items = await get(`${API_PATHS.menu.items}?limit=100`, token);
+      setMenuItems(Array.isArray(items) ? items : (items?.items ?? []));
+    } catch (err) {
+      console.error('Failed to load menu items', err);
+    } finally {
+      setMenuItemsLoading(false);
     }
   };
 
@@ -184,9 +218,12 @@ export default function OwnerPromotionsPage() {
         maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : undefined,
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
+        menuScope: form.menuScope,
+        menuItemIds: form.menuScope === 'SPECIFIC' ? form.selectedMenuItemIds : [],
       }, token);
       setShowCreate(false);
-      setForm({ name: '', description: '', type: 'PERCENTAGE', value: '', minOrderAmount: '', maxDiscount: '', startDate: '', endDate: '' });
+      setForm({ name: '', description: '', type: 'PERCENTAGE', value: '', minOrderAmount: '', maxDiscount: '', startDate: '', endDate: '', menuScope: 'ALL', selectedMenuItemIds: [] });
+      setItemSearch('');
       await fetchData();
     } catch (err: any) {
       setError(err.message || 'Failed to create promotion');
@@ -261,7 +298,7 @@ export default function OwnerPromotionsPage() {
             Create and manage discount promotions
           </p>
         </div>
-        <Button variant="primary" onClick={() => setShowCreate(true)}>
+        <Button variant="primary" onClick={() => { setShowCreate(true); fetchMenuItems(); }}>
           <Plus size={16} className="mr-1.5" /> New Promotion
         </Button>
       </div>
@@ -324,7 +361,7 @@ export default function OwnerPromotionsPage() {
               : `No ${filterStatus.toLowerCase()} promotions.`}
           </p>
           {filterStatus === 'ALL' && (
-            <Button variant="primary" className="mt-4" onClick={() => setShowCreate(true)}>
+            <Button variant="primary" className="mt-4" onClick={() => { setShowCreate(true); fetchMenuItems(); }}>
               <Plus size={16} className="mr-1.5" /> New Promotion
             </Button>
           )}
@@ -346,138 +383,231 @@ export default function OwnerPromotionsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal
-        open={showCreate}
-        onClose={() => { setShowCreate(false); setError(''); }}
-        title="New Promotion"
-        size="md"
-        footer={
-          <div className="flex gap-3 w-full">
-            <Button variant="secondary" className="flex-1" onClick={() => { setShowCreate(false); setError(''); }}>
-              Cancel
-            </Button>
-            <Button variant="primary" className="flex-1" form="create-promo-form" type="submit" loading={saving}>
-              Create Promotion
-            </Button>
-          </div>
-        }
-      >
-        {error && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-error-muted text-error text-sm mb-4">
-            <AlertCircle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-        <form id="create-promo-form" onSubmit={handleCreate} className="space-y-4">
-          <Input
-            label="Promotion Name"
-            placeholder="e.g. Weekend Special, Happy Hour"
-            value={form.name}
-            onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-            required
-          />
-          <Input
-            label="Description (optional)"
-            placeholder="What this promotion is about"
-            value={form.description}
-            onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-          />
+      {showCreate && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">New Promotion</h2>
+                <p className="text-sm text-text-secondary mt-1">Set up a discount for your customers.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowCreate(false); setError(''); setItemSearch(''); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 rounded-2xl bg-error-muted text-error text-sm">
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+              <form id="create-promo-form" onSubmit={handleCreate} className="space-y-4">
+                <Input
+                  label="Promotion Name"
+                  placeholder="e.g. Weekend Special, Happy Hour"
+                  value={form.name}
+                  onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+                <Input
+                  label="Description (optional)"
+                  placeholder="What this promotion is about"
+                  value={form.description}
+                  onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+                />
 
-          {/* Discount Type */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-text-secondary">Discount Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { value: 'PERCENTAGE', label: 'Percentage off', icon: <Percent size={16} /> },
-                { value: 'FIXED_AMOUNT', label: 'Fixed amount off', icon: <DollarSign size={16} /> },
-              ] as const).map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setForm(prev => ({ ...prev, type: opt.value }))}
-                  className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-semibold transition-colors ${
-                    form.type === opt.value
-                      ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10 text-text-primary'
-                      : 'border-border-subtle bg-surface-input text-text-secondary'
-                  }`}
-                >
-                  {opt.icon}
-                  <span>{opt.label}</span>
-                </button>
-              ))}
+                {/* Discount Type */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-secondary">Discount Type</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {([
+                      { value: 'PERCENTAGE', label: 'Percentage off', icon: <Percent size={16} /> },
+                      { value: 'FIXED_AMOUNT', label: 'Fixed amount off', icon: <DollarSign size={16} /> },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, type: opt.value }))}
+                        className={`flex items-center gap-2 p-3 rounded-2xl border text-sm font-semibold transition-colors ${
+                          form.type === opt.value
+                            ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10 text-text-primary'
+                            : 'border-border-subtle bg-surface-input text-text-secondary'
+                        }`}
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label={form.type === 'PERCENTAGE' ? 'Discount %' : 'Discount Amount'}
+                    placeholder={form.type === 'PERCENTAGE' ? '10' : '5.00'}
+                    type="number"
+                    min="0"
+                    max={form.type === 'PERCENTAGE' ? '100' : undefined}
+                    step="0.01"
+                    value={form.value}
+                    onChange={e => setForm(prev => ({ ...prev, value: e.target.value }))}
+                    required
+                  />
+                  {form.type === 'PERCENTAGE' && (
+                    <Input
+                      label="Max Discount Cap (optional)"
+                      placeholder="e.g. 20.00"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.maxDiscount}
+                      onChange={e => setForm(prev => ({ ...prev, maxDiscount: e.target.value }))}
+                    />
+                  )}
+                  {form.type === 'FIXED_AMOUNT' && (
+                    <Input
+                      label="Min Order Amount (optional)"
+                      placeholder="e.g. 30.00"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.minOrderAmount}
+                      onChange={e => setForm(prev => ({ ...prev, minOrderAmount: e.target.value }))}
+                    />
+                  )}
+                </div>
+
+                {form.type === 'PERCENTAGE' && (
+                  <Input
+                    label="Min Order Amount (optional)"
+                    placeholder="e.g. 30.00"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.minOrderAmount}
+                    onChange={e => setForm(prev => ({ ...prev, minOrderAmount: e.target.value }))}
+                  />
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">Start Date (optional)</span>
+                    <input
+                      type="date"
+                      value={form.startDate}
+                      onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="mt-2 h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-text-secondary">End Date (optional)</span>
+                    <input
+                      type="date"
+                      value={form.endDate}
+                      onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="mt-2 h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    />
+                  </label>
+                </div>
+
+                {/* Menu Scope */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-secondary">Applies To</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['ALL', 'SPECIFIC'] as const).map(scope => (
+                      <button
+                        key={scope}
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, menuScope: scope, selectedMenuItemIds: [] }))}
+                        className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-sm font-semibold transition-colors ${
+                          form.menuScope === scope
+                            ? 'border-[var(--color-gold)] bg-[var(--color-gold)]/10 text-text-primary'
+                            : 'border-border-subtle bg-surface-input text-text-secondary'
+                        }`}
+                      >
+                        {scope === 'ALL' ? 'All menu items' : 'Specific items'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Item picker when SPECIFIC */}
+                {form.menuScope === 'SPECIFIC' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-text-secondary">Select items</label>
+                      {form.selectedMenuItemIds.length > 0 && (
+                        <span className="text-xs text-[var(--color-gold)] font-semibold">
+                          {form.selectedMenuItemIds.length} selected
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                      <input
+                        type="text"
+                        placeholder="Search menu items…"
+                        value={itemSearch}
+                        onChange={e => setItemSearch(e.target.value)}
+                        className="h-10 w-full rounded-2xl border border-border-default bg-surface-input pl-8 pr-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-2xl border border-border-subtle divide-y divide-border-subtle">
+                      {menuItemsLoading ? (
+                        <div className="p-4 text-center text-sm text-text-tertiary">Loading items…</div>
+                      ) : (() => {
+                        const filteredItems = menuItems.filter(mi => mi.name.toLowerCase().includes(itemSearch.toLowerCase()));
+                        if (filteredItems.length === 0) {
+                          return <div className="p-4 text-center text-sm text-text-tertiary">No items found</div>;
+                        }
+                        return filteredItems.map(mi => {
+                          const checked = form.selectedMenuItemIds.includes(mi.id);
+                          return (
+                            <label
+                              key={mi.id}
+                              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                checked ? 'bg-[var(--color-gold)]/8' : 'hover:bg-surface-raised'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setForm(prev => ({
+                                    ...prev,
+                                    selectedMenuItemIds: checked
+                                      ? prev.selectedMenuItemIds.filter(id => id !== mi.id)
+                                      : [...prev.selectedMenuItemIds, mi.id],
+                                  }))
+                                }
+                                className="rounded border-border-default accent-[var(--color-gold)]"
+                              />
+                              <span className="text-sm text-text-primary flex-1 truncate">{mi.name}</span>
+                              {mi.category?.name && (
+                                <span className="text-xs text-text-tertiary shrink-0">{mi.category.name}</span>
+                              )}
+                            </label>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {form.selectedMenuItemIds.length === 0 && (
+                      <p className="text-xs text-error">Select at least one item</p>
+                    )}
+                  </div>
+                )}
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreate(false); setError(''); setItemSearch(''); }}>
+                Cancel
+              </Button>
+              <Button variant="primary" className="flex-1" form="create-promo-form" type="submit" loading={saving}>
+                Create Promotion
+              </Button>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label={form.type === 'PERCENTAGE' ? 'Discount %' : 'Discount Amount'}
-              placeholder={form.type === 'PERCENTAGE' ? '10' : '5.00'}
-              type="number"
-              min="0"
-              max={form.type === 'PERCENTAGE' ? '100' : undefined}
-              step="0.01"
-              value={form.value}
-              onChange={e => setForm(prev => ({ ...prev, value: e.target.value }))}
-              required
-            />
-            {form.type === 'PERCENTAGE' && (
-              <Input
-                label="Max Discount Cap (optional)"
-                placeholder="e.g. 20.00"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.maxDiscount}
-                onChange={e => setForm(prev => ({ ...prev, maxDiscount: e.target.value }))}
-              />
-            )}
-            {form.type === 'FIXED_AMOUNT' && (
-              <Input
-                label="Min Order Amount (optional)"
-                placeholder="e.g. 30.00"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.minOrderAmount}
-                onChange={e => setForm(prev => ({ ...prev, minOrderAmount: e.target.value }))}
-              />
-            )}
-          </div>
-
-          {form.type === 'PERCENTAGE' && (
-            <Input
-              label="Min Order Amount (optional)"
-              placeholder="e.g. 30.00"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.minOrderAmount}
-              onChange={e => setForm(prev => ({ ...prev, minOrderAmount: e.target.value }))}
-            />
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-text-secondary">Start Date (optional)</label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-                className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-text-secondary">End Date (optional)</label>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
-                className="h-12 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
-              />
-            </div>
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

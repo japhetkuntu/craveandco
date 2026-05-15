@@ -41,8 +41,8 @@ let PurchasingController = class PurchasingController {
     receivePurchaseOrder(id, dto) {
         return this.purchasing.receivePurchaseOrder(id, dto);
     }
-    sendPurchaseOrder(id) {
-        return this.purchasing.sendPurchaseOrder(id);
+    approvePurchaseOrder(id) {
+        return this.purchasing.approvePurchaseOrder(id);
     }
     findPurchaseOrders(branchId, page = '0', limit = '10') {
         const pageNumber = (0, pagination_1.normalizePage)(page);
@@ -85,12 +85,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PurchasingController.prototype, "receivePurchaseOrder", null);
 __decorate([
-    (0, common_1.Patch)('purchase-orders/:id/send'),
+    (0, common_1.Post)('purchase-orders/:id/approve'),
+    (0, roles_decorator_1.Roles)('OWNER'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], PurchasingController.prototype, "sendPurchaseOrder", null);
+], PurchasingController.prototype, "approvePurchaseOrder", null);
 __decorate([
     (0, common_1.Get)('purchase-orders'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),

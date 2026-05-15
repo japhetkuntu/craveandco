@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { ROLE_NAV_ITEMS } from '@/lib/constants';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { ReactNode, useState } from 'react';
 import { LogOut, MoreHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -13,7 +13,6 @@ const roleNavItems = ROLE_NAV_ITEMS;
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -82,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {collapsed ? <ChevronRight size={20} aria-hidden="true" /> : <><ChevronLeft size={20} aria-hidden="true" /><span>Collapse</span></>}
           </button>
           <button
-            onClick={() => { logout(); router.push('/login'); }}
+            onClick={() => { logout(); window.location.href = '/login'; }}
             className={cn(
               'flex items-center gap-3 w-full px-3 h-10 rounded-xl text-sm font-medium text-text-tertiary hover:bg-error-muted hover:text-error transition-all',
               collapsed && 'justify-center px-0',
@@ -126,7 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 );
               })}
               <button
-                onClick={() => { logout(); router.push('/login'); setMoreOpen(false); }}
+                onClick={() => { logout(); window.location.href = '/login'; }}
                 className="flex items-center gap-3 w-full px-4 h-12 rounded-xl text-sm font-medium text-error hover:bg-error-muted transition-all"
               >
                 <LogOut size={20} />

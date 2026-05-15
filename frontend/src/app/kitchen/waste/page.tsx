@@ -6,7 +6,6 @@ import { get, post } from '@/lib/api';
 import { buildQueryString } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
 import { Receipt, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { PageSkeleton } from '@/components/ui/skeleton';
@@ -173,80 +172,79 @@ export default function KitchenWastePage() {
       )}
 
       {/* Log Waste Modal */}
-      <Modal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title="Log Waste"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button type="submit" form="waste-form" loading={submitting}>Submit</Button>
-          </>
-        }
-      >
-        <form id="waste-form" onSubmit={handleSubmit} className="space-y-4 pt-1">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Search ingredient
-            </label>
-            <input
-              type="text"
-              value={ingredientSearch}
-              onChange={(e) => setIngredientSearch(e.target.value)}
-              placeholder="Type ingredient name or unit"
-              className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-            />
+      {showModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Log Waste</h2>
+                <p className="text-sm text-text-secondary mt-1">Record an ingredient that was wasted.</p>
+              </div>
+              <Button variant="secondary" onClick={() => setShowModal(false)}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="waste-form" onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">Search ingredient</label>
+                  <input
+                    type="text"
+                    value={ingredientSearch}
+                    onChange={(e) => setIngredientSearch(e.target.value)}
+                    placeholder="Type ingredient name or unit"
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">What ingredient was wasted?</label>
+                  <select
+                    value={ingredientId}
+                    onChange={(e) => setIngredientId(e.target.value)}
+                    required
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  >
+                    <option value="">Choose ingredient…</option>
+                    {ingredients.map((ing) => (
+                      <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                    ))}
+                  </select>
+                  {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    How much was wasted?{selectedIngredient ? ` (${selectedIngredient.unit})` : ''}
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    required
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Reason <span className="text-text-tertiary font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. expired, dropped, burnt…"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="waste-form" loading={submitting}>Submit</Button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              What ingredient was wasted?
-            </label>
-            <select
-              value={ingredientId}
-              onChange={(e) => setIngredientId(e.target.value)}
-              required
-              className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-            >
-              <option value="">Choose ingredient…</option>
-              {ingredients.map((ing) => (
-                <option key={ing.id} value={ing.id}>
-                  {ing.name} ({ing.unit})
-                </option>
-              ))}
-            </select>
-            {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              How much was wasted?{selectedIngredient ? ` (${selectedIngredient.unit})` : ''}
-            </label>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              step="0.01"
-              min="0"
-              required
-              className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Reason <span className="text-text-tertiary font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. expired, dropped, burnt…"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-            />
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

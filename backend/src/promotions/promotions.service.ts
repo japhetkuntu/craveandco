@@ -11,6 +11,8 @@ export class PromotionsService {
     if (dto.type === 'PERCENTAGE' && dto.value > 100) {
       throw new BadRequestException('Percentage discount cannot exceed 100%');
     }
+    const menuScope = dto.menuScope ?? 'ALL';
+    const menuItemIds = menuScope === 'SPECIFIC' ? (dto.menuItemIds ?? []) : [];
     return this.prisma.promotion.create({
       data: {
         branchId,
@@ -22,6 +24,8 @@ export class PromotionsService {
         maxDiscount: dto.maxDiscount,
         startDate: dto.startDate ? new Date(dto.startDate) : undefined,
         endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+        menuScope,
+        menuItemIds,
       },
     });
   }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
-import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatTime } from '@/lib/utils';
@@ -282,66 +281,73 @@ export default function OpsStaffPage() {
       )}
 
       {/* Create Shift Modal */}
-      <Modal
-        open={showShiftModal}
-        onClose={() => setShowShiftModal(false)}
-        title="Add a Shift"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowShiftModal(false)}>Cancel</Button>
-            <Button loading={creatingShift} onClick={handleCreateShift}>Save Shift</Button>
-          </>
-        }
-      >
-        <form className="space-y-4" onSubmit={handleCreateShift}>
-          <Input
-            label="Date"
-            type="date"
-            value={newShift.date}
-            onChange={(e) => setNewShift({ ...newShift, date: e.target.value })}
-            required
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Role</label>
-            <select
-              className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-              value={newShift.role}
-              onChange={(e) => setNewShift({ ...newShift, role: e.target.value })}
-            >
-              <option value="KITCHEN_STAFF">Kitchen Staff</option>
-              <option value="OPERATIONS_MANAGER">Operations Manager</option>
-            </select>
+      {showShiftModal && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Add a Shift</h2>
+                <p className="text-sm text-text-secondary mt-1">Schedule a new shift for your team.</p>
+              </div>
+              <Button variant="secondary" onClick={() => setShowShiftModal(false)}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="shift-form" className="space-y-4" onSubmit={handleCreateShift}>
+                <Input
+                  label="Date"
+                  type="date"
+                  value={newShift.date}
+                  onChange={(e) => setNewShift({ ...newShift, date: e.target.value })}
+                  required
+                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Role</label>
+                  <select
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    value={newShift.role}
+                    onChange={(e) => setNewShift({ ...newShift, role: e.target.value })}
+                  >
+                    <option value="KITCHEN_STAFF">Kitchen Staff</option>
+                    <option value="OPERATIONS_MANAGER">Operations Manager</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">Shift Time</label>
+                  <select
+                    className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                    value={newShift.slot}
+                    onChange={(e) => setNewShift({ ...newShift, slot: e.target.value })}
+                  >
+                    <option value="MORNING">Morning</option>
+                    <option value="AFTERNOON">Afternoon</option>
+                    <option value="EVENING">Evening</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Start time"
+                    type="time"
+                    value={newShift.startTime}
+                    onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="End time"
+                    type="time"
+                    value={newShift.endTime}
+                    onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
+                    required
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowShiftModal(false)}>Cancel</Button>
+              <Button variant="primary" className="flex-1" loading={creatingShift} onClick={handleCreateShift}>Save Shift</Button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Shift Time</label>
-            <select
-              className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-              value={newShift.slot}
-              onChange={(e) => setNewShift({ ...newShift, slot: e.target.value })}
-            >
-              <option value="MORNING">Morning</option>
-              <option value="AFTERNOON">Afternoon</option>
-              <option value="EVENING">Evening</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Start time"
-              type="time"
-              value={newShift.startTime}
-              onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-              required
-            />
-            <Input
-              label="End time"
-              type="time"
-              value={newShift.endTime}
-              onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-              required
-            />
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

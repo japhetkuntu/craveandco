@@ -98,6 +98,7 @@ let StaffService = class StaffService {
                 OR: [{ lateMinutes: { gt: 0 } }, { clockOut: null }],
             },
             include: { user: { select: { id: true, name: true, role: true } } },
+            orderBy: { clockIn: 'desc' },
             take,
             skip,
         });

@@ -7,7 +7,6 @@ import { get, post } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal } from '@/components/ui/modal';
 import { PaginationControls } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { Receipt, Plus, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
@@ -137,47 +136,50 @@ export default function OpsExpensesPage() {
         </div>
       </div>
 
-      <Modal
-        open={showCreateExpense}
-        onClose={() => { setShowCreateExpense(false); setNewExpense({ category: '', amount: '', description: '' }); }}
-        title="Log Expense"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => { setShowCreateExpense(false); setNewExpense({ category: '', amount: '', description: '' }); }}>
-              Cancel
-            </Button>
-            <Button type="submit" form="new-expense-form" loading={creatingExpense}>
-              Submit Expense
-            </Button>
-          </>
-        )}
-      >
-        <form id="new-expense-form" onSubmit={handleCreateExpense} className="space-y-4 pt-2">
-          <Input
-            label="Category"
-            value={newExpense.category}
-            onChange={(event) => setNewExpense((prev) => ({ ...prev, category: event.target.value }))}
-            required
-            placeholder="e.g. Supplies, Utilities"
-          />
-          <Input
-            label="Amount"
-            type="number"
-            min="0"
-            step="0.01"
-            value={newExpense.amount}
-            onChange={(event) => setNewExpense((prev) => ({ ...prev, amount: event.target.value }))}
-            required
-            placeholder="0.00"
-          />
-          <Input
-            label="Description (optional)"
-            value={newExpense.description}
-            onChange={(event) => setNewExpense((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="What was this expense for?"
-          />
-        </form>
-      </Modal>
+      {showCreateExpense && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary">Log Expense</h2>
+                <p className="text-sm text-text-secondary mt-1">Record a business expense.</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowCreateExpense(false); setNewExpense({ category: '', amount: '', description: '' }); }}>Close</Button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <form id="new-expense-form" onSubmit={handleCreateExpense} className="space-y-4">
+                <Input
+                  label="Category"
+                  value={newExpense.category}
+                  onChange={(event) => setNewExpense((prev) => ({ ...prev, category: event.target.value }))}
+                  required
+                  placeholder="e.g. Supplies, Utilities"
+                />
+                <Input
+                  label="Amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newExpense.amount}
+                  onChange={(event) => setNewExpense((prev) => ({ ...prev, amount: event.target.value }))}
+                  required
+                  placeholder="0.00"
+                />
+                <Input
+                  label="Description (optional)"
+                  value={newExpense.description}
+                  onChange={(event) => setNewExpense((prev) => ({ ...prev, description: event.target.value }))}
+                  placeholder="What was this expense for?"
+                />
+              </form>
+            </div>
+            <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateExpense(false); setNewExpense({ category: '', amount: '', description: '' }); }}>Cancel</Button>
+              <Button variant="primary" className="flex-1" type="submit" form="new-expense-form" loading={creatingExpense}>Submit Expense</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

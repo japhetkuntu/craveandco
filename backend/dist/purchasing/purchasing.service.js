@@ -103,10 +103,31 @@ let PurchasingService = class PurchasingService {
             skip,
         });
     }
-    async sendPurchaseOrder(id) {
+    async approvePurchaseOrder(id) {
+        const po = await this.prisma.purchaseOrder.findUnique({
+            where: { id },
+            include: { items: true },
+        });
+        if (!po)
+            throw new common_1.NotFoundException('Purchase order not found');
+        for (const item of po.items) {
+            await this.prisma.purchaseOrderItem.update({
+                where: { id: item.id },
+                data: { receivedQty: Number(item.quantity) },
+            });
+            await this.prisma.inventoryMovement.create({
+                data: {
+                    ingredientId: item.ingredientId,
+                    branchId: po.branchId,
+                    type: 'PURCHASE_IN',
+                    quantity: Number(item.quantity),
+                    referenceId: po.id,
+                },
+            });
+        }
         return this.prisma.purchaseOrder.update({
             where: { id },
-            data: { status: 'SENT' },
+            data: { status: 'RECEIVED', receivedAt: new Date() },
             include: { items: { include: { ingredient: true } }, supplier: true },
         });
     }

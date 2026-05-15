@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { normalizeLimit, normalizePage } from '../common/pagination';
 import { PurchasingService } from './purchasing.service';
-import { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, CreateSupplierDto } from './dto/purchasing.dto';
+import { CreatePurchaseOrderDto, CreateSupplierDto } from './dto/purchasing.dto';
 import { Role } from '@prisma/client';
 
 @Controller('api/v1')
@@ -38,15 +38,10 @@ export class PurchasingController {
     return this.purchasing.createPurchaseOrder(dto, userId, role);
   }
 
-  @Post('purchase-orders/:id/receive')
+  @Post('purchase-orders/:id/approve')
   @Roles('OWNER')
-  receivePurchaseOrder(@Param('id') id: string, @Body() dto: ReceivePurchaseOrderDto) {
-    return this.purchasing.receivePurchaseOrder(id, dto);
-  }
-
-  @Patch('purchase-orders/:id/send')
-  sendPurchaseOrder(@Param('id') id: string) {
-    return this.purchasing.sendPurchaseOrder(id);
+  approvePurchaseOrder(@Param('id') id: string) {
+    return this.purchasing.approvePurchaseOrder(id);
   }
 
   @Get('purchase-orders')
