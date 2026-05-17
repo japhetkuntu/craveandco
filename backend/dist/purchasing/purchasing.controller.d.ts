@@ -1,5 +1,5 @@
 import { PurchasingService } from './purchasing.service';
-import { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, CreateSupplierDto } from './dto/purchasing.dto';
+import { CreatePurchaseOrderDto, CreateSupplierDto } from './dto/purchasing.dto';
 import { Role } from '@prisma/client';
 export declare class PurchasingController {
     private purchasing;
@@ -63,7 +63,7 @@ export declare class PurchasingController {
         orderedAt: Date;
         receivedAt: Date | null;
     }>;
-    receivePurchaseOrder(id: string, dto: ReceivePurchaseOrderDto): Promise<{
+    approvePurchaseOrder(userId: string, id: string): Promise<({
         supplier: {
             email: string | null;
             name: string;
@@ -103,8 +103,8 @@ export declare class PurchasingController {
         totalAmount: import("@prisma/client/runtime/library").Decimal;
         orderedAt: Date;
         receivedAt: Date | null;
-    }>;
-    approvePurchaseOrder(id: string): Promise<{
+    }) | null>;
+    cancelPurchaseOrder(id: string): Promise<{
         supplier: {
             email: string | null;
             name: string;

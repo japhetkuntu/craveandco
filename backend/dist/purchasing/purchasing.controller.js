@@ -38,11 +38,11 @@ let PurchasingController = class PurchasingController {
     createPurchaseOrder(userId, role, dto) {
         return this.purchasing.createPurchaseOrder(dto, userId, role);
     }
-    receivePurchaseOrder(id, dto) {
-        return this.purchasing.receivePurchaseOrder(id, dto);
+    approvePurchaseOrder(userId, id) {
+        return this.purchasing.approvePurchaseOrder(id, userId);
     }
-    approvePurchaseOrder(id) {
-        return this.purchasing.approvePurchaseOrder(id);
+    cancelPurchaseOrder(id) {
+        return this.purchasing.cancelPurchaseOrder(id);
     }
     findPurchaseOrders(branchId, page = '0', limit = '10') {
         const pageNumber = (0, pagination_1.normalizePage)(page);
@@ -76,22 +76,22 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PurchasingController.prototype, "createPurchaseOrder", null);
 __decorate([
-    (0, common_1.Post)('purchase-orders/:id/receive'),
-    (0, roles_decorator_1.Roles)('OWNER'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, purchasing_dto_1.ReceivePurchaseOrderDto]),
-    __metadata("design:returntype", void 0)
-], PurchasingController.prototype, "receivePurchaseOrder", null);
-__decorate([
     (0, common_1.Post)('purchase-orders/:id/approve'),
+    (0, roles_decorator_1.Roles)('OWNER'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('userId')),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], PurchasingController.prototype, "approvePurchaseOrder", null);
+__decorate([
+    (0, common_1.Post)('purchase-orders/:id/cancel'),
     (0, roles_decorator_1.Roles)('OWNER'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], PurchasingController.prototype, "approvePurchaseOrder", null);
+], PurchasingController.prototype, "cancelPurchaseOrder", null);
 __decorate([
     (0, common_1.Get)('purchase-orders'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),

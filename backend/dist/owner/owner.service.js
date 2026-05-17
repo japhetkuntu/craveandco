@@ -164,7 +164,7 @@ let OwnerService = class OwnerService {
         const take = Math.min(Math.max(limit, 10), 100);
         const skip = Math.max(page, 0) * take;
         return this.prisma.expense.findMany({
-            where: { branchId, approved: null },
+            where: { branchId, approved: null, category: { not: 'Purchase Request' } },
             include: { user: { select: { id: true, name: true } } },
             orderBy: { paidAt: 'desc' },
             take,

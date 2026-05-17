@@ -20,6 +20,7 @@ import { OwnerModule } from './owner/owner.module';
 import { OpsModule } from './ops/ops.module';
 import { GrowthModule } from './growth/growth.module';
 import { PromotionsModule } from './promotions/promotions.module';
+import { SpecialOrdersModule } from './special-orders/special-orders.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PromotionsModule } from './promotions/promotions.module';
     OpsModule,
     GrowthModule,
     PromotionsModule,
+    SpecialOrdersModule,
   ],
 })
 export class AppModule {}

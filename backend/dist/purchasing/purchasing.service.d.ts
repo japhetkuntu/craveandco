@@ -145,7 +145,48 @@ export declare class PurchasingService {
         orderedAt: Date;
         receivedAt: Date | null;
     })[]>;
-    approvePurchaseOrder(id: string): Promise<{
+    approvePurchaseOrder(id: string, approverId: string): Promise<({
+        supplier: {
+            email: string | null;
+            name: string;
+            phone: string | null;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            paymentTerms: string | null;
+        };
+        items: ({
+            ingredient: {
+                name: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                unit: string;
+                currentCost: import("@prisma/client/runtime/library").Decimal;
+                reorderLevel: import("@prisma/client/runtime/library").Decimal;
+                supplierId: string | null;
+            };
+        } & {
+            id: string;
+            quantity: import("@prisma/client/runtime/library").Decimal;
+            unitCost: import("@prisma/client/runtime/library").Decimal;
+            ingredientId: string;
+            receivedQty: import("@prisma/client/runtime/library").Decimal;
+            purchaseOrderId: string;
+        })[];
+    } & {
+        branchId: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        notes: string | null;
+        status: import("@prisma/client").$Enums.PurchaseOrderStatus;
+        supplierId: string;
+        totalAmount: import("@prisma/client/runtime/library").Decimal;
+        orderedAt: Date;
+        receivedAt: Date | null;
+    }) | null>;
+    cancelPurchaseOrder(id: string): Promise<{
         supplier: {
             email: string | null;
             name: string;

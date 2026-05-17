@@ -48,16 +48,6 @@ let PurchasingService = class PurchasingService {
             include: { items: { include: { ingredient: true } }, supplier: true },
         });
         if (userRole === 'OPERATIONS_MANAGER') {
-            await this.prisma.expense.create({
-                data: {
-                    branchId: dto.branchId,
-                    category: 'Purchase Request',
-                    amount: totalAmount,
-                    description: dto.notes || `Purchase order request for supplier ${purchaseOrder.supplier.name}`,
-                    paidBy: userId,
-                    approved: null,
-                },
-            });
         }
         return purchaseOrder;
     }
@@ -103,31 +93,66 @@ let PurchasingService = class PurchasingService {
             skip,
         });
     }
-    async approvePurchaseOrder(id) {
+    async approvePurchaseOrder(id, approverId) {
         const po = await this.prisma.purchaseOrder.findUnique({
             where: { id },
             include: { items: true },
         });
         if (!po)
             throw new common_1.NotFoundException('Purchase order not found');
-        for (const item of po.items) {
-            await this.prisma.purchaseOrderItem.update({
-                where: { id: item.id },
-                data: { receivedQty: Number(item.quantity) },
+        if (po.status === 'RECEIVED') {
+            return this.prisma.purchaseOrder.findUnique({
+                where: { id },
+                include: { items: { include: { ingredient: true } }, supplier: true },
             });
-            await this.prisma.inventoryMovement.create({
+        }
+        if (po.status !== 'DRAFT') {
+            throw new common_1.BadRequestException(`Cannot approve a purchase order with status ${po.status}`);
+        }
+        return this.prisma.$transaction(async (tx) => {
+            for (const item of po.items) {
+                await tx.purchaseOrderItem.update({
+                    where: { id: item.id },
+                    data: { receivedQty: Number(item.quantity) },
+                });
+                await tx.inventoryMovement.create({
+                    data: {
+                        ingredientId: item.ingredientId,
+                        branchId: po.branchId,
+                        type: 'PURCHASE_IN',
+                        quantity: Number(item.quantity),
+                        referenceId: po.id,
+                    },
+                });
+            }
+            const updated = await tx.purchaseOrder.update({
+                where: { id },
+                data: { status: 'RECEIVED', receivedAt: new Date() },
+                include: { items: { include: { ingredient: true } }, supplier: true },
+            });
+            await tx.expense.create({
                 data: {
-                    ingredientId: item.ingredientId,
                     branchId: po.branchId,
-                    type: 'PURCHASE_IN',
-                    quantity: Number(item.quantity),
-                    referenceId: po.id,
+                    category: 'Stock Purchase',
+                    amount: po.totalAmount,
+                    description: `Purchase order approved for supplier ${updated.supplier.name}`,
+                    paidBy: approverId,
+                    approved: true,
                 },
             });
+            return updated;
+        });
+    }
+    async cancelPurchaseOrder(id) {
+        const po = await this.prisma.purchaseOrder.findUnique({ where: { id } });
+        if (!po)
+            throw new common_1.NotFoundException('Purchase order not found');
+        if (po.status !== 'DRAFT') {
+            throw new common_1.BadRequestException(`Cannot cancel a purchase order with status ${po.status}`);
         }
         return this.prisma.purchaseOrder.update({
             where: { id },
-            data: { status: 'RECEIVED', receivedAt: new Date() },
+            data: { status: 'CANCELLED' },
             include: { items: { include: { ingredient: true } }, supplier: true },
         });
     }

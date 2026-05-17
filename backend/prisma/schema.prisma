@@ -49,6 +49,12 @@ enum MovementType {
   STOCK_COUNT
 }
 
+enum SpecialOrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
 enum PurchaseOrderStatus {
   DRAFT
   SENT
@@ -134,6 +140,7 @@ model Branch {
   inventoryMovements InventoryMovement[]
   stockCounts        StockCount[]
   purchaseOrders     PurchaseOrder[]
+  specialOrders      SpecialOrder[]
   shifts             Shift[]
   attendanceLogs     AttendanceLog[]
   expenses           Expense[]
@@ -165,6 +172,7 @@ model User {
   expenses       Expense[]
   auditLogs      AuditLog[]
   handoverNotes  HandoverNote[]
+  specialOrders  SpecialOrder[]
 
   @@index([branchId])
   @@map("users")
@@ -333,6 +341,41 @@ model PurchaseOrderItem {
   receivedQty     Decimal       @default(0) @db.Decimal(10, 3)
 
   @@map("purchase_order_items")
+}
+
+// ─── SPECIAL ORDERS ─────────────────────────────────────
+
+model SpecialOrder {
+  id           String             @id @default(cuid())
+  branchId     String
+  branch       Branch             @relation(fields: [branchId], references: [id])
+  customerName String?
+  status       SpecialOrderStatus @default(PENDING)
+  notes        String?
+  createdBy    String
+  user         User               @relation(fields: [createdBy], references: [id])
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  items        SpecialOrderItem[]
+
+  @@index([branchId, status])
+  @@index([branchId, createdAt])
+  @@map("special_orders")
+}
+
+model SpecialOrderItem {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       SpecialOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  quantity    Decimal      @db.Decimal(10, 3)
+  costPrice   Decimal      @db.Decimal(10, 2)
+  sellPrice   Decimal      @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@map("special_order_items")
 }
 
 // ─── PAYMENT TYPES (Admin-configurable) ────────────────
