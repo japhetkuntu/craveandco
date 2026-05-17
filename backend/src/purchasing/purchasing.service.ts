@@ -140,4 +140,17 @@ export class PurchasingService {
       });
     });
   }
+
+  async cancelPurchaseOrder(id: string) {
+    const po = await this.prisma.purchaseOrder.findUnique({ where: { id } });
+    if (!po) throw new NotFoundException('Purchase order not found');
+    if (po.status !== 'DRAFT') {
+      throw new BadRequestException(`Cannot cancel a purchase order with status ${po.status}`);
+    }
+    return this.prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: { items: { include: { ingredient: true } }, supplier: true },
+    });
+  }
 }

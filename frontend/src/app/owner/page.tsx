@@ -240,6 +240,18 @@ export default function OwnerDashboard() {
     } catch (err) { console.error(err); }
   };
 
+  const handleRejectPO = async (po: PurchaseOrder) => {
+    if (!token) return;
+    try {
+      await post(`/api/v1/purchase-orders/${po.id}/cancel`, {}, token);
+      setPurchaseOrders((prev) =>
+        prev.map((order) =>
+          order.id === po.id ? { ...order, status: 'CANCELLED' } : order,
+        ),
+      );
+    } catch (err) { console.error(err); }
+  };
+
   if (loading) return <PageSkeleton />;
 
   const d = data;
@@ -578,7 +590,7 @@ export default function OwnerDashboard() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={po.status} label={po.status === 'RECEIVED' ? 'Approved' : po.status === 'DRAFT' ? 'Pending Approval' : undefined} />
+                      <StatusBadge status={po.status} label={po.status === 'RECEIVED' ? 'Approved' : po.status === 'DRAFT' ? 'Pending Approval' : po.status === 'CANCELLED' ? 'Rejected' : undefined} />
                       <span className="text-lg font-bold text-text-primary font-mono whitespace-normal break-words">{formatCurrency(po.totalAmount)}</span>
                     </div>
                   </div>
@@ -621,12 +633,21 @@ export default function OwnerDashboard() {
                       <FileText size={14} /> Print Invoice
                     </Button>
                     {po.status === 'DRAFT' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprovePO(po)}
-                      >
-                        <CheckCircle size={14} /> Approve Order
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleRejectPO(po)}
+                        >
+                          <XCircle size={14} /> Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprovePO(po)}
+                        >
+                          <CheckCircle size={14} /> Approve Order
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

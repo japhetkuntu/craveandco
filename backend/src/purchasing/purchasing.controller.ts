@@ -44,6 +44,12 @@ export class PurchasingController {
     return this.purchasing.approvePurchaseOrder(id);
   }
 
+  @Post('purchase-orders/:id/cancel')
+  @Roles('OWNER')
+  cancelPurchaseOrder(@Param('id') id: string) {
+    return this.purchasing.cancelPurchaseOrder(id);
+  }
+
   @Get('purchase-orders')
   findPurchaseOrders(
     @CurrentUser('branchId') branchId: string,
