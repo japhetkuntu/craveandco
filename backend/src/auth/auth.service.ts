@@ -55,8 +55,8 @@ export class AuthService {
     if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
-    // Rotate: delete old, issue new
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    // Rotate: delete old (use deleteMany to avoid P2025 on race condition), issue new
+    await this.prisma.refreshToken.deleteMany({ where: { id: stored.id } });
     const user = await this.prisma.user.findUnique({
       where: { id: stored.userId },
     });
