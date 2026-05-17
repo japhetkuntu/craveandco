@@ -97,7 +97,7 @@ let AuthService = class AuthService {
         if (!stored || stored.expiresAt < new Date()) {
             throw new common_1.UnauthorizedException('Invalid or expired refresh token');
         }
-        await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+        await this.prisma.refreshToken.deleteMany({ where: { id: stored.id } });
         const user = await this.prisma.user.findUnique({
             where: { id: stored.userId },
         });

@@ -29,6 +29,7 @@ const owner_module_1 = require("./owner/owner.module");
 const ops_module_1 = require("./ops/ops.module");
 const growth_module_1 = require("./growth/growth.module");
 const promotions_module_1 = require("./promotions/promotions.module");
+const special_orders_module_1 = require("./special-orders/special-orders.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -56,6 +57,7 @@ exports.AppModule = AppModule = __decorate([
             ops_module_1.OpsModule,
             growth_module_1.GrowthModule,
             promotions_module_1.PromotionsModule,
+            special_orders_module_1.SpecialOrdersModule,
         ],
     })
 ], AppModule);

@@ -830,8 +830,8 @@ export default function OwnerMenuPage() {
 
       {/* Add Category Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] overflow-hidden flex flex-col">
             <div className="flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Add Category</h2>
@@ -865,8 +865,8 @@ export default function OwnerMenuPage() {
       )}
 
       {showEditCategoryModal && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] overflow-hidden flex flex-col">
             <div className="flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Edit Category</h2>
@@ -901,8 +901,8 @@ export default function OwnerMenuPage() {
 
       {/* Add Item Modal */}
       {showItemModal && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-3xl rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Add Menu Item</h2>
@@ -1050,10 +1050,10 @@ export default function OwnerMenuPage() {
       {/* Recipe Editor — fullscreen overlay */}
       {selectedMenuItem && (
         <div
-          className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4"
+          className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4"
           style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
         >
-          <div className="w-full max-w-6xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col min-h-0">
+          <div className="w-full sm:max-w-6xl rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col min-h-0">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Recipe — {selectedMenuItem.name}</h2>
@@ -1316,8 +1316,8 @@ export default function OwnerMenuPage() {
 
       {/* Edit Item — fullscreen overlay */}
       {editItem && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-3xl rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Edit — {editItem.name}</h2>

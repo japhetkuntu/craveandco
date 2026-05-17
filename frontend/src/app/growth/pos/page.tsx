@@ -568,7 +568,16 @@ export default function GrowthPOSPage() {
         })),
       }, token);
       setActiveOrderId(order.id);
-      setCart([]);
+      // Repopulate cart from the returned order so the payment modal shows correct totals
+      setCart((order.items ?? []).map((i: Order['items'][number]) => ({
+        key: `${i.menuItemId}-${optionKey(i.selectedOptions)}`,
+        menuItemId: i.menuItemId,
+        name: i.menuItem?.name || '',
+        price: Number(i.unitPrice),
+        quantity: i.quantity,
+        notes: i.notes,
+        selectedOptions: i.selectedOptions,
+      })));
       setSelectedCustomer(order.customer || selectedCustomer || null);
       setGuestName('');
       setOrderNotes('');
@@ -1123,8 +1132,8 @@ export default function GrowthPOSPage() {
 
       {/* Confirm Action Modal */}
       {!!confirmAction && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] overflow-hidden flex flex-col">
             <div className="px-6 pt-6 pb-2">
               <h2 className="text-xl font-semibold text-text-primary">
                 {confirmAction?.type === 'cancelOrder' ? 'Cancel Order' : 'Start New Order'}
@@ -1163,8 +1172,8 @@ export default function GrowthPOSPage() {
 
       {/* Take Payment Modal */}
       {showPayment && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-lg rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Take Payment</h2>
@@ -1291,8 +1300,8 @@ export default function GrowthPOSPage() {
 
       {/* Customer Search Modal */}
       {showCustomerSearch && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-lg rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Find Customer</h2>
@@ -1349,8 +1358,8 @@ export default function GrowthPOSPage() {
 
       {/* Variant Selector Modal */}
       {!!selectedVariantItem && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-xl rounded-[32px] bg-white shadow-2xl max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-xl rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
             <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">{selectedVariantItem?.name || ''}</h2>
@@ -1426,8 +1435,8 @@ export default function GrowthPOSPage() {
       )}
       {/* New Customer (from POS) Modal */}
       {showNewCustomer && (
-        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-[60] flex items-start sm:items-center justify-center overflow-auto bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-[32px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-[60] flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] overflow-hidden flex flex-col">
             <div className="flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-text-primary">Add Customer</h2>

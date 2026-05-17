@@ -100,7 +100,7 @@ interface SpecialOrderItem {
 interface SpecialOrder {
   id: string;
   customerName?: string;
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'PENDING' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
   createdAt: string;
   user?: { name: string };
@@ -191,6 +191,7 @@ export default function OwnerDashboard() {
   const purchaseOrdersLimit = 5;
   const [purchaseOrdersHasMore, setPurchaseOrdersHasMore] = useState(false);
   const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>([]);
+  const [selectedSpecialOrder, setSelectedSpecialOrder] = useState<SpecialOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year'>('day');
 
@@ -648,72 +649,34 @@ export default function OwnerDashboard() {
           ) : (
             <div className="divide-y divide-border-subtle">
               {specialOrders.map((order) => {
-                const { revenue, cost, margin } = calcSpecialMargin(order.items);
+                const { revenue, margin } = calcSpecialMargin(order.items);
                 return (
-                  <div key={order.id} className="p-4 space-y-3">
-                    {/* Header */}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-text-primary text-base">
-                          {order.customerName || 'Walk-in Customer'}
-                        </p>
-                        <p className="text-sm text-text-secondary mt-0.5">
-                          {order.user?.name && <span>By {order.user.name} · </span>}
-                          {new Date(order.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </p>
-                        {order.notes && <p className="mt-1 text-sm text-text-tertiary">{order.notes}</p>}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <StatusBadge
-                          status={order.status}
-                          label={order.status === 'PENDING' ? 'In Progress' : order.status === 'COMPLETED' ? 'Completed' : 'Cancelled'}
-                        />
-                        <span className="text-lg font-bold font-mono text-text-primary">{formatCurrency(revenue)}</span>
-                      </div>
+                  <button
+                    key={order.id}
+                    className="w-full text-left flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-surface-elevated transition-colors"
+                    onClick={() => setSelectedSpecialOrder(order)}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-text-primary text-base">
+                        {order.customerName || 'Walk-in Customer'}
+                      </p>
+                      <p className="text-sm text-text-secondary mt-0.5">
+                        {order.user?.name && <span>By {order.user.name} · </span>}
+                        {new Date(order.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      {order.notes && <p className="mt-1 text-sm text-text-tertiary truncate">{order.notes}</p>}
                     </div>
-                    {/* Items table */}
-                    <div className="rounded-2xl bg-surface-elevated border border-border-subtle overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border-subtle text-text-tertiary text-xs">
-                            <th className="px-3 py-2 text-left font-medium">Item</th>
-                            <th className="px-3 py-2 text-right font-medium">Qty</th>
-                            <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Cost</th>
-                            <th className="px-3 py-2 text-right font-medium">Sell</th>
-                            <th className="px-3 py-2 text-right font-medium">Margin</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {order.items.map((item) => {
-                            const iRev = Number(item.sellPrice) * Number(item.quantity);
-                            const iCost = Number(item.costPrice) * Number(item.quantity);
-                            const iMargin = iRev > 0 ? ((iRev - iCost) / iRev) * 100 : 0;
-                            return (
-                              <tr key={item.id} className="border-b border-border-subtle last:border-0">
-                                <td className="px-3 py-2 font-medium text-text-primary">{item.name}</td>
-                                <td className="px-3 py-2 text-right text-text-secondary">{Number(item.quantity)}</td>
-                                <td className="px-3 py-2 text-right text-text-secondary hidden sm:table-cell">{formatCurrency(Number(item.costPrice))}</td>
-                                <td className="px-3 py-2 text-right text-text-secondary">{formatCurrency(Number(item.sellPrice))}</td>
-                                <td className={`px-3 py-2 text-right font-semibold ${iMargin >= 40 ? 'text-success' : iMargin >= 20 ? 'text-warning' : 'text-error'}`}>
-                                  {Math.round(iMargin)}%
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t-2 border-border-default bg-surface-raised">
-                            <td className="px-3 py-2 font-bold text-text-primary" colSpan={2}>Totals</td>
-                            <td className="px-3 py-2 text-right font-mono text-text-secondary hidden sm:table-cell">{formatCurrency(cost)}</td>
-                            <td className="px-3 py-2 text-right font-mono font-bold text-text-primary">{formatCurrency(revenue)}</td>
-                            <td className={`px-3 py-2 text-right font-bold ${margin >= 40 ? 'text-success' : margin >= 20 ? 'text-warning' : 'text-error'}`}>
-                              {Math.round(margin * 10) / 10}%
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <StatusBadge
+                        status={order.status}
+                        label={order.status === 'DRAFT' ? 'Awaiting Review' : order.status === 'PENDING' ? 'In Progress' : order.status === 'COMPLETED' ? 'Completed' : 'Cancelled'}
+                      />
+                      <span className="text-lg font-bold font-mono text-text-primary">{formatCurrency(revenue)}</span>
+                      <span className={`text-sm font-semibold ${margin >= 40 ? 'text-success' : margin >= 20 ? 'text-warning' : 'text-error'}`}>
+                        {Math.round(margin * 10) / 10}%
+                      </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -825,6 +788,100 @@ export default function OwnerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Special Order Detail Modal ── */}
+      {selectedSpecialOrder && (() => {
+        const order = selectedSpecialOrder;
+        const { revenue, cost, profit, margin } = calcSpecialMargin(order.items);
+        return (
+          <div
+            className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4"
+            onClick={() => setSelectedSpecialOrder(null)}
+          >
+            <div
+              className="w-full sm:max-w-2xl rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col sm:my-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border-subtle bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-text-primary">{order.customerName || 'Walk-in Customer'}</h2>
+                  <p className="text-sm text-text-secondary mt-1">
+                    {order.user?.name && <span>By {order.user.name} · </span>}
+                    {new Date(order.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <StatusBadge
+                    status={order.status}
+                    label={order.status === 'DRAFT' ? 'Awaiting Review' : order.status === 'PENDING' ? 'In Progress' : order.status === 'COMPLETED' ? 'Completed' : 'Cancelled'}
+                  />
+                  <Button variant="secondary" onClick={() => setSelectedSpecialOrder(null)}>Close</Button>
+                </div>
+              </div>
+              {/* Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-5">
+                {order.notes && (
+                  <div className="rounded-2xl bg-surface-input border border-border-subtle p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-1">Notes</p>
+                    <p className="text-sm text-text-primary">{order.notes}</p>
+                  </div>
+                )}
+                <div className="rounded-2xl border border-border-default overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border-subtle bg-surface-input text-text-tertiary text-xs uppercase tracking-widest">
+                        <th className="px-4 py-3 text-left font-medium">Item</th>
+                        <th className="px-4 py-3 text-right font-medium">Qty</th>
+                        <th className="px-4 py-3 text-right font-medium hidden sm:table-cell">Cost</th>
+                        <th className="px-4 py-3 text-right font-medium">Sell</th>
+                        <th className="px-4 py-3 text-right font-medium">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.items.map((item) => {
+                        const iRev = Number(item.sellPrice) * Number(item.quantity);
+                        const iCost = Number(item.costPrice) * Number(item.quantity);
+                        const iMargin = iRev > 0 ? ((iRev - iCost) / iRev) * 100 : 0;
+                        return (
+                          <tr key={item.id} className="border-b border-border-subtle last:border-0">
+                            <td className="px-4 py-3 font-medium text-text-primary">{item.name}</td>
+                            <td className="px-4 py-3 text-right text-text-secondary">{Number(item.quantity)}</td>
+                            <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{formatCurrency(Number(item.costPrice))}</td>
+                            <td className="px-4 py-3 text-right text-text-secondary">{formatCurrency(Number(item.sellPrice))}</td>
+                            <td className={`px-4 py-3 text-right font-semibold ${iMargin >= 40 ? 'text-success' : iMargin >= 20 ? 'text-warning' : 'text-error'}`}>
+                              {Math.round(iMargin)}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Footer totals */}
+              <div className="border-t border-border-subtle bg-surface-input px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Revenue</p>
+                  <p className="text-lg font-bold font-mono text-text-primary">{formatCurrency(revenue)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Cost</p>
+                  <p className="text-lg font-bold font-mono text-text-secondary">{formatCurrency(cost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Profit</p>
+                  <p className={`text-lg font-bold font-mono ${profit >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(profit)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Margin</p>
+                  <p className={`text-lg font-bold font-mono ${margin >= 40 ? 'text-success' : margin >= 20 ? 'text-warning' : 'text-error'}`}>{Math.round(margin * 10) / 10}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

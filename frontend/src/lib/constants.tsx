@@ -214,6 +214,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Dashboard', href: '/growth', icon: <TrendingUp size={20} /> },
     { label: 'POS', href: '/growth/pos', icon: <ShoppingCart size={20} /> },
     { label: 'Customers', href: '/growth/customers', icon: <Users size={20} /> },
+    { label: 'Special Orders', href: '/growth/special-orders', icon: <Star size={20} /> },
     { label: 'Campaigns', href: '/growth/campaigns', icon: <Megaphone size={20} /> },
     { label: 'Loyalty', href: '/growth/loyalty', icon: <HeartHandshake size={20} /> },
     { label: 'Promotions', href: '/growth/promotions', icon: <Tag size={20} /> },

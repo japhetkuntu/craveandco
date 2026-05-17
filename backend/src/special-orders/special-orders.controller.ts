@@ -5,15 +5,21 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { normalizeLimit, normalizePage } from '../common/pagination';
 import { SpecialOrdersService } from './special-orders.service';
-import { CreateSpecialOrderDto, UpdateSpecialOrderStatusDto } from './dto/special-orders.dto';
+import {
+  CreateSpecialOrderDto,
+  CreateDraftSpecialOrderDto,
+  UpdateSpecialOrderStatusDto,
+  UpdateSpecialOrderItemPricesDto,
+} from './dto/special-orders.dto';
 
 @Controller('api/v1/special-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'OPERATIONS_MANAGER')
 export class SpecialOrdersController {
   constructor(private service: SpecialOrdersService) {}
 
+  // Ops / Owner: create with full prices immediately
   @Post()
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   create(
     @CurrentUser('branchId') branchId: string,
     @CurrentUser('userId') userId: string,
@@ -22,7 +28,20 @@ export class SpecialOrdersController {
     return this.service.create(dto, branchId, userId);
   }
 
+  // Growth Lead: create draft without prices
+  @Post('draft')
+  @Roles('GROWTH_LEAD')
+  createDraft(
+    @CurrentUser('branchId') branchId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateDraftSpecialOrderDto,
+  ) {
+    return this.service.createDraft(dto, branchId, userId);
+  }
+
+  // Ops / Owner: all orders
   @Get()
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   findAll(
     @CurrentUser('branchId') branchId: string,
     @Query('page') page = '0',
@@ -32,7 +51,20 @@ export class SpecialOrdersController {
     return this.service.findAll(branchId, normalizePage(page), normalizeLimit(limit), status);
   }
 
+  // Growth Lead: their own orders only (prices stripped)
+  @Get('my')
+  @Roles('GROWTH_LEAD')
+  findMine(
+    @CurrentUser('branchId') branchId: string,
+    @CurrentUser('userId') userId: string,
+    @Query('page') page = '0',
+    @Query('limit') limit = '20',
+  ) {
+    return this.service.findMine(branchId, userId, normalizePage(page), normalizeLimit(limit));
+  }
+
   @Get(':id')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   findOne(
     @Param('id') id: string,
     @CurrentUser('branchId') branchId: string,
@@ -40,7 +72,29 @@ export class SpecialOrdersController {
     return this.service.findOne(id, branchId);
   }
 
+  // Ops / Owner: set prices on a draft order
+  @Patch(':id/prices')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
+  updateItemPrices(
+    @Param('id') id: string,
+    @CurrentUser('branchId') branchId: string,
+    @Body() dto: UpdateSpecialOrderItemPricesDto,
+  ) {
+    return this.service.updateItemPrices(id, branchId, dto);
+  }
+
+  // Ops / Owner: approve a draft (DRAFT → PENDING)
+  @Patch(':id/approve')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
+  approve(
+    @Param('id') id: string,
+    @CurrentUser('branchId') branchId: string,
+  ) {
+    return this.service.approve(id, branchId);
+  }
+
   @Patch(':id/status')
+  @Roles('OWNER', 'OPERATIONS_MANAGER')
   updateStatus(
     @Param('id') id: string,
     @CurrentUser('branchId') branchId: string,

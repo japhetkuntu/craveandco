@@ -50,6 +50,7 @@ enum MovementType {
 }
 
 enum SpecialOrderStatus {
+  DRAFT
   PENDING
   COMPLETED
   CANCELLED
@@ -350,7 +351,7 @@ model SpecialOrder {
   branchId     String
   branch       Branch             @relation(fields: [branchId], references: [id])
   customerName String?
-  status       SpecialOrderStatus @default(PENDING)
+  status       SpecialOrderStatus @default(DRAFT)
   notes        String?
   createdBy    String
   user         User               @relation(fields: [createdBy], references: [id])
