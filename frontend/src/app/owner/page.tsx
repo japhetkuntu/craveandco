@@ -88,6 +88,33 @@ interface Approval {
   paidAt: string;
 }
 
+interface SpecialOrderItem {
+  id: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  costPrice: number;
+  sellPrice: number;
+}
+
+interface SpecialOrder {
+  id: string;
+  customerName?: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  notes?: string;
+  createdAt: string;
+  user?: { name: string };
+  items: SpecialOrderItem[];
+}
+
+function calcSpecialMargin(items: SpecialOrderItem[]) {
+  const revenue = items.reduce((s, i) => s + Number(i.sellPrice) * Number(i.quantity), 0);
+  const cost = items.reduce((s, i) => s + Number(i.costPrice) * Number(i.quantity), 0);
+  const profit = revenue - cost;
+  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+  return { revenue, cost, profit, margin };
+}
+
 // ─── StatTile ────────────────────────────────────────────────────────────────
 
 function StatTile({
@@ -163,6 +190,7 @@ export default function OwnerDashboard() {
   const [purchaseOrdersPage, setPurchaseOrdersPage] = useState(0);
   const purchaseOrdersLimit = 5;
   const [purchaseOrdersHasMore, setPurchaseOrdersHasMore] = useState(false);
+  const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year'>('day');
 
@@ -189,11 +217,12 @@ export default function OwnerDashboard() {
     setLoading(true);
     const { from, to } = dateRange(preset);
     try {
-      const [dash, apps, pos, profitability] = await Promise.all([
+      const [dash, apps, pos, profitability, specials] = await Promise.all([
         get(`/api/v1/owner/dashboard?from=${from}&to=${to}`, token),
         get(`/api/v1/owner/approvals/pending?page=${appPage}&limit=${approvalLimit}`, token),
         get(`/api/v1/purchase-orders?page=${poPage}&limit=${purchaseOrdersLimit}`, token),
         get(`/api/v1/reports/menu-profitability?from=${from}&to=${to}`, token),
+        get('/api/v1/special-orders?limit=10', token),
       ]);
       setData(dash);
       setApprovals(apps);
@@ -201,6 +230,7 @@ export default function OwnerDashboard() {
       setPurchaseOrders(pos);
       setPurchaseOrdersHasMore(pos.length === purchaseOrdersLimit);
       setMenuProfitability(profitability as MenuProfitabilityItem[]);
+      setSpecialOrders(specials as SpecialOrder[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -556,6 +586,136 @@ export default function OwnerDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Special Orders ── */}
+      <div className="space-y-3">
+        <SectionTitle
+          title="Special Orders"
+          description="Custom orders tracked with cost, sell price, and profit per item."
+        />
+        {/* Summary tiles */}
+        {(() => {
+          const active = specialOrders.filter((o) => o.status !== 'CANCELLED');
+          const soRevenue = active.reduce((s, o) => s + calcSpecialMargin(o.items).revenue, 0);
+          const soProfit = active.reduce((s, o) => s + calcSpecialMargin(o.items).profit, 0);
+          const soAvgMargin = active.length
+            ? Math.round((active.reduce((s, o) => s + calcSpecialMargin(o.items).margin, 0) / active.length) * 10) / 10
+            : 0;
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <StatTile
+                icon={<Star size={18} />}
+                label="Special Orders"
+                value={specialOrders.length}
+                helper="Total custom orders (last 10)"
+              />
+              <StatTile
+                icon={<Clock size={18} />}
+                label="In Progress"
+                value={specialOrders.filter((o) => o.status === 'PENDING').length}
+                helper="Orders awaiting completion"
+                tone={specialOrders.filter((o) => o.status === 'PENDING').length > 0 ? 'yellow' : 'green'}
+              />
+              <StatTile
+                icon={<DollarSign size={18} />}
+                label="Revenue"
+                value={formatCurrency(soRevenue)}
+                helper="From active & completed orders"
+                tone={soRevenue > 0 ? 'green' : 'default'}
+              />
+              <StatTile
+                icon={<TrendingUp size={18} />}
+                label="Avg Margin"
+                value={`${soAvgMargin}%`}
+                helper="Profit margin across active orders"
+                tone={soAvgMargin >= 40 ? 'green' : soAvgMargin >= 20 ? 'yellow' : soAvgMargin > 0 ? 'red' : 'default'}
+              />
+            </div>
+          );
+        })()}
+        {/* Orders list */}
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          {specialOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <Star size={32} className="text-text-tertiary opacity-60" />
+              <p className="text-sm font-semibold text-text-secondary">No special orders yet</p>
+              <p className="text-xs text-text-tertiary">Custom orders created by your ops team will appear here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border-subtle">
+              {specialOrders.map((order) => {
+                const { revenue, cost, margin } = calcSpecialMargin(order.items);
+                return (
+                  <div key={order.id} className="p-4 space-y-3">
+                    {/* Header */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-text-primary text-base">
+                          {order.customerName || 'Walk-in Customer'}
+                        </p>
+                        <p className="text-sm text-text-secondary mt-0.5">
+                          {order.user?.name && <span>By {order.user.name} · </span>}
+                          {new Date(order.createdAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                        {order.notes && <p className="mt-1 text-sm text-text-tertiary">{order.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge
+                          status={order.status}
+                          label={order.status === 'PENDING' ? 'In Progress' : order.status === 'COMPLETED' ? 'Completed' : 'Cancelled'}
+                        />
+                        <span className="text-lg font-bold font-mono text-text-primary">{formatCurrency(revenue)}</span>
+                      </div>
+                    </div>
+                    {/* Items table */}
+                    <div className="rounded-2xl bg-surface-elevated border border-border-subtle overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border-subtle text-text-tertiary text-xs">
+                            <th className="px-3 py-2 text-left font-medium">Item</th>
+                            <th className="px-3 py-2 text-right font-medium">Qty</th>
+                            <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Cost</th>
+                            <th className="px-3 py-2 text-right font-medium">Sell</th>
+                            <th className="px-3 py-2 text-right font-medium">Margin</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item) => {
+                            const iRev = Number(item.sellPrice) * Number(item.quantity);
+                            const iCost = Number(item.costPrice) * Number(item.quantity);
+                            const iMargin = iRev > 0 ? ((iRev - iCost) / iRev) * 100 : 0;
+                            return (
+                              <tr key={item.id} className="border-b border-border-subtle last:border-0">
+                                <td className="px-3 py-2 font-medium text-text-primary">{item.name}</td>
+                                <td className="px-3 py-2 text-right text-text-secondary">{Number(item.quantity)}</td>
+                                <td className="px-3 py-2 text-right text-text-secondary hidden sm:table-cell">{formatCurrency(Number(item.costPrice))}</td>
+                                <td className="px-3 py-2 text-right text-text-secondary">{formatCurrency(Number(item.sellPrice))}</td>
+                                <td className={`px-3 py-2 text-right font-semibold ${iMargin >= 40 ? 'text-success' : iMargin >= 20 ? 'text-warning' : 'text-error'}`}>
+                                  {Math.round(iMargin)}%
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-border-default bg-surface-raised">
+                            <td className="px-3 py-2 font-bold text-text-primary" colSpan={2}>Totals</td>
+                            <td className="px-3 py-2 text-right font-mono text-text-secondary hidden sm:table-cell">{formatCurrency(cost)}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-text-primary">{formatCurrency(revenue)}</td>
+                            <td className={`px-3 py-2 text-right font-bold ${margin >= 40 ? 'text-success' : margin >= 20 ? 'text-warning' : 'text-error'}`}>
+                              {Math.round(margin * 10) / 10}%
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
