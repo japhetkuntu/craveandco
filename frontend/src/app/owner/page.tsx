@@ -228,15 +228,13 @@ export default function OwnerDashboard() {
     } catch (err) { console.error(err); }
   };
 
-  const handleReceivePurchaseOrder = async (po: PurchaseOrder) => {
+  const handleApprovePO = async (po: PurchaseOrder) => {
     if (!token) return;
     try {
-      await post(`/api/v1/purchase-orders/${po.id}/receive`, {
-        items: po.items.map((item) => ({ purchaseOrderItemId: item.id, receivedQty: item.quantity })),
-      }, token);
+      await post(`/api/v1/purchase-orders/${po.id}/approve`, {}, token);
       setPurchaseOrders((prev) =>
         prev.map((order) =>
-          order.id === po.id ? { ...order, status: 'RECEIVED', receivedAt: new Date().toISOString() } : order,
+          order.id === po.id ? { ...order, status: 'RECEIVED' } : order,
         ),
       );
     } catch (err) { console.error(err); }
@@ -555,7 +553,7 @@ export default function OwnerDashboard() {
       <div className="space-y-3">
         <SectionTitle
           title="Recent Purchase Orders"
-          description="Stock orders placed with your suppliers. Mark them received when goods arrive."
+          description="Stock orders placed by your operations team. Approve them to update inventory."
         />
         <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
           {purchaseOrders.length === 0 ? (
@@ -580,7 +578,7 @@ export default function OwnerDashboard() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={po.status} />
+                      <StatusBadge status={po.status} label={po.status === 'RECEIVED' ? 'Approved' : po.status === 'DRAFT' ? 'Pending Approval' : undefined} />
                       <span className="text-lg font-bold text-text-primary font-mono whitespace-normal break-words">{formatCurrency(po.totalAmount)}</span>
                     </div>
                   </div>
@@ -622,12 +620,12 @@ export default function OwnerDashboard() {
                     >
                       <FileText size={14} /> Print Invoice
                     </Button>
-                    {po.status === 'SENT' && (
+                    {po.status === 'DRAFT' && (
                       <Button
                         size="sm"
-                        onClick={() => handleReceivePurchaseOrder(po)}
+                        onClick={() => handleApprovePO(po)}
                       >
-                        <CheckCircle size={14} /> Mark as Received
+                        <CheckCircle size={14} /> Approve Order
                       </Button>
                     )}
                   </div>

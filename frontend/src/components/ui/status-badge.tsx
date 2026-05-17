@@ -16,6 +16,8 @@ const variants: Record<string, { bg: string; text: string; dot: string }> = {
   info: { bg: 'bg-info-muted', text: 'text-info', dot: 'bg-info' },
   healthy: { bg: 'bg-success-muted', text: 'text-success', dot: 'bg-success' },
   draft: { bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary' },
+  sent: { bg: 'bg-info-muted', text: 'text-info', dot: 'bg-info' },
+  received: { bg: 'bg-success-muted', text: 'text-success', dot: 'bg-success' },
   running: { bg: 'bg-gold-muted', text: 'text-gold', dot: 'bg-gold' },
   active: { bg: 'bg-gold-muted', text: 'text-gold', dot: 'bg-gold' },
   partiallyreceived: { bg: 'bg-warning-muted', text: 'text-warning', dot: 'bg-warning' },
@@ -25,11 +27,12 @@ const defaultVariant = { bg: 'bg-surface-elevated', text: 'text-text-secondary',
 
 interface StatusBadgeProps {
   status: string;
+  label?: string;
   className?: string;
   pulse?: boolean;
 }
 
-export function StatusBadge({ status, className, pulse }: StatusBadgeProps) {
+export function StatusBadge({ status, label, className, pulse }: StatusBadgeProps) {
   const key = status.toLowerCase().replace(/_/g, '');
   const v = variants[key] || defaultVariant;
   const isCritical = key === 'critical' || key === 'delayed';
@@ -44,7 +47,7 @@ export function StatusBadge({ status, className, pulse }: StatusBadgeProps) {
       )}
     >
       <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', v.dot)} />
-      {status.replace(/_/g, ' ')}
+      {label ?? status.replace(/_/g, ' ')}
     </span>
   );
 }

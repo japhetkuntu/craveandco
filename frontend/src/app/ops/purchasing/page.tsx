@@ -58,6 +58,12 @@ const PO_STATUS_HELP: Record<string, string> = {
   CANCELLED: 'This order was cancelled',
 };
 
+const PO_STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Pending Approval',
+  RECEIVED: 'Approved',
+  CANCELLED: 'Cancelled',
+};
+
 export default function OpsPurchasingPage() {
   const { token, user } = useAuth();
   const INGREDIENTS_LIMIT = 100;
@@ -274,7 +280,7 @@ export default function OpsPurchasingPage() {
                     {/* Header row */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <StatusBadge status={po.status} />
+                        <StatusBadge status={po.status} label={PO_STATUS_LABEL[po.status]} />
                         <span className="text-sm font-semibold text-text-primary">{po.supplier?.name}</span>
                       </div>
                       <span className="text-sm font-bold text-text-primary">{formatCurrency(po.totalAmount)}</span>
