@@ -40,8 +40,11 @@ export class PurchasingController {
 
   @Post('purchase-orders/:id/approve')
   @Roles('OWNER')
-  approvePurchaseOrder(@Param('id') id: string) {
-    return this.purchasing.approvePurchaseOrder(id);
+  approvePurchaseOrder(
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.purchasing.approvePurchaseOrder(id, userId);
   }
 
   @Post('purchase-orders/:id/cancel')

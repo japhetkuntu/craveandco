@@ -41,16 +41,8 @@ export class PurchasingService {
     });
 
     if (userRole === 'OPERATIONS_MANAGER') {
-      await this.prisma.expense.create({
-        data: {
-          branchId: dto.branchId,
-          category: 'Purchase Request',
-          amount: totalAmount,
-          description: dto.notes || `Purchase order request for supplier ${purchaseOrder.supplier.name}`,
-          paidBy: userId,
-          approved: null,
-        },
-      });
+      // Expense record is created when the owner approves the PO, not at draft creation.
+      // This keeps PO approvals separate from the Expense Approvals workflow.
     }
 
     return purchaseOrder;
@@ -101,7 +93,7 @@ export class PurchasingService {
     });
   }
 
-  async approvePurchaseOrder(id: string) {
+  async approvePurchaseOrder(id: string, approverId: string) {
     const po = await this.prisma.purchaseOrder.findUnique({
       where: { id },
       include: { items: true },
@@ -133,11 +125,23 @@ export class PurchasingService {
           },
         });
       }
-      return tx.purchaseOrder.update({
+      const updated = await tx.purchaseOrder.update({
         where: { id },
         data: { status: 'RECEIVED', receivedAt: new Date() },
         include: { items: { include: { ingredient: true } }, supplier: true },
       });
+      // Record the committed expense now that the owner has approved the spend.
+      await tx.expense.create({
+        data: {
+          branchId: po.branchId,
+          category: 'Stock Purchase',
+          amount: po.totalAmount,
+          description: `Purchase order approved for supplier ${updated.supplier.name}`,
+          paidBy: approverId,
+          approved: true,
+        },
+      });
+      return updated;
     });
   }
 
