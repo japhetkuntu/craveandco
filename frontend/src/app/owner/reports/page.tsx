@@ -30,8 +30,11 @@ interface DashboardReport {
   orderCount: number;
   averageTicket: number;
   totalExpenses: number;
+  foodCost: number;
   grossProfit: number;
+  netProfit: number;
   grossMarginPercent: number;
+  netMarginPercent: number;
   expenseRatioPercent: number;
   topItems: DashboardTopItem[];
 }
@@ -42,8 +45,12 @@ interface ReportSummaryResponse {
   totalSales: number;
   totalOrders: number;
   totalExpenses: number;
+  totalFoodCost: number;
   grossProfit: number;
-  days: { date: string; totalSales: number; orderCount: number; totalExpenses: number }[];
+  netProfit: number;
+  grossMarginPercent: number;
+  netMarginPercent: number;
+  days: { date: string; totalSales: number; orderCount: number; totalExpenses: number; totalFoodCost: number; grossProfit: number; netProfit: number }[];
 }
 
 interface WeeklyDay {
@@ -245,7 +252,8 @@ export default function OwnerReportsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { icon: <DollarSign size={18} />, label: 'Gross Profit', value: formatCurrency(summary?.grossProfit || 0), tone: (summary?.grossProfit || 0) >= 0 ? 'green' as const : 'red' as const },
-          { icon: <TrendingUp size={18} />, label: 'Gross Margin', value: `${summary?.totalSales ? Math.round(((summary.totalSales - summary.totalExpenses) / summary.totalSales) * 100) : 0}%`, tone: (summary?.totalSales ? Math.round(((summary.totalSales - summary.totalExpenses) / summary.totalSales) * 100) : 0) >= 30 ? 'green' as const : 'yellow' as const },
+          { icon: <TrendingUp size={18} />, label: 'Gross Margin', value: `${summary?.grossMarginPercent ?? 0}%`, tone: (summary?.grossMarginPercent ?? 0) >= 50 ? 'green' as const : (summary?.grossMarginPercent ?? 0) >= 30 ? 'yellow' as const : 'red' as const },
+          { icon: <TrendingUp size={18} />, label: 'Net Margin', value: `${summary?.netMarginPercent ?? 0}%`, tone: (summary?.netMarginPercent ?? 0) >= 10 ? 'green' as const : (summary?.netMarginPercent ?? 0) >= 0 ? 'yellow' as const : 'red' as const },
           { icon: <TrendingDown size={18} />, label: 'Expense Ratio', value: `${summary?.totalSales ? Math.round((summary.totalExpenses / summary.totalSales) * 100) : 0}%`, tone: (summary?.totalSales ? Math.round((summary.totalExpenses / summary.totalSales) * 100) : 0) < 40 ? 'green' as const : 'red' as const },
           { icon: <Utensils size={18} />, label: 'Top Items', value: dashboard?.topItems?.length || 0, tone: undefined },
         ].map(({ icon, label, value, tone }) => {

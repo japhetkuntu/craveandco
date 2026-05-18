@@ -13,8 +13,12 @@ export class GrowthController {
   constructor(private growth: GrowthService) {}
 
   @Get('dashboard')
-  getDashboard(@Query('from') from: string, @Query('to') to: string) {
-    return this.growth.getDashboard(from, to);
+  getDashboard(
+    @CurrentUser('branchId') branchId: string,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.growth.getDashboard(branchId, from, to);
   }
 
   @Get('churn-risk')

@@ -25,8 +25,8 @@ let GrowthController = class GrowthController {
     constructor(growth) {
         this.growth = growth;
     }
-    getDashboard(from, to) {
-        return this.growth.getDashboard(from, to);
+    getDashboard(branchId, from, to) {
+        return this.growth.getDashboard(branchId, from, to);
     }
     getChurnRisk() {
         return this.growth.getChurnRisk();
@@ -40,10 +40,11 @@ let GrowthController = class GrowthController {
 exports.GrowthController = GrowthController;
 __decorate([
     (0, common_1.Get)('dashboard'),
-    __param(0, (0, common_1.Query)('from')),
-    __param(1, (0, common_1.Query)('to')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
+    __param(1, (0, common_1.Query)('from')),
+    __param(2, (0, common_1.Query)('to')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], GrowthController.prototype, "getDashboard", null);
 __decorate([

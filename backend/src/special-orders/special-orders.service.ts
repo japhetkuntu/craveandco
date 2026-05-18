@@ -54,11 +54,23 @@ export class SpecialOrdersService {
     });
   }
 
-  async findAll(branchId: string, page = 0, limit = 20, status?: string) {
+  async findAll(branchId: string, page = 0, limit = 20, status?: string, from?: string, to?: string) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max(page, 0) * take;
+    const createdAt: Record<string, Date> = {};
+    if (from) createdAt.gte = new Date(from);
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(0, 0, 0, 0);
+      toDate.setDate(toDate.getDate() + 1);
+      createdAt.lt = toDate;
+    }
     return this.prisma.specialOrder.findMany({
-      where: { branchId, ...(status ? { status: status as any } : {}) },
+      where: {
+        branchId,
+        ...(status ? { status: status as any } : {}),
+        ...(Object.keys(createdAt).length ? { createdAt } : {}),
+      },
       include: { items: true, user: USER_SELECT },
       orderBy: { createdAt: 'desc' },
       take,

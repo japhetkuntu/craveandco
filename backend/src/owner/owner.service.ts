@@ -32,7 +32,7 @@ export class OwnerService {
     const [sales, expenses, purchaseOrderItems, stockResult, openAlerts, pendingApprovals, ordersWithItems] = await Promise.all([
       this.prisma.order.aggregate({
         where: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: OrderStatus.CANCELLED } },
-        _sum: { total: true },
+        _sum: { total: true, foodCost: true },
         _count: true,
       }),
       this.prisma.expense.aggregate({
@@ -63,11 +63,13 @@ export class OwnerService {
     ]);
 
     const totalSales = Number(sales._sum?.total || 0);
+    const totalFoodCost = Number(sales._sum?.foodCost || 0);
     const purchaseOrderExpense = purchaseOrderItems.reduce(
       (sum, item) => sum + Number(item.receivedQty) * Number(item.unitCost),
       0,
     );
-    const totalExpenses = Number(expenses._sum?.amount || 0) + purchaseOrderExpense;
+    const operatingExpenses = Number(expenses._sum?.amount || 0);
+    const totalExpenses = operatingExpenses + purchaseOrderExpense;
     const lowStock = stockResult.lowStockCount;
 
     const totalDiscounts = ordersWithItems.reduce((sum, order) => {
@@ -98,8 +100,8 @@ export class OwnerService {
       }),
     ]);
 
-    const grossProfit = totalSales - purchaseOrderExpense;
-    const grossEstimate = totalSales - totalExpenses;
+    const grossProfit = totalSales - totalFoodCost;
+    const grossEstimate = totalSales - totalFoodCost - totalExpenses;
 
     // ── Category filter (optional) ──
     let filteredSales: number | null = null;
@@ -126,13 +128,15 @@ export class OwnerService {
       ordersToday: sales._count,
       averageTicket: sales._count > 0 ? Math.round((totalSales / sales._count) * 100) / 100 : 0,
       expensesToday: totalExpenses,
+      foodCostToday: Math.round(totalFoodCost * 100) / 100,
       grossProfit: Math.round(grossProfit * 100) / 100,
       netProfit: Math.round(grossEstimate * 100) / 100,
       filteredSales,
       filteredOrderCount,
       filteredAvgTicket,
       grossEstimate,
-      grossMarginPercent: totalSales > 0 ? Math.round((grossEstimate / totalSales) * 100) : 0,
+      grossMarginPercent: totalSales > 0 ? Math.round((grossProfit / totalSales) * 100) : 0,
+      netMarginPercent: totalSales > 0 ? Math.round((grossEstimate / totalSales) * 100) : 0,
       expenseRatioPercent: totalSales > 0 ? Math.round((totalExpenses / totalSales) * 100) : 0,
       profitPerOrder: sales._count > 0 ? Math.round((grossEstimate / sales._count) * 100) / 100 : 0,
       expensePerOrder: sales._count > 0 ? Math.round((totalExpenses / sales._count) * 100) / 100 : 0,

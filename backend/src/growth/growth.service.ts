@@ -19,7 +19,7 @@ export class GrowthService {
     return { start, end };
   }
 
-  async getDashboard(from: string, to: string) {
+  async getDashboard(branchId: string, from: string, to: string) {
     const customerDashboard = await this.customers.getDashboard();
     const { start, end } = this.normalizeRange(from, to);
     const campaigns = await this.prisma.campaign.findMany({
@@ -39,17 +39,17 @@ export class GrowthService {
         _sum: { points: true },
       }),
       this.prisma.order.aggregate({
-        where: { ...dateFilter, customerId: { not: null }, status: { not: OrderStatus.CANCELLED } },
+        where: { branchId, ...dateFilter, customerId: { not: null }, status: { not: OrderStatus.CANCELLED } },
         _sum: { total: true },
       }),
       this.prisma.order.count({
-        where: { ...dateFilter, customerId: { not: null }, status: { not: OrderStatus.CANCELLED } },
+        where: { branchId, ...dateFilter, customerId: { not: null }, status: { not: OrderStatus.CANCELLED } },
       }),
       this.prisma.order.count({
-        where: { ...dateFilter, status: { not: OrderStatus.CANCELLED } },
+        where: { branchId, ...dateFilter, status: { not: OrderStatus.CANCELLED } },
       }),
       this.prisma.order.findMany({
-        where: { ...dateFilter, status: { not: OrderStatus.CANCELLED } },
+        where: { branchId, ...dateFilter, status: { not: OrderStatus.CANCELLED } },
         include: { items: { select: { quantity: true, unitPrice: true } } },
       }),
     ]);

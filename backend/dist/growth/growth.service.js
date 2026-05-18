@@ -29,7 +29,7 @@ let GrowthService = class GrowthService {
         end.setDate(end.getDate() + 1);
         return { start, end };
     }
-    async getDashboard(from, to) {
+    async getDashboard(branchId, from, to) {
         const customerDashboard = await this.customers.getDashboard();
         const { start, end } = this.normalizeRange(from, to);
         const campaigns = await this.prisma.campaign.findMany({
@@ -48,17 +48,17 @@ let GrowthService = class GrowthService {
                 _sum: { points: true },
             }),
             this.prisma.order.aggregate({
-                where: { ...dateFilter, customerId: { not: null }, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, ...dateFilter, customerId: { not: null }, status: { not: client_1.OrderStatus.CANCELLED } },
                 _sum: { total: true },
             }),
             this.prisma.order.count({
-                where: { ...dateFilter, customerId: { not: null }, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, ...dateFilter, customerId: { not: null }, status: { not: client_1.OrderStatus.CANCELLED } },
             }),
             this.prisma.order.count({
-                where: { ...dateFilter, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, ...dateFilter, status: { not: client_1.OrderStatus.CANCELLED } },
             }),
             this.prisma.order.findMany({
-                where: { ...dateFilter, status: { not: client_1.OrderStatus.CANCELLED } },
+                where: { branchId, ...dateFilter, status: { not: client_1.OrderStatus.CANCELLED } },
                 include: { items: { select: { quantity: true, unitPrice: true } } },
             }),
         ]);

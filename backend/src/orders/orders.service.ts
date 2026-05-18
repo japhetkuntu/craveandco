@@ -586,8 +586,19 @@ export class OrdersService {
       ...(params.status && { status: params.status as OrderStatus }),
       ...(params.channel && { channel: params.channel as OrderChannel }),
       ...(params.paymentMethod && { paymentMethod: params.paymentMethod as PaymentMethod }),
-      ...(params.from && { createdAt: { gte: new Date(params.from) } }),
-      ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+      ...((params.from || params.to) && {
+        createdAt: {
+          ...(params.from && { gte: new Date(params.from) }),
+          ...(params.to && {
+            lt: (() => {
+              const d = new Date(params.to!);
+              d.setHours(0, 0, 0, 0);
+              d.setDate(d.getDate() + 1);
+              return d;
+            })(),
+          }),
+        },
+      }),
       ...(params.categoryIds?.length && {
         items: { some: { menuItem: { categoryId: { in: params.categoryIds } } } },
       }),

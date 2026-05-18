@@ -485,8 +485,19 @@ let OrdersService = class OrdersService {
             ...(params.status && { status: params.status }),
             ...(params.channel && { channel: params.channel }),
             ...(params.paymentMethod && { paymentMethod: params.paymentMethod }),
-            ...(params.from && { createdAt: { gte: new Date(params.from) } }),
-            ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+            ...((params.from || params.to) && {
+                createdAt: {
+                    ...(params.from && { gte: new Date(params.from) }),
+                    ...(params.to && {
+                        lt: (() => {
+                            const d = new Date(params.to);
+                            d.setHours(0, 0, 0, 0);
+                            d.setDate(d.getDate() + 1);
+                            return d;
+                        })(),
+                    }),
+                },
+            }),
             ...(params.categoryIds?.length && {
                 items: { some: { menuItem: { categoryId: { in: params.categoryIds } } } },
             }),

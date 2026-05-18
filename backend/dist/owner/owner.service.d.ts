@@ -13,6 +13,7 @@ export declare class OwnerService {
         ordersToday: number;
         averageTicket: number;
         expensesToday: number;
+        foodCostToday: number;
         grossProfit: number;
         netProfit: number;
         filteredSales: number | null;
@@ -20,6 +21,7 @@ export declare class OwnerService {
         filteredAvgTicket: number | null;
         grossEstimate: number;
         grossMarginPercent: number;
+        netMarginPercent: number;
         expenseRatioPercent: number;
         profitPerOrder: number;
         expensePerOrder: number;

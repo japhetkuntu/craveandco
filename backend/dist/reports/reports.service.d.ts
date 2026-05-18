@@ -8,10 +8,14 @@ export declare class ReportsService {
         orderCount: number;
         averageTicket: number;
         totalExpenses: number;
+        foodCost: number;
         grossProfit: number;
+        netProfit: number;
         grossMarginPercent: number;
+        netMarginPercent: number;
         expenseRatioPercent: number;
         topItems: {
+            menuItemId: string;
             menuItem: {
                 name: string;
                 branchId: string;
@@ -50,13 +54,19 @@ export declare class ReportsService {
         totalSales: number;
         totalOrders: number;
         totalExpenses: number;
+        totalFoodCost: number;
         grossProfit: number;
+        netProfit: number;
+        grossMarginPercent: number;
+        netMarginPercent: number;
         days: {
             date: string;
             totalSales: number;
             orderCount: number;
             totalExpenses: number;
+            totalFoodCost: number;
             grossProfit: number;
+            netProfit: number;
             averageTicket: number;
         }[];
     }>;

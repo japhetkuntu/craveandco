@@ -59,7 +59,7 @@ export class OpsService {
   async getCommandCenter(branchId: string, from?: string, to?: string, date?: string) {
     const { start: targetDate, end: nextDate } = this.parseRange(from, to, date);
 
-    const [activeOrders, completedOrders, openAlerts, customerOrders, customerRevenue, totalRevenue, pendingPurchaseOrders, inventoryMovements, ingredients] = await Promise.all([
+    const [activeOrders, completedOrders, openAlerts, customerOrders, customerRevenue, pendingPurchaseOrders, inventoryMovements, ingredients] = await Promise.all([
       this.prisma.order.count({
         where: { branchId, status: { in: [OrderStatus.NEW, OrderStatus.PREPARING, OrderStatus.READY] } },
       }),
@@ -84,14 +84,6 @@ export class OpsService {
         },
         _sum: { total: true },
       }),
-      this.prisma.order.aggregate({
-        where: {
-          branchId,
-          createdAt: { gte: targetDate, lt: nextDate },
-          status: { not: OrderStatus.CANCELLED },
-        },
-        _sum: { total: true },
-      }),
       this.prisma.purchaseOrder.count({
         where: { branchId, status: { in: [PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.SENT, PurchaseOrderStatus.PARTIALLY_RECEIVED] } },
       }),
@@ -101,6 +93,7 @@ export class OpsService {
         _sum: { quantity: true },
       }),
       this.prisma.ingredient.findMany({
+        where: { inventoryMovements: { some: { branchId } } },
         select: { id: true, name: true, reorderLevel: true },
       }),
     ]);
@@ -117,16 +110,8 @@ export class OpsService {
       })
       .filter((item) => item.onHand < item.reorderLevel);
 
-    const totalOrders = await this.prisma.order.count({
-      where: {
-        branchId,
-        createdAt: { gte: targetDate, lt: nextDate },
-        status: { not: OrderStatus.CANCELLED },
-      },
-    });
-
-    const avgOrderValue = totalOrders > 0 ? Math.round((Number(totalRevenue._sum?.total || 0) / totalOrders) * 100) / 100 : 0;
-    const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
+    const avgOrderValue = customerOrders > 0 ? Math.round((Number(customerRevenue._sum?.total || 0) / customerOrders) * 100) / 100 : 0;
+    const completionRate = customerOrders > 0 ? Math.round((completedOrders / customerOrders) * 100) : 0;
 
     const actionItems = [] as string[];
     if (openAlerts > 0) actionItems.push(`Resolve ${openAlerts} open alerts`);
@@ -138,7 +123,7 @@ export class OpsService {
       date: from && to ? `${from} to ${to}` : date,
       activeOrders,
       completedOrders,
-      totalOrders,
+      totalOrders: customerOrders,
       lowStockCount: lowStockItems.length,
       staffOnDuty: await this.prisma.attendanceLog.count({
         where: { branchId, clockIn: { gte: targetDate, lt: nextDate }, clockOut: null },

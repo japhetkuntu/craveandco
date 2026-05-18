@@ -2,7 +2,7 @@ import { GrowthService } from './growth.service';
 export declare class GrowthController {
     private growth;
     constructor(growth: GrowthService);
-    getDashboard(from: string, to: string): Promise<{
+    getDashboard(branchId: string, from: string, to: string): Promise<{
         customers: {
             total: number;
             newThisWeek: number;

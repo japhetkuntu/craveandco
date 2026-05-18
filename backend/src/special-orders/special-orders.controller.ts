@@ -47,8 +47,10 @@ export class SpecialOrdersController {
     @Query('page') page = '0',
     @Query('limit') limit = '20',
     @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.service.findAll(branchId, normalizePage(page), normalizeLimit(limit), status);
+    return this.service.findAll(branchId, normalizePage(page), normalizeLimit(limit, 20), status, from, to);
   }
 
   // Growth Lead: their own orders only (prices stripped)

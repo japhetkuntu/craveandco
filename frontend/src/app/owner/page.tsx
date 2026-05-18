@@ -11,6 +11,7 @@ import { PageSkeleton } from '@/components/ui/skeleton';
 import {
   DollarSign,
   ShoppingCart,
+  ShoppingBag,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
@@ -40,6 +41,7 @@ interface DashboardData {
   ordersToday: number;
   averageTicket: number;
   expensesToday: number;
+  foodCostToday: number;
   filteredSales: number | null;
   filteredOrderCount: number | null;
   filteredAvgTicket: number | null;
@@ -47,6 +49,7 @@ interface DashboardData {
   netProfit: number;
   grossEstimate: number;
   grossMarginPercent: number;
+  netMarginPercent: number;
   expenseRatioPercent: number;
   profitPerOrder: number;
   expensePerOrder: number;
@@ -242,16 +245,16 @@ export default function OwnerDashboard() {
     try {
       const [dash, apps, pos, profitability, specials] = await Promise.all([
         get(`/api/v1/owner/dashboard?from=${from}&to=${to}${catParam}`, token),
-        get(`/api/v1/owner/approvals/pending?page=${appPage}&limit=${approvalLimit}`, token),
-        get(`/api/v1/purchase-orders?page=${poPage}&limit=${purchaseOrdersLimit}`, token),
+        get(`/api/v1/owner/approvals/pending?page=${appPage}&limit=${approvalLimit + 1}`, token),
+        get(`/api/v1/purchase-orders?page=${poPage}&limit=${purchaseOrdersLimit + 1}`, token),
         get(`/api/v1/reports/menu-profitability?from=${from}&to=${to}${catParam}`, token),
-        get('/api/v1/special-orders?limit=10', token),
+        get(`/api/v1/special-orders?limit=10&from=${from}&to=${to}`, token),
       ]);
       setData(dash);
-      setApprovals(apps);
-      setApprovalsHasMore(apps.length === approvalLimit);
-      setPurchaseOrders(pos);
-      setPurchaseOrdersHasMore(pos.length === purchaseOrdersLimit);
+      setApprovals(apps.slice(0, approvalLimit));
+      setApprovalsHasMore(apps.length > approvalLimit);
+      setPurchaseOrders(pos.slice(0, purchaseOrdersLimit));
+      setPurchaseOrdersHasMore(pos.length > purchaseOrdersLimit);
       setMenuProfitability(profitability as MenuProfitabilityItem[]);
       setSpecialOrders(specials as SpecialOrder[]);
     } catch (err) {
@@ -444,10 +447,17 @@ export default function OwnerDashboard() {
         <SectionTitle title="Profit & Costs" description="How efficiently your restaurant turns sales into profit" />
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <StatTile
+            icon={<ShoppingBag size={18} />}
+            label="Food Cost (COGS)"
+            value={formatCurrency(d?.foodCostToday ?? 0)}
+            helper="Ingredient cost from all orders this period"
+            tone={(d?.foodCostToday ?? 0) > 0 ? 'yellow' : 'default'}
+          />
+          <StatTile
             icon={<TrendingUp size={18} />}
             label="Gross Profit"
             value={formatCurrency(d?.grossProfit ?? 0)}
-            helper="Sales minus cost of goods (ingredients & stock)"
+            helper="Sales minus food cost (COGS)"
             tone={(d?.grossProfit ?? 0) > 0 ? 'green' : (d?.grossProfit ?? 0) === 0 ? 'default' : 'red'}
           />
           <StatTile
@@ -468,8 +478,15 @@ export default function OwnerDashboard() {
             icon={<Percent size={18} />}
             label="Gross Margin"
             value={`${d?.grossMarginPercent ?? 0}%`}
-            helper="Higher is better — aim for 30%+"
-            tone={(d?.grossMarginPercent ?? 0) >= 30 ? 'green' : (d?.grossMarginPercent ?? 0) > 10 ? 'yellow' : 'red'}
+            helper="Revenue minus food cost — aim for 60%+"
+            tone={(d?.grossMarginPercent ?? 0) >= 60 ? 'green' : (d?.grossMarginPercent ?? 0) > 40 ? 'yellow' : 'red'}
+          />
+          <StatTile
+            icon={<TrendingUp size={18} />}
+            label="Net Margin"
+            value={`${d?.netMarginPercent ?? 0}%`}
+            helper="After all expenses — aim for 10%+"
+            tone={(d?.netMarginPercent ?? 0) >= 10 ? 'green' : (d?.netMarginPercent ?? 0) > 0 ? 'yellow' : 'red'}
           />
           <StatTile
             icon={<TrendingUp size={18} />}
@@ -693,9 +710,7 @@ export default function OwnerDashboard() {
           const active = specialOrders.filter((o) => o.status !== 'CANCELLED');
           const soRevenue = active.reduce((s, o) => s + calcSpecialMargin(o.items).revenue, 0);
           const soProfit = active.reduce((s, o) => s + calcSpecialMargin(o.items).profit, 0);
-          const soAvgMargin = active.length
-            ? Math.round((active.reduce((s, o) => s + calcSpecialMargin(o.items).margin, 0) / active.length) * 10) / 10
-            : 0;
+          const soAvgMargin = soRevenue > 0 ? Math.round((soProfit / soRevenue) * 100) : 0;
           return (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <StatTile

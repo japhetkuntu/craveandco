@@ -5,7 +5,7 @@ export declare class GrowthService {
     private customers;
     constructor(prisma: PrismaService, customers: CustomersService);
     private normalizeRange;
-    getDashboard(from: string, to: string): Promise<{
+    getDashboard(branchId: string, from: string, to: string): Promise<{
         customers: {
             total: number;
             newThisWeek: number;

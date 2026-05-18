@@ -67,7 +67,7 @@ let OpsService = class OpsService {
     }
     async getCommandCenter(branchId, from, to, date) {
         const { start: targetDate, end: nextDate } = this.parseRange(from, to, date);
-        const [activeOrders, completedOrders, openAlerts, customerOrders, customerRevenue, totalRevenue, pendingPurchaseOrders, inventoryMovements, ingredients] = await Promise.all([
+        const [activeOrders, completedOrders, openAlerts, customerOrders, customerRevenue, pendingPurchaseOrders, inventoryMovements, ingredients] = await Promise.all([
             this.prisma.order.count({
                 where: { branchId, status: { in: [client_1.OrderStatus.NEW, client_1.OrderStatus.PREPARING, client_1.OrderStatus.READY] } },
             }),
@@ -92,14 +92,6 @@ let OpsService = class OpsService {
                 },
                 _sum: { total: true },
             }),
-            this.prisma.order.aggregate({
-                where: {
-                    branchId,
-                    createdAt: { gte: targetDate, lt: nextDate },
-                    status: { not: client_1.OrderStatus.CANCELLED },
-                },
-                _sum: { total: true },
-            }),
             this.prisma.purchaseOrder.count({
                 where: { branchId, status: { in: [client_1.PurchaseOrderStatus.DRAFT, client_1.PurchaseOrderStatus.SENT, client_1.PurchaseOrderStatus.PARTIALLY_RECEIVED] } },
             }),
@@ -109,6 +101,7 @@ let OpsService = class OpsService {
                 _sum: { quantity: true },
             }),
             this.prisma.ingredient.findMany({
+                where: { inventoryMovements: { some: { branchId } } },
                 select: { id: true, name: true, reorderLevel: true },
             }),
         ]);
@@ -123,15 +116,8 @@ let OpsService = class OpsService {
             };
         })
             .filter((item) => item.onHand < item.reorderLevel);
-        const totalOrders = await this.prisma.order.count({
-            where: {
-                branchId,
-                createdAt: { gte: targetDate, lt: nextDate },
-                status: { not: client_1.OrderStatus.CANCELLED },
-            },
-        });
-        const avgOrderValue = totalOrders > 0 ? Math.round((Number(totalRevenue._sum?.total || 0) / totalOrders) * 100) / 100 : 0;
-        const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
+        const avgOrderValue = customerOrders > 0 ? Math.round((Number(customerRevenue._sum?.total || 0) / customerOrders) * 100) / 100 : 0;
+        const completionRate = customerOrders > 0 ? Math.round((completedOrders / customerOrders) * 100) : 0;
         const actionItems = [];
         if (openAlerts > 0)
             actionItems.push(`Resolve ${openAlerts} open alerts`);
@@ -145,7 +131,7 @@ let OpsService = class OpsService {
             date: from && to ? `${from} to ${to}` : date,
             activeOrders,
             completedOrders,
-            totalOrders,
+            totalOrders: customerOrders,
             lowStockCount: lowStockItems.length,
             staffOnDuty: await this.prisma.attendanceLog.count({
                 where: { branchId, clockIn: { gte: targetDate, lt: nextDate }, clockOut: null },

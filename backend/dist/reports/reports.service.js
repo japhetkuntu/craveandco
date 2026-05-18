@@ -47,7 +47,7 @@ let ReportsService = class ReportsService {
         const [sales, orderCount, topItems, expenses] = await Promise.all([
             this.prisma.order.aggregate({
                 where: { branchId, createdAt: { gte: start, lt: end }, status: { not: client_1.OrderStatus.CANCELLED } },
-                _sum: { total: true },
+                _sum: { total: true, foodCost: true },
             }),
             this.prisma.order.count({
                 where: { branchId, createdAt: { gte: start, lt: end }, status: { not: client_1.OrderStatus.CANCELLED } },
@@ -69,18 +69,24 @@ let ReportsService = class ReportsService {
             where: { id: { in: itemIds } },
         });
         const totalSales = Number(sales._sum?.total || 0);
+        const totalFoodCost = Number(sales._sum?.foodCost || 0);
         const totalExpenses = Number(expenses._sum?.amount || 0);
-        const grossProfit = totalSales - totalExpenses;
+        const grossProfit = totalSales - totalFoodCost;
+        const netProfit = totalSales - totalFoodCost - totalExpenses;
         return {
             date,
             totalSales,
             orderCount,
             averageTicket: orderCount > 0 ? Math.round((totalSales / orderCount) * 100) / 100 : 0,
             totalExpenses,
-            grossProfit,
+            foodCost: Math.round(totalFoodCost * 100) / 100,
+            grossProfit: Math.round(grossProfit * 100) / 100,
+            netProfit: Math.round(netProfit * 100) / 100,
             grossMarginPercent: totalSales > 0 ? Math.round((grossProfit / totalSales) * 100) : 0,
+            netMarginPercent: totalSales > 0 ? Math.round((netProfit / totalSales) * 100) : 0,
             expenseRatioPercent: totalSales > 0 ? Math.round((totalExpenses / totalSales) * 100) : 0,
             topItems: topItems.map((t) => ({
+                menuItemId: t.menuItemId,
                 menuItem: menuItems.find((m) => m.id === t.menuItemId),
                 totalQuantity: t._sum?.quantity || 0,
             })),
@@ -202,6 +208,7 @@ let ReportsService = class ReportsService {
             },
             select: {
                 total: true,
+                foodCost: true,
                 createdAt: true,
             },
         });
@@ -224,6 +231,7 @@ let ReportsService = class ReportsService {
             ordersMap.set(key, {
                 totalSales: (existing?.totalSales ?? 0) + total,
                 orderCount: (existing?.orderCount ?? 0) + 1,
+                totalFoodCost: (existing?.totalFoodCost ?? 0) + Number(order.foodCost || 0),
             });
         });
         const expensesMap = new Map();
@@ -236,26 +244,36 @@ let ReportsService = class ReportsService {
             const orderRow = ordersMap.get(periodKey);
             const daySales = orderRow?.totalSales ?? 0;
             const dayOrders = orderRow?.orderCount ?? 0;
+            const dayFoodCost = orderRow?.totalFoodCost ?? 0;
             const dayExpenses = expensesMap.get(periodKey) ?? 0;
             return {
                 date: periodKey,
                 totalSales: daySales,
                 orderCount: dayOrders,
                 totalExpenses: dayExpenses,
-                grossProfit: daySales - dayExpenses,
+                totalFoodCost: dayFoodCost,
+                grossProfit: daySales - dayFoodCost,
+                netProfit: daySales - dayFoodCost - dayExpenses,
                 averageTicket: dayOrders > 0 ? Math.round((daySales / dayOrders) * 100) / 100 : 0,
             };
         });
         const totalSales = days.reduce((sum, day) => sum + day.totalSales, 0);
         const totalOrders = days.reduce((sum, day) => sum + day.orderCount, 0);
         const totalExpenses = days.reduce((sum, day) => sum + day.totalExpenses, 0);
+        const totalFoodCost = days.reduce((sum, day) => sum + (day.totalFoodCost ?? 0), 0);
+        const grossProfit = totalSales - totalFoodCost;
+        const netProfit = totalSales - totalFoodCost - totalExpenses;
         return {
             periodStart: from || date,
             period,
             totalSales,
             totalOrders,
             totalExpenses,
-            grossProfit: totalSales - totalExpenses,
+            totalFoodCost,
+            grossProfit,
+            netProfit,
+            grossMarginPercent: totalSales > 0 ? Math.round((grossProfit / totalSales) * 100) : 0,
+            netMarginPercent: totalSales > 0 ? Math.round((netProfit / totalSales) * 100) : 0,
             days,
         };
     }
@@ -329,6 +347,9 @@ let ReportsService = class ReportsService {
         return keys;
     }
     async getMenuProfitability(branchId, from, to, categoryIds) {
+        const menuEndDate = new Date(to);
+        menuEndDate.setHours(0, 0, 0, 0);
+        menuEndDate.setDate(menuEndDate.getDate() + 1);
         const items = await this.prisma.menuItem.findMany({
             where: { branchId, ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}) },
             include: {
@@ -337,7 +358,7 @@ let ReportsService = class ReportsService {
                 orderItems: {
                     where: {
                         order: {
-                            createdAt: { gte: new Date(from), lte: new Date(to) },
+                            createdAt: { gte: new Date(from), lt: menuEndDate },
                             status: { not: client_1.OrderStatus.CANCELLED },
                         },
                     },
