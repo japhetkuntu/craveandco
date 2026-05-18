@@ -59,7 +59,7 @@ export default function OwnerReportsPage() {
   const [summary, setSummary] = useState<ReportSummaryResponse | null>(null);
   const [weekly, setWeekly] = useState<WeeklyDay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year' | 'custom'>('week');
+  const [rangePreset, setRangePreset] = useState<'day' | 'yesterday' | 'week' | 'month' | 'year' | 'custom'>('week');
   const [fromDate, setFromDate] = useState(() => {
     const now = new Date();
     const monday = (now.getDay() + 6) % 7;
@@ -91,6 +91,13 @@ export default function OwnerReportsPage() {
       case 'day':
         from = new Date(now);
         break;
+      case 'yesterday': {
+        const y = new Date(now);
+        y.setDate(now.getDate() - 1);
+        from = y;
+        to.setDate(now.getDate() - 1);
+        break;
+      }
       case 'custom':
       default:
         from = new Date(fromDate);
@@ -181,7 +188,7 @@ export default function OwnerReportsPage() {
           <p className="text-sm text-text-secondary mt-0.5">Sales and performance analytics</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(['day', 'week', 'month', 'year', 'custom'] as const).map((v) => (
+          {(['day', 'yesterday', 'week', 'month', 'year', 'custom'] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -192,7 +199,7 @@ export default function OwnerReportsPage() {
                   : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'
               }`}
             >
-              {v === 'day' ? 'Today' : v === 'week' ? 'This Week' : v === 'month' ? 'This Month' : v === 'year' ? 'This Year' : 'Custom Range'}
+              {v === 'day' ? 'Today' : v === 'yesterday' ? 'Yesterday' : v === 'week' ? 'This Week' : v === 'month' ? 'This Month' : v === 'year' ? 'This Year' : 'Custom Range'}
             </button>
           ))}
           {rangePreset === 'custom' ? (

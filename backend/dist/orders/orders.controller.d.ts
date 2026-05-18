@@ -79,7 +79,7 @@ export declare class OrdersController {
         foodCost: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
     }>;
-    getStats(branchId: string, status?: string, channel?: string, paymentMethod?: string, from?: string, to?: string, search?: string): Promise<{
+    getStats(branchId: string, status?: string, channel?: string, paymentMethod?: string, from?: string, to?: string, search?: string, rawCategoryIds?: string | string[]): Promise<{
         count: number;
         totalRevenue: number;
         foodCost: number;
@@ -392,7 +392,7 @@ export declare class OrdersController {
         paidAt: Date | null;
     }>;
     pay(id: string, dto: PayOrderDto): Promise<any>;
-    findAll(branchId: string, status?: string, channel?: string, paymentMethod?: string, from?: string, to?: string, search?: string, page?: string, limit?: string): Promise<any[]>;
+    findAll(branchId: string, status?: string, channel?: string, paymentMethod?: string, from?: string, to?: string, search?: string, page?: string, limit?: string, rawCategoryIds?: string | string[]): Promise<any[]>;
     cancel(id: string): Promise<{
         customer: {
             email: string | null;

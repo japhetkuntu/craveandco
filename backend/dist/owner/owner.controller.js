@@ -27,8 +27,11 @@ let OwnerController = class OwnerController {
     constructor(owner) {
         this.owner = owner;
     }
-    getDashboard(branchId, from, to, date) {
-        return this.owner.getDashboard(branchId, from, to, date);
+    getDashboard(branchId, from, to, date, rawCategoryIds) {
+        const categoryIds = rawCategoryIds
+            ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+            : undefined;
+        return this.owner.getDashboard(branchId, from, to, date, categoryIds?.length ? categoryIds : undefined);
     }
     getPendingApprovals(branchId, page = '0', limit = '10') {
         const pageNumber = (0, pagination_1.normalizePage)(page);
@@ -83,8 +86,9 @@ __decorate([
     __param(1, (0, common_1.Query)('from')),
     __param(2, (0, common_1.Query)('to')),
     __param(3, (0, common_1.Query)('date')),
+    __param(4, (0, common_1.Query)('categoryIds')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, Object]),
     __metadata("design:returntype", void 0)
 ], OwnerController.prototype, "getDashboard", null);
 __decorate([

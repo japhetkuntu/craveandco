@@ -487,6 +487,9 @@ let OrdersService = class OrdersService {
             ...(params.paymentMethod && { paymentMethod: params.paymentMethod }),
             ...(params.from && { createdAt: { gte: new Date(params.from) } }),
             ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+            ...(params.categoryIds?.length && {
+                items: { some: { menuItem: { categoryId: { in: params.categoryIds } } } },
+            }),
             ...(search
                 ? {
                     OR: [
@@ -499,6 +502,23 @@ let OrdersService = class OrdersService {
     }
     async getStats(branchId, params) {
         const where = this.buildOrderWhere(branchId, params);
+        if (params.categoryIds?.length) {
+            const { items: _items, ...orderWhere } = where;
+            const [orderCount, matchingItems] = await Promise.all([
+                this.prisma.order.count({ where }),
+                this.prisma.orderItem.findMany({
+                    where: {
+                        order: orderWhere,
+                        menuItem: { categoryId: { in: params.categoryIds } },
+                    },
+                    select: { unitPrice: true, unitCost: true, quantity: true },
+                }),
+            ]);
+            const totalRevenue = Math.round(matchingItems.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0) * 100) / 100;
+            const foodCost = Math.round(matchingItems.reduce((s, i) => s + Number(i.unitCost) * i.quantity, 0) * 100) / 100;
+            const avgTicket = orderCount > 0 ? Number((totalRevenue / orderCount).toFixed(2)) : 0;
+            return { count: orderCount, totalRevenue, foodCost, avgTicket };
+        }
         const [count, agg] = await Promise.all([
             this.prisma.order.count({ where }),
             this.prisma.order.aggregate({
@@ -521,7 +541,15 @@ let OrdersService = class OrdersService {
             take,
             skip,
         });
-        return orders.map((order) => this.enrichOrder(order));
+        const enriched = orders.map((order) => this.enrichOrder(order));
+        if (params.categoryIds?.length) {
+            const catIds = params.categoryIds;
+            return enriched.map((order) => ({
+                ...order,
+                matchedItemCount: order.items.filter((item) => catIds.includes(item.menuItem?.category?.id ?? '')).length,
+            }));
+        }
+        return enriched;
     }
     async cancel(id) {
         return this.prisma.order.update({

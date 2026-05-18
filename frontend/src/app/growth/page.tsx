@@ -130,7 +130,7 @@ export default function GrowthDashboardPage() {
   const [birthdays, setBirthdays] = useState<BirthdayCustomer[]>([]);
   const [activePromos, setActivePromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year' | 'custom'>('month');
+  const [rangePreset, setRangePreset] = useState<'day' | 'yesterday' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [fromDate, setFromDate] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -155,6 +155,13 @@ export default function GrowthDashboardPage() {
       case 'year':
         from = new Date(now.getFullYear(), 0, 1);
         break;
+      case 'yesterday': {
+        const y = new Date(now);
+        y.setDate(now.getDate() - 1);
+        from = y;
+        to.setDate(now.getDate() - 1);
+        break;
+      }
       default:
         from = new Date(now);
     }
@@ -207,14 +214,14 @@ export default function GrowthDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {(['day', 'week', 'month', 'year', 'custom'] as const).map((preset) => (
+          {(['day', 'yesterday', 'week', 'month', 'year', 'custom'] as const).map((preset) => (
             <Button
               key={preset}
               variant={rangePreset === preset ? 'primary' : 'secondary'}
               size="sm"
               onClick={() => applyPreset(preset)}
             >
-              {preset === 'day' ? 'Today' : preset === 'week' ? 'This Week' : preset === 'month' ? 'This Month' : preset === 'year' ? 'This Year' : 'Custom Range'}
+              {preset === 'day' ? 'Today' : preset === 'yesterday' ? 'Yesterday' : preset === 'week' ? 'This Week' : preset === 'month' ? 'This Month' : preset === 'year' ? 'This Year' : 'Custom Range'}
             </Button>
           ))}
           {rangePreset === 'custom' && (

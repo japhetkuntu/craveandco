@@ -578,7 +578,7 @@ export class OrdersService {
 
   private buildOrderWhere(
     branchId: string,
-    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
+    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string; categoryIds?: string[] },
   ) {
     const search = params.search?.trim();
     return {
@@ -588,6 +588,9 @@ export class OrdersService {
       ...(params.paymentMethod && { paymentMethod: params.paymentMethod as PaymentMethod }),
       ...(params.from && { createdAt: { gte: new Date(params.from) } }),
       ...(params.to && { createdAt: { lte: new Date(params.to) } }),
+      ...(params.categoryIds?.length && {
+        items: { some: { menuItem: { categoryId: { in: params.categoryIds } } } },
+      }),
       ...(search
         ? {
             OR: [
@@ -601,9 +604,30 @@ export class OrdersService {
 
   async getStats(
     branchId: string,
-    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
+    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string; categoryIds?: string[] },
   ) {
     const where = this.buildOrderWhere(branchId, params);
+
+    if (params.categoryIds?.length) {
+      // When filtering by category, revenue must be summed at item level (not order.total)
+      // so we only count revenue from the matching items, not the full order value.
+      const { items: _items, ...orderWhere } = where as any;
+      const [orderCount, matchingItems] = await Promise.all([
+        this.prisma.order.count({ where }),
+        this.prisma.orderItem.findMany({
+          where: {
+            order: orderWhere,
+            menuItem: { categoryId: { in: params.categoryIds } },
+          },
+          select: { unitPrice: true, unitCost: true, quantity: true },
+        }),
+      ]);
+      const totalRevenue = Math.round(matchingItems.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0) * 100) / 100;
+      const foodCost = Math.round(matchingItems.reduce((s, i) => s + Number(i.unitCost) * i.quantity, 0) * 100) / 100;
+      const avgTicket = orderCount > 0 ? Number((totalRevenue / orderCount).toFixed(2)) : 0;
+      return { count: orderCount, totalRevenue, foodCost, avgTicket };
+    }
+
     const [count, agg] = await Promise.all([
       this.prisma.order.count({ where }),
       this.prisma.order.aggregate({
@@ -619,7 +643,7 @@ export class OrdersService {
 
   async findAll(
     branchId: string,
-    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string },
+    params: { status?: string; channel?: string; paymentMethod?: string; from?: string; to?: string; search?: string; categoryIds?: string[] },
     page = 0,
     limit = 50,
   ) {
@@ -633,7 +657,18 @@ export class OrdersService {
       take,
       skip,
     });
-    return orders.map((order) => this.enrichOrder(order));
+
+    const enriched = orders.map((order) => this.enrichOrder(order));
+
+    if (params.categoryIds?.length) {
+      const catIds = params.categoryIds;
+      return enriched.map((order) => ({
+        ...order,
+        matchedItemCount: order.items.filter((item: any) => catIds.includes(item.menuItem?.category?.id ?? '')).length,
+      }));
+    }
+
+    return enriched;
   }
 
   async cancel(id: string) {

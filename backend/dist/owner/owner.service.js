@@ -70,7 +70,7 @@ let OwnerService = class OwnerService {
         nextDate.setDate(nextDate.getDate() + 1);
         return { start: targetDate, end: nextDate };
     }
-    async getDashboard(branchId, from, to, date) {
+    async getDashboard(branchId, from, to, date, categoryIds) {
         const { start: targetDate, end: nextDate } = this.parseRange(from, to, date);
         const [sales, expenses, purchaseOrderItems, stockResult, openAlerts, pendingApprovals, ordersWithItems] = await Promise.all([
             this.prisma.order.aggregate({
@@ -133,7 +133,23 @@ let OwnerService = class OwnerService {
                 _sum: { total: true },
             }),
         ]);
+        const grossProfit = totalSales - purchaseOrderExpense;
         const grossEstimate = totalSales - totalExpenses;
+        let filteredSales = null;
+        let filteredOrderCount = null;
+        let filteredAvgTicket = null;
+        if (categoryIds?.length) {
+            const filteredItems = await this.prisma.orderItem.findMany({
+                where: {
+                    order: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: client_1.OrderStatus.CANCELLED } },
+                    menuItem: { categoryId: { in: categoryIds } },
+                },
+                select: { orderId: true, unitPrice: true, quantity: true },
+            });
+            filteredSales = Math.round(filteredItems.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0) * 100) / 100;
+            filteredOrderCount = new Set(filteredItems.map((i) => i.orderId)).size;
+            filteredAvgTicket = filteredOrderCount > 0 ? Math.round((filteredSales / filteredOrderCount) * 100) / 100 : 0;
+        }
         const customerRevenue = Number(customerRevenueToday._sum?.total || 0);
         const ordersWithoutCustomer = sales._count - customerOrdersToday;
         return {
@@ -142,6 +158,11 @@ let OwnerService = class OwnerService {
             ordersToday: sales._count,
             averageTicket: sales._count > 0 ? Math.round((totalSales / sales._count) * 100) / 100 : 0,
             expensesToday: totalExpenses,
+            grossProfit: Math.round(grossProfit * 100) / 100,
+            netProfit: Math.round(grossEstimate * 100) / 100,
+            filteredSales,
+            filteredOrderCount,
+            filteredAvgTicket,
             grossEstimate,
             grossMarginPercent: totalSales > 0 ? Math.round((grossEstimate / totalSales) * 100) : 0,
             expenseRatioPercent: totalSales > 0 ? Math.round((totalExpenses / totalSales) * 100) : 0,

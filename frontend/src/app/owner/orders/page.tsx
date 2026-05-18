@@ -20,8 +20,9 @@ interface Order {
   total: number;
   foodCost: number;
   createdAt: string;
+  matchedItemCount?: number;
   items: {
-    menuItem: { name: string };
+    menuItem: { name: string; category?: { id: string; name: string } | null };
     quantity: number;
     unitPrice: number;
     unitCost: number;
@@ -34,6 +35,12 @@ interface Order {
       totalCost: number;
     }[];
   }[];
+}
+
+interface MenuCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
 }
 
 export default function OwnerOrdersPage() {
@@ -51,6 +58,8 @@ export default function OwnerOrdersPage() {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const filterParams = {
     status: statusFilter || undefined,
@@ -64,10 +73,15 @@ export default function OwnerOrdersPage() {
   const fetchOrders = async () => {
     if (!token) return;
     setLoading(true);
+    const catParts = selectedCategoryIds.map((id) => `categoryIds=${encodeURIComponent(id)}`).join('&');
     try {
+      const ordersBase = buildQueryString({ ...filterParams, page, limit });
+      const statsBase = buildQueryString(filterParams);
+      const ordersUrl = `/api/v1/orders${ordersBase}${catParts ? '&' + catParts : ''}`;
+      const statsUrl = `/api/v1/orders/stats${statsBase}${catParts ? (statsBase ? '&' : '?') + catParts : ''}`;
       const [data, statsData] = await Promise.all([
-        get(`/api/v1/orders${buildQueryString({ ...filterParams, page, limit })}`, token),
-        get(`/api/v1/orders/stats${buildQueryString(filterParams)}`, token),
+        get(ordersUrl, token),
+        get(statsUrl, token),
       ]);
       setOrders(data);
       setStats(statsData);
@@ -78,9 +92,17 @@ export default function OwnerOrdersPage() {
     }
   };
 
+  // Fetch categories once on mount
+  useEffect(() => {
+    if (!token) return;
+    get('/api/v1/menu/categories?limit=50', token)
+      .then((res) => setCategories(res as MenuCategory[]))
+      .catch(console.error);
+  }, [token]);
+
   useEffect(() => {
     fetchOrders();
-  }, [token, statusFilter, channelFilter, paymentFilter, fromDate, toDate, searchQuery, page, limit]);
+  }, [token, statusFilter, channelFilter, paymentFilter, fromDate, toDate, searchQuery, page, limit, selectedCategoryIds]);
 
   const statuses = ORDER_STATUS_FILTERS;
 
@@ -236,10 +258,37 @@ export default function OwnerOrdersPage() {
           {statuses.map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-full px-4 py-2 text-xs font-semibold whitespace-nowrap transition-colors ${ statusFilter === s ? 'bg-[var(--color-gold)] text-white' : 'bg-surface-base border border-border-subtle text-text-secondary hover:text-text-primary' }`}>{s || 'All'}</button>
           ))}
-          <button type="button" onClick={() => { setStatusFilter(''); setChannelFilter(''); setPaymentFilter(''); setFromDate(''); setToDate(''); setSearchQuery(''); setGroupBy('NONE'); }} className="ml-auto rounded-full px-4 py-2 text-xs font-semibold border border-border-subtle text-text-secondary hover:text-text-primary">
+          <button type="button" onClick={() => { setStatusFilter(''); setChannelFilter(''); setPaymentFilter(''); setFromDate(''); setToDate(''); setSearchQuery(''); setGroupBy('NONE'); setSelectedCategoryIds([]); }} className="ml-auto rounded-full px-4 py-2 text-xs font-semibold border border-border-subtle text-text-secondary hover:text-text-primary">
             Clear filters
           </button>
         </div>
+        {categories.length > 0 && (
+          <div className="space-y-1.5 pt-1 border-t border-border-subtle">
+            <p className="text-xs font-medium text-text-secondary">Menu Type</p>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => {
+                const active = selectedCategoryIds.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() =>
+                      setSelectedCategoryIds((prev) =>
+                        active ? prev.filter((id) => id !== cat.id) : [...prev, cat.id],
+                      )
+                    }
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border ${
+                      active
+                        ? 'bg-[var(--color-gold)] text-white border-[var(--color-gold)] shadow-sm'
+                        : 'bg-surface-base border-border-subtle text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Orders List */}
@@ -267,6 +316,7 @@ export default function OwnerOrdersPage() {
                   <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden divide-y divide-border-subtle">
                     {groupOrders.map((order) => {
                       const isExpanded = expandedOrders.includes(order.id);
+                      const matchCount = order.matchedItemCount ?? null;
                       return (
                         <div key={order.id} className="p-4">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -278,6 +328,11 @@ export default function OwnerOrdersPage() {
                               </div>
                               <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
                                 <span>{order.items.length} items</span>
+                                {matchCount !== null && matchCount < order.items.length && (
+                                  <span className="text-xs font-semibold text-[var(--color-gold)] bg-[var(--color-gold)]/10 px-2 py-0.5 rounded-full">
+                                    {matchCount} match filter
+                                  </span>
+                                )}
                                 <span>·</span>
                                 <span>{formatDateTime(order.createdAt)}</span>
                               </div>
@@ -294,15 +349,20 @@ export default function OwnerOrdersPage() {
                           </div>
 
                           <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                            {order.items.slice(0, 3).map((item, idx) => (
-                              <div key={idx} className="flex items-center justify-between gap-3 rounded-2xl bg-surface-base p-3">
+                            {order.items.slice(0, 3).map((item, idx) => {
+                              const itemMatches = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(item.menuItem?.category?.id ?? '');
+                              return (
+                              <div key={idx} className={`flex items-center justify-between gap-3 rounded-2xl p-3 transition-opacity ${itemMatches ? 'bg-surface-base' : 'bg-surface-base opacity-40'}`}>
                                 <div>
-                                  <p className="font-medium text-text-primary">{item.quantity}x {item.menuItem?.name}</p>
+                                  <p className="font-medium text-text-primary">{item.quantity}x {item.menuItem?.name}
+                                    {!itemMatches && <span className="ml-1.5 text-xs text-text-tertiary">({item.menuItem?.category?.name})</span>}
+                                  </p>
                                   <p className="text-xs text-text-secondary">{formatCurrency(item.unitPrice * item.quantity)} total</p>
                                 </div>
                                 <span className="text-xs text-text-tertiary">Cost {formatCurrency(item.unitCost * item.quantity)}</span>
                               </div>
-                            ))}
+                              );
+                            })}
                             {order.items.length > 3 && (
                               <p className="text-xs text-text-secondary">+{order.items.length - 3} more item(s)</p>
                             )}
@@ -310,8 +370,10 @@ export default function OwnerOrdersPage() {
 
                           {isExpanded && (
                             <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-base p-4 space-y-3">
-                              {order.items.map((item, idx) => (
-                                <div key={idx} className="space-y-2 rounded-2xl bg-surface-raised p-3">
+                              {order.items.map((item, idx) => {
+                                const itemMatches = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(item.menuItem?.category?.id ?? '');
+                                return (
+                                <div key={idx} className={`space-y-2 rounded-2xl p-3 transition-opacity ${itemMatches ? 'bg-surface-raised' : 'bg-surface-raised opacity-40'}`}>
                                   <div className="flex items-center justify-between gap-3 text-text-primary">
                                     <span className="font-semibold text-sm">{item.quantity}x {item.menuItem?.name}</span>
                                     <span className="font-mono text-sm">{formatCurrency(item.unitPrice * item.quantity)}</span>
@@ -338,7 +400,8 @@ export default function OwnerOrdersPage() {
                                     </div>
                                   ) : null}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
 

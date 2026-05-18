@@ -27,8 +27,12 @@ export class OrdersController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('search') search?: string,
+    @Query('categoryIds') rawCategoryIds?: string | string[],
   ) {
-    return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search });
+    const categoryIds = rawCategoryIds
+      ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+      : undefined;
+    return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search, categoryIds });
   }
 
   @Get('live')
@@ -91,10 +95,14 @@ export class OrdersController {
     @Query('search') search?: string,
     @Query('page') page = '0',
     @Query('limit') limit = '50',
+    @Query('categoryIds') rawCategoryIds?: string | string[],
   ) {
     const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
-    return this.orders.findAll(branchId, { status, channel, paymentMethod, from, to, search }, pageNumber, limitNumber);
+    const categoryIds = rawCategoryIds
+      ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+      : undefined;
+    return this.orders.findAll(branchId, { status, channel, paymentMethod, from, to, search, categoryIds }, pageNumber, limitNumber);
   }
 
   @Post(':id/cancel')

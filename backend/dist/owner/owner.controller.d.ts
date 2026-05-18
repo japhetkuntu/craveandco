@@ -4,12 +4,17 @@ import { CreatePaymentTypeDto, UpdatePaymentTypeDto } from './dto/payment-type.d
 export declare class OwnerController {
     private owner;
     constructor(owner: OwnerService);
-    getDashboard(branchId: string, from?: string, to?: string, date?: string): Promise<{
+    getDashboard(branchId: string, from?: string, to?: string, date?: string, rawCategoryIds?: string | string[]): Promise<{
         date: string | undefined;
         salesToday: number;
         ordersToday: number;
         averageTicket: number;
         expensesToday: number;
+        grossProfit: number;
+        netProfit: number;
+        filteredSales: number | null;
+        filteredOrderCount: number | null;
+        filteredAvgTicket: number | null;
         grossEstimate: number;
         grossMarginPercent: number;
         expenseRatioPercent: number;

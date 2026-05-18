@@ -20,8 +20,12 @@ export class OwnerController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('date') date?: string,
+    @Query('categoryIds') rawCategoryIds?: string | string[],
   ) {
-    return this.owner.getDashboard(branchId, from, to, date);
+    const categoryIds = rawCategoryIds
+      ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+      : undefined;
+    return this.owner.getDashboard(branchId, from, to, date, categoryIds?.length ? categoryIds : undefined);
   }
 
   @Get('approvals/pending')

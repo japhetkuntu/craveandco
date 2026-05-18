@@ -328,10 +328,11 @@ let ReportsService = class ReportsService {
         }
         return keys;
     }
-    async getMenuProfitability(branchId, from, to) {
+    async getMenuProfitability(branchId, from, to, categoryIds) {
         const items = await this.prisma.menuItem.findMany({
-            where: { branchId },
+            where: { branchId, ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}) },
             include: {
+                category: { select: { id: true, name: true } },
                 recipeItems: { include: { ingredient: true } },
                 orderItems: {
                     where: {
@@ -366,6 +367,8 @@ let ReportsService = class ReportsService {
             return {
                 id: item.id,
                 name: item.name,
+                categoryId: item.category?.id ?? null,
+                categoryName: item.category?.name ?? null,
                 price: Number(item.price),
                 foodCost: Math.round(foodCostPerUnit * 100) / 100,
                 marginPercent: Number(item.price) > 0 ? Math.round(((Number(item.price) - foodCostPerUnit) / Number(item.price)) * 100) : 0,

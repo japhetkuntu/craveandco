@@ -60,9 +60,11 @@ export declare class ReportsController {
             averageTicket: number;
         }[];
     }>;
-    getMenuProfitability(branchId: string, from: string, to: string): Promise<{
+    getMenuProfitability(branchId: string, from: string, to: string, rawCategoryIds?: string | string[]): Promise<{
         id: string;
         name: string;
+        categoryId: string;
+        categoryName: string;
         price: number;
         foodCost: number;
         marginPercent: number;

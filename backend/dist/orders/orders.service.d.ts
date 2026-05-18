@@ -408,6 +408,7 @@ export declare class OrdersService {
         from?: string;
         to?: string;
         search?: string;
+        categoryIds?: string[];
     }): Promise<{
         count: number;
         totalRevenue: number;
@@ -421,6 +422,7 @@ export declare class OrdersService {
         from?: string;
         to?: string;
         search?: string;
+        categoryIds?: string[];
     }, page?: number, limit?: number): Promise<any[]>;
     cancel(id: string): Promise<{
         customer: {

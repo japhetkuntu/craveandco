@@ -28,12 +28,23 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface MenuCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
 interface DashboardData {
   date: string;
   salesToday: number;
   ordersToday: number;
   averageTicket: number;
   expensesToday: number;
+  filteredSales: number | null;
+  filteredOrderCount: number | null;
+  filteredAvgTicket: number | null;
+  grossProfit: number;
+  netProfit: number;
   grossEstimate: number;
   grossMarginPercent: number;
   expenseRatioPercent: number;
@@ -55,6 +66,8 @@ interface DashboardData {
 interface MenuProfitabilityItem {
   id: string;
   name: string;
+  categoryId: string | null;
+  categoryName: string | null;
   totalSold: number;
   grossProfit: number;
   marginPercent: number;
@@ -193,7 +206,9 @@ export default function OwnerDashboard() {
   const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>([]);
   const [selectedSpecialOrder, setSelectedSpecialOrder] = useState<SpecialOrder | null>(null);
   const [loading, setLoading] = useState(true);
-  const [rangePreset, setRangePreset] = useState<'day' | 'week' | 'month' | 'year'>('day');
+  const [rangePreset, setRangePreset] = useState<'day' | 'yesterday' | 'week' | 'month' | 'year'>('day');
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const formatISO = (date: Date) => date.toISOString().split('T')[0];
 
@@ -201,6 +216,12 @@ export default function OwnerDashboard() {
     const now = new Date();
     const to = formatISO(now);
     if (preset === 'day') return { from: to, to };
+    if (preset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(now.getDate() - 1);
+      const iso = formatISO(y);
+      return { from: iso, to: iso };
+    }
     if (preset === 'week') {
       const offset = (now.getDay() + 6) % 7;
       const start = new Date(now);
@@ -213,16 +234,17 @@ export default function OwnerDashboard() {
     return { from: `${now.getFullYear()}-01-01`, to };
   };
 
-  const fetchAll = async (preset: typeof rangePreset, appPage: number, poPage: number) => {
+  const fetchAll = async (preset: typeof rangePreset, appPage: number, poPage: number, catIds: string[] = []) => {
     if (!token) return;
     setLoading(true);
     const { from, to } = dateRange(preset);
+    const catParam = catIds.length ? '&' + catIds.map((id) => `categoryIds=${encodeURIComponent(id)}`).join('&') : '';
     try {
       const [dash, apps, pos, profitability, specials] = await Promise.all([
-        get(`/api/v1/owner/dashboard?from=${from}&to=${to}`, token),
+        get(`/api/v1/owner/dashboard?from=${from}&to=${to}${catParam}`, token),
         get(`/api/v1/owner/approvals/pending?page=${appPage}&limit=${approvalLimit}`, token),
         get(`/api/v1/purchase-orders?page=${poPage}&limit=${purchaseOrdersLimit}`, token),
-        get(`/api/v1/reports/menu-profitability?from=${from}&to=${to}`, token),
+        get(`/api/v1/reports/menu-profitability?from=${from}&to=${to}${catParam}`, token),
         get('/api/v1/special-orders?limit=10', token),
       ]);
       setData(dash);
@@ -239,7 +261,15 @@ export default function OwnerDashboard() {
     }
   };
 
-  useEffect(() => { fetchAll(rangePreset, approvalPage, purchaseOrdersPage); }, [token, rangePreset, approvalPage, purchaseOrdersPage]);
+  // Fetch categories once
+  useEffect(() => {
+    if (!token) return;
+    get('/api/v1/menu/categories?limit=50', token)
+      .then((res) => setCategories(res as MenuCategory[]))
+      .catch(console.error);
+  }, [token]);
+
+  useEffect(() => { fetchAll(rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds); }, [token, rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds]);
 
   const handleApprove = async (id: string) => {
     if (!token) return;
@@ -286,8 +316,10 @@ export default function OwnerDashboard() {
   if (loading) return <PageSkeleton />;
 
   const d = data;
+  const isFiltered = selectedCategoryIds.length > 0;
   const presets = [
     { key: 'day' as const, label: 'Today' },
+    { key: 'yesterday' as const, label: 'Yesterday' },
     { key: 'week' as const, label: 'This Week' },
     { key: 'month' as const, label: 'This Month' },
     { key: 'year' as const, label: 'This Year' },
@@ -329,29 +361,73 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
+      {/* ── Category Filter ── */}
+      {categories.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Filter by Menu Type</p>
+            {isFiltered && (
+              <button
+                onClick={() => setSelectedCategoryIds([])}
+                className="text-xs font-semibold text-[var(--color-gold)] hover:underline"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => {
+              const active = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() =>
+                    setSelectedCategoryIds((prev) =>
+                      active ? prev.filter((id) => id !== cat.id) : [...prev, cat.id],
+                    )
+                  }
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors border ${
+                    active
+                      ? 'bg-[var(--color-gold)] text-white border-[var(--color-gold)] shadow-sm'
+                      : 'bg-surface-raised border-border-subtle text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+          {isFiltered && (
+            <p className="text-xs text-text-secondary">
+              Showing data for: <span className="font-semibold text-text-primary">{selectedCategoryIds.map((id) => categories.find((c) => c.id === id)?.name).filter(Boolean).join(', ')}</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Performance ── */}
       <div className="space-y-3">
-        <SectionTitle title="Performance" description="How your restaurant is doing in the selected time period" />
+        <SectionTitle title="Performance" description={isFiltered ? 'Filtered by selected menu types' : 'How your restaurant is doing in the selected time period'} />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatTile
             icon={<DollarSign size={18} />}
             label="Total Sales"
-            value={formatCurrency(d?.salesToday || 0)}
-            helper="Money collected from all orders"
-            tone={(d?.salesToday || 0) > 0 ? 'green' : 'default'}
+            value={formatCurrency(isFiltered ? (d?.filteredSales ?? 0) : (d?.salesToday || 0))}
+            helper={isFiltered ? `Revenue from ${selectedCategoryIds.length} selected type(s)` : 'Money collected from all orders'}
+            tone={(isFiltered ? (d?.filteredSales ?? 0) : (d?.salesToday || 0)) > 0 ? 'green' : 'default'}
           />
           <StatTile
             icon={<ShoppingCart size={18} />}
             label="Orders Placed"
-            value={d?.ordersToday || 0}
-            helper="Total number of completed orders"
+            value={isFiltered ? (d?.filteredOrderCount ?? 0) : (d?.ordersToday || 0)}
+            helper={isFiltered ? 'Orders containing items from selected types' : 'Total number of completed orders'}
           />
           <StatTile
             icon={<ReceiptText size={18} />}
             label="Average Order"
-            value={formatCurrency(d?.averageTicket || 0)}
-            helper="Average amount per order"
-            tone={(d?.averageTicket || 0) > 0 ? 'green' : 'default'}
+            value={formatCurrency(isFiltered ? (d?.filteredAvgTicket ?? 0) : (d?.averageTicket || 0))}
+            helper={isFiltered ? 'Avg. category revenue per order' : 'Average amount per order'}
+            tone={(isFiltered ? (d?.filteredAvgTicket ?? 0) : (d?.averageTicket || 0)) > 0 ? 'green' : 'default'}
           />
           <StatTile
             icon={<Package size={18} />}
@@ -366,20 +442,34 @@ export default function OwnerDashboard() {
       {/* ── Margins ── */}
       <div className="space-y-3">
         <SectionTitle title="Profit & Costs" description="How efficiently your restaurant turns sales into profit" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          <StatTile
+            icon={<TrendingUp size={18} />}
+            label="Gross Profit"
+            value={formatCurrency(d?.grossProfit ?? 0)}
+            helper="Sales minus cost of goods (ingredients & stock)"
+            tone={(d?.grossProfit ?? 0) > 0 ? 'green' : (d?.grossProfit ?? 0) === 0 ? 'default' : 'red'}
+          />
+          <StatTile
+            icon={<DollarSign size={18} />}
+            label="Net Profit"
+            value={formatCurrency(d?.netProfit ?? 0)}
+            helper="After all expenses are deducted"
+            tone={(d?.netProfit ?? 0) > 0 ? 'green' : (d?.netProfit ?? 0) === 0 ? 'default' : 'red'}
+          />
+          <StatTile
+            icon={<TrendingDown size={18} />}
+            label="Total Expenses"
+            value={formatCurrency(d?.expensesToday || 0)}
+            helper="Operating costs + purchase orders in this period"
+            tone={(d?.expensesToday || 0) === 0 ? 'default' : 'yellow'}
+          />
           <StatTile
             icon={<Percent size={18} />}
             label="Gross Margin"
             value={`${d?.grossMarginPercent ?? 0}%`}
             helper="Higher is better — aim for 30%+"
             tone={(d?.grossMarginPercent ?? 0) >= 30 ? 'green' : (d?.grossMarginPercent ?? 0) > 10 ? 'yellow' : 'red'}
-          />
-          <StatTile
-            icon={<TrendingDown size={18} />}
-            label="Expense Ratio"
-            value={`${d?.expenseRatioPercent ?? 0}%`}
-            helper="Expenses as % of sales — lower is better"
-            tone={(d?.expenseRatioPercent ?? 0) < 40 ? 'green' : (d?.expenseRatioPercent ?? 0) < 60 ? 'yellow' : 'red'}
           />
           <StatTile
             icon={<TrendingUp size={18} />}

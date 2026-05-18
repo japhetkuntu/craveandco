@@ -33,8 +33,11 @@ let ReportsController = class ReportsController {
     getReportSummary(branchId, period, date, from, to) {
         return this.reports.getSummary(branchId, period, date, from, to);
     }
-    getMenuProfitability(branchId, from, to) {
-        return this.reports.getMenuProfitability(branchId, from, to);
+    getMenuProfitability(branchId, from, to, rawCategoryIds) {
+        const categoryIds = rawCategoryIds
+            ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+            : undefined;
+        return this.reports.getMenuProfitability(branchId, from, to, categoryIds?.length ? categoryIds : undefined);
     }
 };
 exports.ReportsController = ReportsController;
@@ -73,8 +76,9 @@ __decorate([
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('from')),
     __param(2, (0, common_1.Query)('to')),
+    __param(3, (0, common_1.Query)('categoryIds')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, Object]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getMenuProfitability", null);
 exports.ReportsController = ReportsController = __decorate([

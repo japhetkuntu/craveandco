@@ -63,9 +63,11 @@ export declare class ReportsService {
     private getRangeForPeriod;
     private getPeriodKey;
     private buildPeriodKeys;
-    getMenuProfitability(branchId: string, from: string, to: string): Promise<{
+    getMenuProfitability(branchId: string, from: string, to: string, categoryIds?: string[]): Promise<{
         id: string;
         name: string;
+        categoryId: string;
+        categoryName: string;
         price: number;
         foodCost: number;
         marginPercent: number;

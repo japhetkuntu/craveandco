@@ -7,12 +7,17 @@ export declare class OwnerService {
     private inventory;
     constructor(prisma: PrismaService, inventory: InventoryService);
     private parseRange;
-    getDashboard(branchId: string, from?: string, to?: string, date?: string): Promise<{
+    getDashboard(branchId: string, from?: string, to?: string, date?: string, categoryIds?: string[]): Promise<{
         date: string | undefined;
         salesToday: number;
         ordersToday: number;
         averageTicket: number;
         expensesToday: number;
+        grossProfit: number;
+        netProfit: number;
+        filteredSales: number | null;
+        filteredOrderCount: number | null;
+        filteredAvgTicket: number | null;
         grossEstimate: number;
         grossMarginPercent: number;
         expenseRatioPercent: number;

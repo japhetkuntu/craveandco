@@ -28,8 +28,11 @@ let OrdersController = class OrdersController {
     create(dto) {
         return this.orders.create(dto);
     }
-    getStats(branchId, status, channel, paymentMethod, from, to, search) {
-        return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search });
+    getStats(branchId, status, channel, paymentMethod, from, to, search, rawCategoryIds) {
+        const categoryIds = rawCategoryIds
+            ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+            : undefined;
+        return this.orders.getStats(branchId, { status, channel, paymentMethod, from, to, search, categoryIds });
     }
     findLive(branchId, page = '0', limit = '50') {
         const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
@@ -54,10 +57,13 @@ let OrdersController = class OrdersController {
     pay(id, dto) {
         return this.orders.pay(id, dto);
     }
-    findAll(branchId, status, channel, paymentMethod, from, to, search, page = '0', limit = '50') {
+    findAll(branchId, status, channel, paymentMethod, from, to, search, page = '0', limit = '50', rawCategoryIds) {
         const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
         const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
-        return this.orders.findAll(branchId, { status, channel, paymentMethod, from, to, search }, pageNumber, limitNumber);
+        const categoryIds = rawCategoryIds
+            ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+            : undefined;
+        return this.orders.findAll(branchId, { status, channel, paymentMethod, from, to, search, categoryIds }, pageNumber, limitNumber);
     }
     cancel(id) {
         return this.orders.cancel(id);
@@ -82,8 +88,9 @@ __decorate([
     __param(4, (0, common_1.Query)('from')),
     __param(5, (0, common_1.Query)('to')),
     __param(6, (0, common_1.Query)('search')),
+    __param(7, (0, common_1.Query)('categoryIds')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, Object]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "getStats", null);
 __decorate([
@@ -161,8 +168,9 @@ __decorate([
     __param(6, (0, common_1.Query)('search')),
     __param(7, (0, common_1.Query)('page')),
     __param(8, (0, common_1.Query)('limit')),
+    __param(9, (0, common_1.Query)('categoryIds')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String, Object, Object]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, Object, Object, Object]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "findAll", null);
 __decorate([

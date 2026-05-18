@@ -21,6 +21,12 @@ interface Order {
   items: { menuItem: { name: string }; quantity: number }[];
 }
 
+interface MenuCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
 // Human-readable labels for each filter tab
 const FILTER_TABS: { label: string; value: string; description: string }[] = [
   { value: '', label: 'All Orders', description: 'Show every order' },
@@ -52,13 +58,18 @@ export default function OpsOrdersPage() {
   const [page, setPage] = useState(0);
   const [limit] = useState(15);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const fetchOrders = async () => {
     if (!token) return;
     setLoading(true);
     try {
+      const catParam = selectedCategoryIds.length > 0
+        ? '&' + selectedCategoryIds.map((id) => `categoryIds=${encodeURIComponent(id)}`).join('&')
+        : '';
       const query = buildQueryString({ status: statusFilter || undefined, page, limit });
-      const data = await get(`/api/v1/orders${query}`, token);
+      const data = await get(`/api/v1/orders${query}${catParam}`, token);
       setOrders(data);
     } catch (err) {
       console.error(err);
@@ -68,9 +79,16 @@ export default function OpsOrdersPage() {
   };
 
   useEffect(() => {
+    if (!token) return;
+    get('/api/v1/menu/categories?limit=50', token)
+      .then((res) => setCategories(res as MenuCategory[]))
+      .catch(console.error);
+  }, [token]);
+
+  useEffect(() => {
     fetchOrders();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, statusFilter, page]);
+  }, [token, statusFilter, page, selectedCategoryIds]);
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     if (!token) return;
@@ -119,6 +137,42 @@ export default function OpsOrdersPage() {
           </button>
         ))}
       </div>
+
+      {/* Menu type filter */}
+      {categories.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-text-secondary">Filter by Menu Type</p>
+            {selectedCategoryIds.length > 0 && (
+              <button onClick={() => setSelectedCategoryIds([])} className="text-xs font-semibold text-[var(--color-gold)] hover:underline">
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => {
+              const active = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() =>
+                    setSelectedCategoryIds((prev) =>
+                      active ? prev.filter((id) => id !== cat.id) : [...prev, cat.id],
+                    )
+                  }
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border ${
+                    active
+                      ? 'bg-[var(--color-gold)] text-white border-[var(--color-gold)] shadow-sm'
+                      : 'bg-surface-raised border-border-subtle text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <PageSkeleton />

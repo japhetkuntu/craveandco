@@ -46,7 +46,11 @@ export class ReportsController {
     @CurrentUser('branchId') branchId: string,
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('categoryIds') rawCategoryIds?: string | string[],
   ) {
-    return this.reports.getMenuProfitability(branchId, from, to);
+    const categoryIds = rawCategoryIds
+      ? (Array.isArray(rawCategoryIds) ? rawCategoryIds : [rawCategoryIds]).filter(Boolean)
+      : undefined;
+    return this.reports.getMenuProfitability(branchId, from, to, categoryIds?.length ? categoryIds : undefined);
   }
 }
