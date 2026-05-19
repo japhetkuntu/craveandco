@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   title: "Crave & Co Restaurant",
   description: "Crave & Co restaurant – fresh food, cozy vibes, and neighborhood favorites.",
   applicationName: "Crave & Co",
-  themeColor: "#c9a646",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
@@ -29,6 +28,7 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: "#c9a646",
 };
 
 export default function RootLayout({

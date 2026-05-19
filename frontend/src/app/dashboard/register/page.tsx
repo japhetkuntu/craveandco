@@ -1,12 +1,12 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useCustomerAuth } from '@/lib/customer-auth';
 
-export default function CustomerRegisterPage() {
+function CustomerRegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { register } = useCustomerAuth();
@@ -106,5 +106,13 @@ export default function CustomerRegisterPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function CustomerRegisterPage() {
+  return (
+    <Suspense>
+      <CustomerRegisterForm />
+    </Suspense>
   );
 }
