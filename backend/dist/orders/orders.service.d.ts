@@ -20,7 +20,7 @@ export declare class OrdersService {
     private calculateMenuItemPrice;
     private normalizeSelectedOptions;
     private calculateTotals;
-    create(dto: CreateOrderDto): Promise<any>;
+    create(dto: CreateOrderDto, initiatedById?: string): Promise<any>;
     private enrichOrder;
     findOne(id: string): Promise<any>;
     findByCustomerId(customerId: string, page?: number, limit?: number): Promise<any[]>;
@@ -83,6 +83,10 @@ export declare class OrdersService {
             unitPrice: Prisma.Decimal;
             unitCost: Prisma.Decimal;
         })[];
+        initiatedBy: {
+            name: string;
+            id: string;
+        } | null;
     } & {
         branchId: string;
         id: string;
@@ -101,6 +105,7 @@ export declare class OrdersService {
         foodCost: Prisma.Decimal;
         paymentReference: string | null;
         paymentStatus: string | null;
+        initiatedById: string | null;
         paidAt: Date | null;
     }>;
     updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<any>;

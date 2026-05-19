@@ -14,6 +14,7 @@ enum Role {
   OPERATIONS_MANAGER
   KITCHEN_STAFF
   GROWTH_LEAD
+  SALES_EXECUTIVE
   CASHIER
   ACCOUNTANT
 }
@@ -130,6 +131,29 @@ enum EngagementChannel {
   EMAIL
 }
 
+enum AcquisitionType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum AcquisitionSource {
+  COLD_CALL
+  WALK_IN_VISIT
+  REFERRAL
+  SOCIAL_MEDIA
+  EVENT
+  EMAIL_OUTREACH
+  OTHER
+}
+
+enum BusinessLeadStatus {
+  CONTACTED
+  PITCHED
+  NEGOTIATING
+  SIGNED
+  LOST
+}
+
 // ─── CORE ───────────────────────────────────────────────
 
 model Branch {
@@ -159,6 +183,9 @@ model Branch {
   paymentTypes       PaymentType[]
   promotions         Promotion[]
   engagementLogs     CustomerEngagementLog[]
+  acquisitionTargets DailyAcquisitionTarget[]
+  acquisitionLogs    AcquisitionLog[]
+  businessLeads      BusinessLead[]
 
   @@map("branches")
 }
@@ -183,7 +210,12 @@ model User {
   auditLogs      AuditLog[]
   handoverNotes  HandoverNote[]
   specialOrders  SpecialOrder[]
-  engagementLogs CustomerEngagementLog[]
+  engagementLogs       CustomerEngagementLog[]
+  acquisitionTargets   DailyAcquisitionTarget[]
+  acquisitionLogs      AcquisitionLog[]         @relation("ExecutiveAcquisitions")
+  businessLeads        BusinessLead[]           @relation("ExecutiveLeads")
+  businessInteractions BusinessInteraction[]    @relation("ExecutiveInteractions")
+  initiatedOrders      Order[]                  @relation("InitiatedOrders")
 
   @@index([branchId])
   @@map("users")
@@ -423,6 +455,8 @@ model Order {
   guestName         String?
   receiptUrl        String?
   notes             String?
+  initiatedById     String?
+  initiatedBy       User?           @relation("InitiatedOrders", fields: [initiatedById], references: [id])
   paidAt        DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -571,6 +605,7 @@ model Customer {
   account             CustomerAccount?
   refreshTokens      CustomerRefreshToken[]
   engagementLogs     CustomerEngagementLog[]
+  acquisitionLogs    AcquisitionLog[]
 
   @@index([lastSeenAt])
   @@map("customers")
@@ -757,3 +792,83 @@ model CustomerEngagementLog {
   @@index([branchId, date])
   @@map("customer_engagement_logs")
 }
+
+model DailyAcquisitionTarget {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  branchId         String
+  branch           Branch   @relation(fields: [branchId], references: [id])
+  date             DateTime @db.Date
+  individualTarget Int      @default(5)
+  businessTarget   Int      @default(2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([branchId, date])
+  @@map("daily_acquisition_targets")
+}
+
+model AcquisitionLog {
+  id             String            @id @default(cuid())
+  branchId       String
+  branch         Branch            @relation(fields: [branchId], references: [id])
+  executiveId    String
+  executive      User              @relation("ExecutiveAcquisitions", fields: [executiveId], references: [id])
+  customerId     String?
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  businessLeadId String?
+  businessLead   BusinessLead?     @relation(fields: [businessLeadId], references: [id])
+  type           AcquisitionType
+  source         AcquisitionSource
+  date           DateTime          @db.Date
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([branchId, executiveId, date])
+  @@map("acquisition_logs")
+}
+
+model BusinessLead {
+  id             String             @id @default(cuid())
+  branchId       String
+  branch         Branch             @relation(fields: [branchId], references: [id])
+  executiveId    String
+  executive      User               @relation("ExecutiveLeads", fields: [executiveId], references: [id])
+  companyName    String
+  contactPerson  String?
+  phone          String?
+  email          String?
+  industry       String?
+  status         BusinessLeadStatus @default(CONTACTED)
+  estimatedValue Decimal?           @db.Decimal(10, 2)
+  notes          String?
+  followUpDate   DateTime?
+  signedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  interactions    BusinessInteraction[]
+  acquisitionLogs AcquisitionLog[]
+
+  @@index([branchId, status])
+  @@map("business_leads")
+}
+
+model BusinessInteraction {
+  id             String       @id @default(cuid())
+  businessLeadId String
+  businessLead   BusinessLead @relation(fields: [businessLeadId], references: [id])
+  executiveId    String
+  executive      User         @relation("ExecutiveInteractions", fields: [executiveId], references: [id])
+  date           DateTime     @db.Date
+  outcome        String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([businessLeadId])
+  @@map("business_interactions")
+}
+

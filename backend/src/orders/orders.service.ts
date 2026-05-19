@@ -21,6 +21,7 @@ export class OrdersService {
       },
     },
     customer: true,
+    initiatedBy: { select: { id: true, name: true } },
   };
 
   private readonly groupedComponentsOptionId = '__meta_grouped_menu_components';
@@ -233,7 +234,7 @@ export class OrdersService {
     return { total, foodCost };
   }
 
-  async create(dto: CreateOrderDto) {
+  async create(dto: CreateOrderDto, initiatedById?: string) {
     const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(
       dto.items.map((i) => i.menuItemId),
     );
@@ -247,6 +248,7 @@ export class OrdersService {
         customerId: dto.customerId,
         guestName: dto.guestName,
         notes: dto.notes,
+        ...(initiatedById ? { initiatedById } : {}),
         total,
         foodCost,
         items: {

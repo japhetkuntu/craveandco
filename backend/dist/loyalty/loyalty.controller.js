@@ -74,7 +74,7 @@ __decorate([
 exports.LoyaltyController = LoyaltyController = __decorate([
     (0, common_1.Controller)('api/v1/loyalty'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('OWNER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __metadata("design:paramtypes", [loyalty_service_1.LoyaltyService])
 ], LoyaltyController);
 //# sourceMappingURL=loyalty.controller.js.map

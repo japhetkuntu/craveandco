@@ -19,6 +19,9 @@ import {
   Settings,
   Tag,
   Star,
+  Briefcase,
+  UserPlus,
+  Building2,
 } from 'lucide-react';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -150,6 +153,24 @@ export const API_PATHS = {
     analytics: (from: string, to: string) => `/api/v1/engagement/analytics?from=${from}&to=${to}`,
     dailySummary: (date: string) => `/api/v1/engagement/daily-summary?date=${date}`,
   },
+  sales: {
+    dashboard: (date: string) => `/api/v1/sales/dashboard?date=${date}`,
+    logAcquisition: '/api/v1/sales/acquisitions',
+    acquisitions: (date: string, page: number, limit: number) => `/api/v1/sales/acquisitions?date=${date}&page=${page}&limit=${limit}`,
+    leads: (status?: string, page?: number, limit?: number) => {
+      let url = `/api/v1/sales/leads?page=${page ?? 1}&limit=${limit ?? 20}`;
+      if (status) url += `&status=${status}`;
+      return url;
+    },
+    createLead: '/api/v1/sales/leads',
+    updateLead: (id: string) => `/api/v1/sales/leads/${id}`,
+    addInteraction: '/api/v1/sales/interactions',
+    myTarget: (date: string) => `/api/v1/sales/targets/me?date=${date}`,
+    branchTargets: (date: string) => `/api/v1/sales/targets?date=${date}`,
+    analytics: (from: string, to: string) => `/api/v1/sales/analytics?from=${from}&to=${to}`,
+    executives: '/api/v1/sales/executives',
+    upsertTarget: '/api/v1/sales/targets',
+  },
   promotions: {
     list: '/api/v1/promotions',
     active: '/api/v1/promotions/active',
@@ -167,6 +188,7 @@ export const ROLE_DASHBOARD: Record<string, string> = {
   KITCHEN_STAFF: '/kitchen',
   OPERATIONS_MANAGER: '/ops',
   GROWTH_LEAD: '/growth',
+  SALES_EXECUTIVE: '/sales',
 };
 
 export const ORDER_STATUSES = ['NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const;
@@ -200,6 +222,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Alerts', href: '/owner/alerts', icon: <Bell size={20} /> },
     { label: 'Promotions', href: '/owner/promotions', icon: <Tag size={20} /> },
     { label: 'Engagement', href: '/owner/engagement', icon: <HeartHandshake size={20} /> },
+    { label: 'Sales', href: '/owner/sales', icon: <Briefcase size={20} /> },
     { label: 'Settings', href: '/owner/settings', icon: <Settings size={20} /> },
   ],
   KITCHEN_STAFF: [
@@ -234,5 +257,11 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Feedback', href: '/growth/feedback', icon: <MessageSquare size={20} /> },
     { label: 'Churn Risk', href: '/growth/churn', icon: <Bell size={20} /> },
     { label: 'Checklists', href: '/ops/checklists', icon: <ClipboardList size={20} /> },
+  ],
+  SALES_EXECUTIVE: [
+    { label: 'Dashboard', href: '/sales', icon: <LayoutDashboard size={20} /> },
+    { label: 'Customers', href: '/sales/customers', icon: <UserPlus size={20} /> },
+    { label: 'Businesses', href: '/sales/businesses', icon: <Building2 size={20} /> },
+    { label: 'POS', href: '/growth/pos', icon: <ShoppingCart size={20} /> },
   ],
 };

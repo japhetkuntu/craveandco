@@ -32,6 +32,7 @@ let OrdersService = class OrdersService {
             },
         },
         customer: true,
+        initiatedBy: { select: { id: true, name: true } },
     };
     groupedComponentsOptionId = '__meta_grouped_menu_components';
     attachImageUrl(menuItem) {
@@ -189,7 +190,7 @@ let OrdersService = class OrdersService {
         const foodCost = items.reduce((sum, item) => sum + (costMap.get(item.menuItemId) || 0) * item.quantity, 0);
         return { total, foodCost };
     }
-    async create(dto) {
+    async create(dto, initiatedById) {
         const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
         const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
         const createdOrder = await this.prisma.order.create({
@@ -200,6 +201,7 @@ let OrdersService = class OrdersService {
                 customerId: dto.customerId,
                 guestName: dto.guestName,
                 notes: dto.notes,
+                ...(initiatedById ? { initiatedById } : {}),
                 total,
                 foodCost,
                 items: {

@@ -12,9 +12,9 @@ export class OrdersController {
   constructor(private orders: OrdersService) {}
 
   @Post()
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
-  create(@Body() dto: CreateOrderDto) {
-    return this.orders.create(dto);
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
+  create(@Body() dto: CreateOrderDto, @CurrentUser('userId') userId: string) {
+    return this.orders.create(dto, userId);
   }
 
   @Get('stats')
@@ -48,7 +48,7 @@ export class OrdersController {
   }
 
   @Get(':id')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'KITCHEN_STAFF')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'KITCHEN_STAFF', 'SALES_EXECUTIVE')
   findOne(@Param('id') id: string) {
     return this.orders.findOne(id);
   }
@@ -78,13 +78,13 @@ export class OrdersController {
   }
 
   @Post(':id/pay')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
   pay(@Param('id') id: string, @Body() dto: PayOrderDto) {
     return this.orders.pay(id, dto);
   }
 
   @Get()
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
   findAll(
     @CurrentUser('branchId') branchId: string,
     @Query('status') status?: string,
@@ -106,7 +106,7 @@ export class OrdersController {
   }
 
   @Post(':id/cancel')
-  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
   cancel(@Param('id') id: string) {
     return this.orders.cancel(id);
   }

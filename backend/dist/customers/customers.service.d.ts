@@ -92,6 +92,7 @@ export declare class CustomersService {
             foodCost: Prisma.Decimal;
             paymentReference: string | null;
             paymentStatus: string | null;
+            initiatedById: string | null;
             paidAt: Date | null;
         })[];
         loyaltyTransactions: {

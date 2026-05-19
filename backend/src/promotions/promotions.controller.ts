@@ -37,7 +37,7 @@ export class PromotionsController {
   }
 
   @Get('active')
-  @Roles('OWNER', 'GROWTH_LEAD', 'OPERATIONS_MANAGER')
+  @Roles('OWNER', 'GROWTH_LEAD', 'OPERATIONS_MANAGER', 'SALES_EXECUTIVE')
   findActive(@CurrentUser('branchId') branchId: string) {
     return this.promotions.findActive(branchId);
   }

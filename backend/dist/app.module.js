@@ -34,6 +34,7 @@ const growth_module_1 = require("./growth/growth.module");
 const promotions_module_1 = require("./promotions/promotions.module");
 const special_orders_module_1 = require("./special-orders/special-orders.module");
 const engagement_module_1 = require("./engagement/engagement.module");
+const sales_module_1 = require("./sales/sales.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -66,6 +67,7 @@ exports.AppModule = AppModule = __decorate([
             promotions_module_1.PromotionsModule,
             special_orders_module_1.SpecialOrdersModule,
             engagement_module_1.EngagementModule,
+            sales_module_1.SalesModule,
         ],
     })
 ], AppModule);

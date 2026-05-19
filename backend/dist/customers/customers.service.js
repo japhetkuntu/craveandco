@@ -89,7 +89,7 @@ let CustomersService = class CustomersService {
         }
         const customers = await this.prisma.customer.findMany({
             where,
-            orderBy: [{ lastSeenAt: 'desc' }, { createdAt: 'desc' }],
+            orderBy: { createdAt: 'desc' },
             take,
             skip,
         });

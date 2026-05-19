@@ -21,6 +21,7 @@ interface Order {
   foodCost: number;
   createdAt: string;
   matchedItemCount?: number;
+  initiatedBy?: { id: string; name: string } | null;
   items: {
     menuItem: { name: string; category?: { id: string; name: string } | null; imageUrl?: string | null };
     quantity: number;
@@ -327,6 +328,9 @@ export default function OwnerOrdersPage() {
                                 <StatusBadge status={order.status} />
                                 <span className="text-xs text-text-tertiary bg-surface-elevated px-2 py-0.5 rounded-full">{order.channel}</span>
                                 <span className="text-xs text-text-tertiary">{order.paymentMethod || 'Unknown'}</span>
+                                {order.initiatedBy && (
+                                  <span className="text-xs text-text-tertiary bg-surface-elevated px-2 py-0.5 rounded-full">by {order.initiatedBy.name}</span>
+                                )}
                               </div>
                               <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
                                 <span>{order.items.length} items</span>

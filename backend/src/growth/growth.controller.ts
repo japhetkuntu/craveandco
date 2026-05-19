@@ -8,7 +8,7 @@ import { GrowthService } from './growth.service';
 
 @Controller('api/v1/growth')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('GROWTH_LEAD', 'OWNER')
+@Roles('GROWTH_LEAD', 'OWNER', 'SALES_EXECUTIVE')
 export class GrowthController {
   constructor(private growth: GrowthService) {}
 

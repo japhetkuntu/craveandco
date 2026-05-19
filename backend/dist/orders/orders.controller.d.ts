@@ -3,7 +3,7 @@ import { CreateOrderDto, UpdateOrderStatusDto, UpdateOrderItemsDto, PayOrderDto,
 export declare class OrdersController {
     private orders;
     constructor(orders: OrdersService);
-    create(dto: CreateOrderDto): Promise<any>;
+    create(dto: CreateOrderDto, userId: string): Promise<any>;
     getStats(branchId: string, status?: string, channel?: string, paymentMethod?: string, from?: string, to?: string, search?: string, rawCategoryIds?: string | string[]): Promise<{
         count: number;
         totalRevenue: number;

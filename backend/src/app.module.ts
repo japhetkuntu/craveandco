@@ -25,6 +25,7 @@ import { GrowthModule } from './growth/growth.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { SpecialOrdersModule } from './special-orders/special-orders.module';
 import { EngagementModule } from './engagement/engagement.module';
+import { SalesModule } from './sales/sales.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { EngagementModule } from './engagement/engagement.module';
     PromotionsModule,
     SpecialOrdersModule,
     EngagementModule,
+    SalesModule,
   ],
 })
 export class AppModule {}

@@ -80,6 +80,7 @@ export declare class CustomersController {
             foodCost: import("@prisma/client/runtime/library").Decimal;
             paymentReference: string | null;
             paymentStatus: string | null;
+            initiatedById: string | null;
             paidAt: Date | null;
         })[];
         loyaltyTransactions: {

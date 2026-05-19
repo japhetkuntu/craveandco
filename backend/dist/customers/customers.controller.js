@@ -106,7 +106,7 @@ __decorate([
 exports.CustomersController = CustomersController = __decorate([
     (0, common_1.Controller)('api/v1/customers'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __metadata("design:paramtypes", [customers_service_1.CustomersService])
 ], CustomersController);
 //# sourceMappingURL=customers.controller.js.map

@@ -8,7 +8,7 @@ import { CreateLoyaltyTxDto } from './dto/loyalty.dto';
 
 @Controller('api/v1/loyalty')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'GROWTH_LEAD')
+@Roles('OWNER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
 export class LoyaltyController {
   constructor(private loyalty: LoyaltyService) {}
 

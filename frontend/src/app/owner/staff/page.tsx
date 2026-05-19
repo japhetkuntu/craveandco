@@ -315,6 +315,7 @@ export default function OwnerStaffPage() {
                     <option value="OPERATIONS_MANAGER">Operations Manager</option>
                     <option value="KITCHEN_STAFF">Kitchen Staff</option>
                     <option value="GROWTH_LEAD">Growth Lead</option>
+                    <option value="SALES_EXECUTIVE">Sales Executive</option>
                   </select>
                 </div>
               </form>
@@ -374,6 +375,9 @@ export default function OwnerStaffPage() {
                     <option value="OPERATIONS_MANAGER">Operations Manager</option>
                     <option value="KITCHEN_STAFF">Kitchen Staff</option>
                     <option value="GROWTH_LEAD">Growth Lead</option>
+                    <option value="SALES_EXECUTIVE">Sales Executive</option>
+                    <option value="CASHIER">Cashier</option>
+                    <option value="ACCOUNTANT">Accountant</option>
                   </select>
                 </div>
               </form>

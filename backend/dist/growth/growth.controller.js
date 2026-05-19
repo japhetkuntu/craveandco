@@ -65,7 +65,7 @@ __decorate([
 exports.GrowthController = GrowthController = __decorate([
     (0, common_1.Controller)('api/v1/growth'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('GROWTH_LEAD', 'OWNER'),
+    (0, roles_decorator_1.Roles)('GROWTH_LEAD', 'OWNER', 'SALES_EXECUTIVE'),
     __metadata("design:paramtypes", [growth_service_1.GrowthService])
 ], GrowthController);
 //# sourceMappingURL=growth.controller.js.map

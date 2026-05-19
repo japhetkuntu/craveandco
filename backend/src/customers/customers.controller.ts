@@ -7,7 +7,7 @@ import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
 
 @Controller('api/v1/customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+@Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE')
 export class CustomersController {
   constructor(private customers: CustomersService) {}
 

@@ -25,8 +25,8 @@ let OrdersController = class OrdersController {
     constructor(orders) {
         this.orders = orders;
     }
-    create(dto) {
-        return this.orders.create(dto);
+    create(dto, userId) {
+        return this.orders.create(dto, userId);
     }
     getStats(branchId, status, channel, paymentMethod, from, to, search, rawCategoryIds) {
         const categoryIds = rawCategoryIds
@@ -72,10 +72,11 @@ let OrdersController = class OrdersController {
 exports.OrdersController = OrdersController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [orders_dto_1.CreateOrderDto]),
+    __metadata("design:paramtypes", [orders_dto_1.CreateOrderDto, String]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "create", null);
 __decorate([
@@ -105,7 +106,7 @@ __decorate([
 ], OrdersController.prototype, "findLive", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'KITCHEN_STAFF'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'KITCHEN_STAFF', 'SALES_EXECUTIVE'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -149,7 +150,7 @@ __decorate([
 ], OrdersController.prototype, "removeItem", null);
 __decorate([
     (0, common_1.Post)(':id/pay'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -158,7 +159,7 @@ __decorate([
 ], OrdersController.prototype, "pay", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('status')),
     __param(2, (0, common_1.Query)('channel')),
@@ -175,7 +176,7 @@ __decorate([
 ], OrdersController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(':id/cancel'),
-    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD'),
+    (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD', 'SALES_EXECUTIVE'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
