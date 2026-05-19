@@ -6,6 +6,7 @@ import { ShoppingBag, User, LogOut, ArrowLeft, Home } from 'lucide-react';
 import { ReactNode } from 'react';
 import { CustomerAuthProvider, useCustomerAuth } from '@/lib/customer-auth';
 import { CustomerCartProvider, useCustomerCart } from '@/lib/customer-cart';
+import { ECOMMERCE_ENABLED, CUSTOMER_ACCOUNT_ENABLED } from '@/lib/feature-flags';
 
 function CustomerNav() {
   const pathname = usePathname();
@@ -33,26 +34,30 @@ function CustomerNav() {
           </Link>
         </div>
         <nav className="flex items-center gap-1 sm:gap-2">
-          <Link
-            href="/dashboard/orders"
-            className="hidden rounded-full px-4 py-2 text-sm font-medium text-[#5f4a38] transition hover:bg-[#f3e5d6] hover:text-[#26130f] sm:inline-flex"
-          >
-            My Orders
-          </Link>
-          <Link
-            href="/dashboard/checkout"
-            aria-label="Open cart"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#26130f] text-white transition hover:bg-[#3a1f17] sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:gap-2"
-          >
-            <ShoppingBag size={18} />
-            <span className="hidden sm:inline text-sm font-semibold">Cart</span>
-            {count > 0 && (
-              <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b5451b] px-1 text-[10px] font-bold text-white sm:static sm:ml-1 sm:h-5 sm:w-5">
-                {count}
-              </span>
-            )}
-          </Link>
-          {!loading && customer ? (
+          {CUSTOMER_ACCOUNT_ENABLED && (
+            <Link
+              href="/dashboard/orders"
+              className="hidden rounded-full px-4 py-2 text-sm font-medium text-[#5f4a38] transition hover:bg-[#f3e5d6] hover:text-[#26130f] sm:inline-flex"
+            >
+              My Orders
+            </Link>
+          )}
+          {ECOMMERCE_ENABLED && (
+            <Link
+              href="/dashboard/checkout"
+              aria-label="Open cart"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#26130f] text-white transition hover:bg-[#3a1f17] sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:gap-2"
+            >
+              <ShoppingBag size={18} />
+              <span className="hidden sm:inline text-sm font-semibold">Cart</span>
+              {count > 0 && (
+                <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#b5451b] px-1 text-[10px] font-bold text-white sm:static sm:ml-1 sm:h-5 sm:w-5">
+                  {count}
+                </span>
+              )}
+            </Link>
+          )}
+          {CUSTOMER_ACCOUNT_ENABLED && !loading && customer ? (
             <button
               type="button"
               onClick={() => logout().then(() => router.push('/dashboard'))}
@@ -61,7 +66,7 @@ function CustomerNav() {
             >
               <LogOut size={18} />
             </button>
-          ) : (
+          ) : CUSTOMER_ACCOUNT_ENABLED ? (
             <Link
               href="/dashboard/login"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#5f4a38] transition hover:bg-[#f3e5d6] hover:text-[#26130f] sm:h-auto sm:w-auto sm:px-4 sm:py-2"
@@ -70,7 +75,7 @@ function CustomerNav() {
               <User size={18} />
               <span className="hidden sm:ml-2 sm:inline text-sm font-semibold">Sign in</span>
             </Link>
-          )}
+          ) : null}
           <Link
             href="/"
             aria-label="Back to home"

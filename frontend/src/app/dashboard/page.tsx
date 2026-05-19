@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Plus, Check, ShoppingBag, Search } from 'lucide-react';
+import { ArrowRight, Plus, Check, ShoppingBag, Search, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { API_BASE } from '@/lib/constants';
 import { useCustomerCart } from '@/lib/customer-cart';
 import { useCustomerAuth } from '@/lib/customer-auth';
+import { ECOMMERCE_ENABLED, CUSTOMER_ACCOUNT_ENABLED } from '@/lib/feature-flags';
+import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -49,6 +51,7 @@ export default function CustomerMenuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
 
   const cart = useCustomerCart();
   const { customer } = useCustomerAuth();
@@ -115,8 +118,9 @@ export default function CustomerMenuPage() {
                 <span className="text-[#e8a45a]">ready in minutes.</span>
               </h1>
               <p className="mt-3 max-w-lg text-sm leading-7 text-white/55 sm:text-[0.95rem]">
-                Browse the menu, build your order, and pay securely with Paystack.
-                Track your order in real time.
+                {ECOMMERCE_ENABLED
+                  ? 'Browse the menu, build your order, and pay securely with Paystack. Track your order in real time.'
+                  : 'Browse the full menu below, then reach us on WhatsApp or by phone — we\u2019ll take care of the rest.'}
               </p>
               {!loading && (
                 <div className="mt-5 flex items-center gap-6">
@@ -132,12 +136,24 @@ export default function CustomerMenuPage() {
                 </div>
               )}
             </div>
-            <Link
-              href="/dashboard/orders"
-              className="inline-flex items-center justify-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 sm:self-center"
+          {ECOMMERCE_ENABLED ? (
+            CUSTOMER_ACCOUNT_ENABLED && (
+              <Link
+                href="/dashboard/orders"
+                className="inline-flex items-center justify-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 sm:self-center"
+              >
+                My orders <ArrowRight size={15} />
+              </Link>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOrderModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 self-start rounded-full bg-[#25D366] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#1fb857] sm:self-center"
             >
-              My orders <ArrowRight size={15} />
-            </Link>
+              <MessageCircle size={16} /> How to Order
+            </button>
+          )}
           </div>
         </section>
 
@@ -235,16 +251,18 @@ export default function CustomerMenuPage() {
                       </div>
                       <div className="mt-auto flex items-center justify-between gap-3">
                         <span className="text-lg font-semibold text-[#26130f]">{formatCurrency(price)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleAdd(item)}
-                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] transition ${
-                            added ? 'bg-emerald-500 text-white' : 'bg-[#b5451b] text-white hover:bg-[#9a3f1a]'
-                          }`}
-                        >
-                          {added ? <Check size={14} /> : <Plus size={14} />}
-                          {added ? 'Added' : 'Add'}
-                        </button>
+                        {ECOMMERCE_ENABLED && (
+                          <button
+                            type="button"
+                            onClick={() => handleAdd(item)}
+                            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] transition ${
+                              added ? 'bg-emerald-500 text-white' : 'bg-[#b5451b] text-white hover:bg-[#9a3f1a]'
+                            }`}
+                          >
+                            {added ? <Check size={14} /> : <Plus size={14} />}
+                            {added ? 'Added' : 'Add'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -255,7 +273,7 @@ export default function CustomerMenuPage() {
         </section>
       </div>
 
-      {cart.count > 0 && (
+      {ECOMMERCE_ENABLED && cart.count > 0 && (
         <Link
           href="/dashboard/checkout"
           className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-full bg-[#26130f] px-5 py-4 text-white shadow-2xl transition hover:bg-[#3a1f17] sm:inset-x-auto sm:right-6"
@@ -273,6 +291,20 @@ export default function CustomerMenuPage() {
           </span>
         </Link>
       )}
+
+      {!ECOMMERCE_ENABLED && (
+        <a
+          href={CONTACT_WHATSAPP_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-md items-center justify-center gap-3 rounded-full bg-[#25D366] px-5 py-4 text-white shadow-2xl transition hover:bg-[#1fb857] sm:inset-x-auto sm:right-6 sm:max-w-none sm:w-auto"
+        >
+          <MessageCircle size={18} />
+          <span className="text-sm font-semibold">Order via WhatsApp</span>
+        </a>
+      )}
+
+      {orderModalOpen && <ContactOrderModal onClose={() => setOrderModalOpen(false)} />}
     </main>
   );
 }
