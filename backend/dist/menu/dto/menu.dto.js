@@ -72,7 +72,7 @@ class CreateMenuItemDto {
     name;
     description;
     price;
-    imageUrl;
+    imageKey;
     available;
     dayparts;
     options;
@@ -100,7 +100,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], CreateMenuItemDto.prototype, "imageUrl", void 0);
+], CreateMenuItemDto.prototype, "imageKey", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
@@ -122,7 +122,7 @@ class UpdateMenuItemDto {
     name;
     description;
     price;
-    imageUrl;
+    imageKey;
     available;
     categoryId;
     dayparts;
@@ -147,8 +147,8 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], UpdateMenuItemDto.prototype, "imageUrl", void 0);
+    __metadata("design:type", Object)
+], UpdateMenuItemDto.prototype, "imageKey", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),

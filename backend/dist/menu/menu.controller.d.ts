@@ -18,10 +18,10 @@ export declare class MenuController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
             categoryId: string;
+            description: string | null;
             price: import("@prisma/client/runtime/library").Decimal;
-            imageUrl: string | null;
+            imageKey: string | null;
             available: boolean;
             dayparts: string[];
             options: import("@prisma/client/runtime/library").JsonValue | null;
@@ -65,15 +65,17 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
     findItems(branchId: string, categoryId?: string, page?: string, limit?: string): Promise<({
         category: {
@@ -90,15 +92,17 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     })[]>;
     updateItem(id: string, dto: UpdateMenuItemDto): Promise<{
         category: {
@@ -115,15 +119,17 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
     deleteItem(id: string): Promise<{
         name: string;
@@ -131,10 +137,10 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
@@ -145,14 +151,16 @@ export declare class MenuController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
 }

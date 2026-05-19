@@ -1,99 +1,16 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { FilesService } from '../files/files.service';
 import { CreateHandoverNoteDto } from './dto/kitchen.dto';
 export declare class KitchenService {
     private prisma;
     private alerts;
-    constructor(prisma: PrismaService, alerts: AlertsService);
-    getLiveOrders(branchId: string, station?: string, page?: number, limit?: number): Promise<({
-        items: ({
-            menuItem: {
-                name: string;
-                branchId: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                description: string | null;
-                categoryId: string;
-                price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
-                available: boolean;
-                dayparts: string[];
-                options: import("@prisma/client/runtime/library").JsonValue | null;
-            };
-        } & {
-            id: string;
-            menuItemId: string;
-            quantity: number;
-            notes: string | null;
-            selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
-            orderId: string;
-            unitPrice: import("@prisma/client/runtime/library").Decimal;
-            unitCost: import("@prisma/client/runtime/library").Decimal;
-        })[];
-    } & {
-        branchId: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        notes: string | null;
-        channel: import("@prisma/client").$Enums.OrderChannel;
-        paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
-        customerId: string | null;
-        guestName: string | null;
-        status: import("@prisma/client").$Enums.OrderStatus;
-        paymentLabel: string | null;
-        receiptUrl: string | null;
-        promotionId: string | null;
-        total: import("@prisma/client/runtime/library").Decimal;
-        foodCost: import("@prisma/client/runtime/library").Decimal;
-        paidAt: Date | null;
-    })[]>;
+    private files;
+    constructor(prisma: PrismaService, alerts: AlertsService, files: FilesService);
+    private attachImageUrlsToKitchenOrder;
+    getLiveOrders(branchId: string, station?: string, page?: number, limit?: number): Promise<any[]>;
     private isValidOrderStatus;
-    updateOrderStatus(orderId: string, status: string): Promise<{
-        items: ({
-            menuItem: {
-                name: string;
-                branchId: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                description: string | null;
-                categoryId: string;
-                price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
-                available: boolean;
-                dayparts: string[];
-                options: import("@prisma/client/runtime/library").JsonValue | null;
-            };
-        } & {
-            id: string;
-            menuItemId: string;
-            quantity: number;
-            notes: string | null;
-            selectedOptions: import("@prisma/client/runtime/library").JsonValue | null;
-            orderId: string;
-            unitPrice: import("@prisma/client/runtime/library").Decimal;
-            unitCost: import("@prisma/client/runtime/library").Decimal;
-        })[];
-    } & {
-        branchId: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        notes: string | null;
-        channel: import("@prisma/client").$Enums.OrderChannel;
-        paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
-        customerId: string | null;
-        guestName: string | null;
-        status: import("@prisma/client").$Enums.OrderStatus;
-        paymentLabel: string | null;
-        receiptUrl: string | null;
-        promotionId: string | null;
-        total: import("@prisma/client/runtime/library").Decimal;
-        foodCost: import("@prisma/client/runtime/library").Decimal;
-        paidAt: Date | null;
-    }>;
+    updateOrderStatus(orderId: string, status: string): Promise<any>;
     getPrepList(branchId: string, date: string, shift?: string, page?: number, limit?: number): Promise<{
         menuItemId: string;
         menuItem: string;

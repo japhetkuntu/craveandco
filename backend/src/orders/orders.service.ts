@@ -3,12 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, UpdateOrderStatusDto, UpdateOrderItemsDto, PayOrderDto, AddOrderItemDto } from './dto/orders.dto';
 import { OrderStatus, OrderChannel, PaymentMethod, Prisma, LoyaltyTxType } from '@prisma/client';
 import { PromotionsService } from '../promotions/promotions.service';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private promotions: PromotionsService,
+    private files: FilesService,
   ) {}
 
   private orderInclude = {
@@ -22,6 +24,24 @@ export class OrdersService {
   };
 
   private readonly groupedComponentsOptionId = '__meta_grouped_menu_components';
+
+  private attachImageUrl(menuItem: any) {
+    if (!menuItem) return menuItem;
+    return {
+      ...menuItem,
+      imageUrl: menuItem.imageKey ? this.files.getImageUrl(menuItem.imageKey) : null,
+    };
+  }
+
+  private attachImageUrlsToOrder(order: any) {
+    return {
+      ...order,
+      items: order.items.map((item: any) => ({
+        ...item,
+        menuItem: this.attachImageUrl(item.menuItem),
+      })),
+    };
+  }
 
   private getGroupedComponentIds(menuItem: any): string[] {
     const options = Array.isArray(menuItem?.options) ? menuItem.options : [];
@@ -219,7 +239,7 @@ export class OrdersService {
     );
     const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
 
-    return this.prisma.order.create({
+    const createdOrder = await this.prisma.order.create({
       data: {
         branchId: dto.branchId,
         channel: dto.channel,
@@ -255,15 +275,17 @@ export class OrdersService {
       },
       include: this.orderInclude,
     });
+    return this.enrichOrder(createdOrder);
   }
 
   private enrichOrder(order: any) {
-    const subtotal = order.items.reduce(
+    const orderWithImages = this.attachImageUrlsToOrder(order);
+    const subtotal = orderWithImages.items.reduce(
       (sum: number, item: any) => sum + Number(item.unitPrice) * item.quantity,
       0,
     );
-    const discountAmount = Math.max(subtotal - Number(order.total), 0);
-    return { ...order, subtotal, discountAmount };
+    const discountAmount = Math.max(subtotal - Number(orderWithImages.total), 0);
+    return { ...orderWithImages, subtotal, discountAmount };
   }
 
   async findOne(id: string) {
@@ -275,14 +297,58 @@ export class OrdersService {
     return this.enrichOrder(order);
   }
 
+  async findByCustomerId(customerId: string, page = 0, limit = 50) {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const skip = Math.max(page, 0) * take;
+    const orders = await this.prisma.order.findMany({
+      where: { customerId },
+      include: this.orderInclude,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+    });
+    return orders.map((order) => this.enrichOrder(order));
+  }
+
+  async findOneByCustomerId(customerId: string, id: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, customerId },
+      include: this.orderInclude,
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return this.enrichOrder(order);
+  }
+
+  async updatePaymentReference(
+    orderId: string,
+    paymentReference: string,
+    paymentStatus: string,
+    receiptUrl?: string,
+    paymentMethod?: PaymentMethod,
+    paymentLabel?: string,
+  ) {
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentReference,
+        paymentStatus,
+        ...(receiptUrl ? { receiptUrl } : {}),
+        ...(paymentMethod ? { paymentMethod } : {}),
+        ...(paymentLabel ? { paymentLabel } : {}),
+      },
+      include: this.orderInclude,
+    });
+  }
+
   async updateStatus(id: string, dto: UpdateOrderStatusDto) {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Order not found');
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { status: dto.status as OrderStatus },
       include: this.orderInclude,
     });
+    return this.enrichOrder(updated);
   }
 
   async updateItems(id: string, dto: UpdateOrderItemsDto) {
@@ -300,7 +366,7 @@ export class OrdersService {
     // Delete existing items and recreate
     await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: {
         total,
@@ -331,6 +397,7 @@ export class OrdersService {
       },
       include: this.orderInclude,
     });
+    return this.enrichOrder(updated);
   }
 
   async addItem(id: string, dto: AddOrderItemDto) {
@@ -375,11 +442,12 @@ export class OrdersService {
     const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     const foodCost = items.reduce((sum, item) => sum + Number(item.unitCost) * item.quantity, 0);
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { total, foodCost },
       include: this.orderInclude,
     });
+    return this.enrichOrder(updated);
   }
 
   async removeItem(orderId: string, itemId: string) {
@@ -395,11 +463,12 @@ export class OrdersService {
     const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     const foodCost = items.reduce((sum, item) => sum + Number(item.unitCost) * item.quantity, 0);
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: { total, foodCost },
       include: this.orderInclude,
     });
+    return this.enrichOrder(updated);
   }
 
   async pay(id: string, dto: PayOrderDto) {
@@ -619,6 +688,12 @@ export class OrdersService {
   ) {
     const where = this.buildOrderWhere(branchId, params);
 
+    // When no status filter is provided, exclude cancelled orders from revenue stats.
+    // If the user explicitly filters for CANCELLED, show those stats as-is.
+    if (!params.status) {
+      (where as any).status = { not: OrderStatus.CANCELLED };
+    }
+
     if (params.categoryIds?.length) {
       // When filtering by category, revenue must be summed at item level (not order.total)
       // so we only count revenue from the matching items, not the full order value.
@@ -683,10 +758,11 @@ export class OrdersService {
   }
 
   async cancel(id: string) {
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { status: OrderStatus.CANCELLED },
       include: this.orderInclude,
     });
+    return this.enrichOrder(updated);
   }
 }

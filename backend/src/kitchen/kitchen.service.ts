@@ -2,16 +2,34 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AlertSeverity, OrderStatus } from '@prisma/client';
 import { AlertsService } from '../alerts/alerts.service';
+import { FilesService } from '../files/files.service';
 import { CreateHandoverNoteDto } from './dto/kitchen.dto';
 
 @Injectable()
 export class KitchenService {
-  constructor(private prisma: PrismaService, private alerts: AlertsService) {}
+  constructor(
+    private prisma: PrismaService,
+    private alerts: AlertsService,
+    private files: FilesService,
+  ) {}
+
+  private attachImageUrlsToKitchenOrder(order: any) {
+    return {
+      ...order,
+      items: order.items.map((item: any) => ({
+        ...item,
+        menuItem: item.menuItem ? {
+          ...item.menuItem,
+          imageUrl: item.menuItem.imageKey ? this.files.getImageUrl(item.menuItem.imageKey) : null,
+        } : null,
+      })),
+    };
+  }
 
   async getLiveOrders(branchId: string, station?: string, page = 0, limit = 50) {
     const take = Math.min(Math.max(limit, 10), 100);
     const skip = Math.max(page, 0) * take;
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where: {
         branchId,
         status: { in: [OrderStatus.NEW, OrderStatus.PREPARING, OrderStatus.READY] },
@@ -30,6 +48,7 @@ export class KitchenService {
       take,
       skip,
     });
+    return orders.map((order: any) => this.attachImageUrlsToKitchenOrder(order));
   }
 
   private isValidOrderStatus(status: string): status is OrderStatus {
@@ -41,11 +60,12 @@ export class KitchenService {
       throw new BadRequestException(`Invalid order status: ${status}`);
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: { status },
       include: { items: { include: { menuItem: true } } },
     });
+    return this.attachImageUrlsToKitchenOrder(updated);
   }
 
   async getPrepList(branchId: string, date: string, shift?: string, page = 0, limit = 50) {

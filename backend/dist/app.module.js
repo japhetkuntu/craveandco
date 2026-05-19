@@ -11,6 +11,9 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const prisma_module_1 = require("./prisma/prisma.module");
 const auth_module_1 = require("./auth/auth.module");
+const customer_auth_module_1 = require("./customer-auth/customer-auth.module");
+const public_module_1 = require("./public/public.module");
+const files_module_1 = require("./files/files.module");
 const orders_module_1 = require("./orders/orders.module");
 const menu_module_1 = require("./menu/menu.module");
 const recipes_module_1 = require("./recipes/recipes.module");
@@ -30,6 +33,7 @@ const ops_module_1 = require("./ops/ops.module");
 const growth_module_1 = require("./growth/growth.module");
 const promotions_module_1 = require("./promotions/promotions.module");
 const special_orders_module_1 = require("./special-orders/special-orders.module");
+const engagement_module_1 = require("./engagement/engagement.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -39,6 +43,9 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
+            customer_auth_module_1.CustomerAuthModule,
+            public_module_1.PublicModule,
+            files_module_1.FilesModule,
             orders_module_1.OrdersModule,
             menu_module_1.MenuModule,
             recipes_module_1.RecipesModule,
@@ -58,6 +65,7 @@ exports.AppModule = AppModule = __decorate([
             growth_module_1.GrowthModule,
             promotions_module_1.PromotionsModule,
             special_orders_module_1.SpecialOrdersModule,
+            engagement_module_1.EngagementModule,
         ],
     })
 ], AppModule);

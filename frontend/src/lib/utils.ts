@@ -4,6 +4,41 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+const TECH_PATTERNS = [
+  /property .+ should not exist/i,
+  /must be a (string|number|boolean|array|integer|uuid)/i,
+  /must be one of the following values/i,
+  /should not be empty/i,
+  /is not valid/i,
+  /must be an? /i,
+  /must match/i,
+  /cannot be empty/i,
+];
+
+/** Convert a raw API error into a user-friendly message. */
+export function friendlyError(status: number, message: unknown): string {
+  if (status >= 500) return 'Something went wrong on our end. Please try again.';
+  if (status === 401) return 'Please sign in to continue.';
+  if (status === 403) return "You don't have permission to do this.";
+  if (status === 404) return 'The requested item could not be found.';
+
+  if (Array.isArray(message)) {
+    // class-validator array — check if all look technical
+    const msgs = (message as unknown[]).map(String);
+    if (msgs.every((m) => TECH_PATTERNS.some((p) => p.test(m)))) {
+      return 'Please check your details and try again.';
+    }
+    return msgs[0]; // first entry is usually most relevant
+  }
+
+  const msg = typeof message === 'string' ? message : String(message || '');
+  if (TECH_PATTERNS.some((p) => p.test(msg))) {
+    return 'Please check your details and try again.';
+  }
+
+  return msg || 'An unexpected error occurred.';
+}
+
 export function buildQueryString(params: Record<string, string | number | boolean | undefined>) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

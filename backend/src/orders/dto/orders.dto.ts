@@ -29,6 +29,7 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  @IsOptional()
   @IsString()
   branchId: string;
 

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { API_PATHS } from '@/lib/constants';
-import { get, post, patch, del } from '@/lib/api';
+import { get, post, patch, del, uploadFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, buildQueryString } from '@/lib/utils';
-import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag } from 'lucide-react';
+import { Utensils, Plus, ToggleLeft, ToggleRight, Trash2, BookOpen, Tag, Upload, ImageIcon } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface MenuOptionValue {
@@ -29,6 +29,8 @@ interface MenuItem {
   name: string;
   description?: string;
   price: number;
+  imageUrl?: string | null;
+  imageKey?: string | null;
   available: boolean;
   category: { id: string; name: string };
   options?: MenuOption[];
@@ -107,6 +109,15 @@ export default function OwnerMenuPage() {
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
+
+  const [newItemImageKey, setNewItemImageKey] = useState('');
+  const [newItemUploading, setNewItemUploading] = useState(false);
+  const [newItemImageError, setNewItemImageError] = useState('');
+  const [newItemLocalPreview, setNewItemLocalPreview] = useState<string | null>(null);
+  const [editItemImageKey, setEditItemImageKey] = useState<string | null>(null);
+  const [editItemUploading, setEditItemUploading] = useState(false);
+  const [editItemImageError, setEditItemImageError] = useState('');
+  const [editItemLocalPreview, setEditItemLocalPreview] = useState<string | null>(null);
 
   const splitVisibleAndHiddenOptions = (options?: MenuOption[]) => {
     const visible: MenuOption[] = [];
@@ -344,6 +355,38 @@ export default function OwnerMenuPage() {
     setRecipeError('');
   };
 
+  const handleNewItemImageUpload = async (file: File) => {
+    setNewItemUploading(true);
+    setNewItemImageError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await uploadFile<{ key: string }>('/api/v1/files/menu-images', form, token ?? undefined);
+      setNewItemImageKey(res.key);
+      setNewItemLocalPreview(URL.createObjectURL(file));
+    } catch (err: any) {
+      setNewItemImageError(err.message || 'Upload failed');
+    } finally {
+      setNewItemUploading(false);
+    }
+  };
+
+  const handleEditItemImageUpload = async (file: File) => {
+    setEditItemUploading(true);
+    setEditItemImageError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await uploadFile<{ key: string }>('/api/v1/files/menu-images', form, token ?? undefined);
+      setEditItemImageKey(res.key);
+      setEditItemLocalPreview(URL.createObjectURL(file));
+    } catch (err: any) {
+      setEditItemImageError(err.message || 'Upload failed');
+    } finally {
+      setEditItemUploading(false);
+    }
+  };
+
   const updateOption = (options: MenuOption[], index: number, next: Partial<MenuOption>) => {
     return options.map((option, idx) => (idx === index ? { ...option, ...next } : option));
   };
@@ -476,6 +519,9 @@ export default function OwnerMenuPage() {
     const { visible, hidden } = splitVisibleAndHiddenOptions(item.options);
     setEditItemOptions(visible);
     setEditItemHiddenOptions(hidden);
+    setEditItemImageKey(item.imageKey ?? null);
+    setEditItemLocalPreview(null);
+    setEditItemImageError('');
   };
 
   const closeEditItem = () => {
@@ -484,6 +530,9 @@ export default function OwnerMenuPage() {
     setEditItemData({ name: '', description: '', price: 0, categoryId: '' });
     setEditItemOptions([]);
     setEditItemHiddenOptions([]);
+    setEditItemImageKey(null);
+    setEditItemLocalPreview(null);
+    setEditItemImageError('');
   };
 
   const handleEditItemSubmit = async (e: React.FormEvent) => {
@@ -503,6 +552,7 @@ export default function OwnerMenuPage() {
           description: editItemData.description.trim(),
           price: Number(editItemData.price),
           categoryId: editItemData.categoryId,
+          imageKey: editItemImageKey,
           options: [
             ...editItemOptions.map((option) => ({
               id: option.id,
@@ -605,6 +655,7 @@ export default function OwnerMenuPage() {
           description: newItem.description.trim(),
           price: Number(newItem.price),
           categoryId: newItem.categoryId,
+          ...(newItemImageKey && { imageKey: newItemImageKey }),
           options: newItemOptions.map((option) => ({
             id: option.id,
             name: option.name.trim(),
@@ -622,6 +673,8 @@ export default function OwnerMenuPage() {
       );
       setNewItem({ ...newItem, name: '', description: '', price: 0 });
       setNewItemOptions([]);
+      setNewItemImageKey('');
+      setNewItemLocalPreview(null);
       await fetchData();
       return true;
     } catch (err: any) {
@@ -779,6 +832,12 @@ export default function OwnerMenuPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredItems.map((item) => (
             <div key={item.id} className={`rounded-3xl border border-border-default bg-surface-raised p-5 space-y-3 flex flex-col ${!item.available ? 'opacity-70' : ''}`}>
+              {item.imageUrl && (
+                <div className="h-40 w-full rounded-2xl overflow-hidden border border-border-subtle">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-text-primary truncate">{item.name}</h3>
@@ -908,7 +967,7 @@ export default function OwnerMenuPage() {
                 <h2 className="text-xl font-semibold text-text-primary">Add Menu Item</h2>
                 <p className="text-sm text-text-secondary mt-1">Fill in the details below and save.</p>
               </div>
-              <Button variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Close</Button>
+              <Button variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); setNewItemImageKey(''); setNewItemLocalPreview(null); setNewItemImageError(''); }}>Close</Button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               {error && <div className="rounded-2xl bg-error-muted p-4 text-sm text-error">{error}</div>}
@@ -962,6 +1021,39 @@ export default function OwnerMenuPage() {
                     rows={3}
                   />
                 </label>
+                {/* Image */}
+                <div>
+                  <span className="text-sm font-medium text-text-secondary">Image</span>
+                  <div className="mt-2 flex items-center gap-4">
+                    {newItemLocalPreview ? (
+                      <div className="h-20 w-20 shrink-0 rounded-2xl overflow-hidden border border-border-subtle">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={newItemLocalPreview} alt="Preview" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-20 w-20 shrink-0 rounded-2xl border-2 border-dashed border-border-default bg-surface-input flex items-center justify-center">
+                        <ImageIcon size={20} className="text-text-tertiary" />
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={newItemUploading}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleNewItemImageUpload(f); e.target.value = ''; }}
+                        />
+                        <span className="inline-flex items-center gap-2 rounded-2xl border border-border-default bg-surface-raised px-4 py-2 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors">
+                          <Upload size={14} />
+                          {newItemUploading ? 'Uploading…' : newItemImageKey ? 'Replace' : 'Upload image'}
+                        </span>
+                      </label>
+                      {newItemImageError && <p className="text-xs text-error">{newItemImageError}</p>}
+                      <p className="text-xs text-text-tertiary">JPEG, PNG or WebP · Max 5 MB</p>
+                    </div>
+                  </div>
+                </div>
                 {/* Variations */}
                 <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
                   <div className="flex items-center justify-between">
@@ -1040,7 +1132,7 @@ export default function OwnerMenuPage() {
                 </div>
                 <div className="flex flex-wrap gap-3 pb-4">
                   <Button type="submit" loading={saving}>Add Item</Button>
-                  <Button type="button" variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); }}>Cancel</Button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowItemModal(false); setNewItemOptions([]); setError(''); setNewItemImageKey(''); setNewItemLocalPreview(null); setNewItemImageError(''); }}>Cancel</Button>
                 </div>
               </form>
             </div>
@@ -1356,6 +1448,50 @@ export default function OwnerMenuPage() {
                   <span className="text-sm font-medium text-text-secondary">Description</span>
                   <textarea value={editItemData.description} onChange={(e) => setEditItemData({ ...editItemData, description: e.target.value })} className="mt-2 w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]" rows={3} />
                 </label>
+                {/* Image */}
+                <div>
+                  <span className="text-sm font-medium text-text-secondary">Image</span>
+                  <div className="mt-2 flex items-center gap-4">
+                    {(editItemLocalPreview ?? (editItemImageKey !== null ? editItem?.imageUrl : null)) ? (
+                      <div className="h-20 w-20 shrink-0 rounded-2xl overflow-hidden border border-border-subtle">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={(editItemLocalPreview ?? editItem?.imageUrl)!} alt="Preview" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-20 w-20 shrink-0 rounded-2xl border-2 border-dashed border-border-default bg-surface-input flex items-center justify-center">
+                        <ImageIcon size={20} className="text-text-tertiary" />
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap gap-2">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            disabled={editItemUploading}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleEditItemImageUpload(f); e.target.value = ''; }}
+                          />
+                          <span className="inline-flex items-center gap-2 rounded-2xl border border-border-default bg-surface-raised px-4 py-2 text-sm font-medium text-text-secondary hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors">
+                            <Upload size={14} />
+                            {editItemUploading ? 'Uploading…' : (editItemLocalPreview ?? editItem?.imageUrl) ? 'Replace' : 'Upload image'}
+                          </span>
+                        </label>
+                        {editItemImageKey !== null && !editItemUploading && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditItemImageKey(null); setEditItemLocalPreview(null); }}
+                            className="rounded-2xl border border-border-default px-4 py-2 text-sm font-medium text-error hover:border-error transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      {editItemImageError && <p className="text-xs text-error">{editItemImageError}</p>}
+                      <p className="text-xs text-text-tertiary">JPEG, PNG or WebP · Max 5 MB</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="rounded-2xl border border-border-default bg-surface-base p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>

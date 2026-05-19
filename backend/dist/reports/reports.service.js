@@ -54,7 +54,7 @@ let ReportsService = class ReportsService {
             }),
             this.prisma.orderItem.groupBy({
                 by: ['menuItemId'],
-                where: { order: { branchId, createdAt: { gte: start, lt: end } } },
+                where: { order: { branchId, createdAt: { gte: start, lt: end }, status: { not: client_1.OrderStatus.CANCELLED } } },
                 _sum: { quantity: true },
                 orderBy: { _sum: { quantity: 'desc' } },
                 take: 5,

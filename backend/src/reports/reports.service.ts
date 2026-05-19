@@ -42,7 +42,7 @@ export class ReportsService {
       }),
       this.prisma.orderItem.groupBy({
         by: ['menuItemId'],
-        where: { order: { branchId, createdAt: { gte: start, lt: end } } },
+        where: { order: { branchId, createdAt: { gte: start, lt: end }, status: { not: OrderStatus.CANCELLED } } },
         _sum: { quantity: true },
         orderBy: { _sum: { quantity: 'desc' } },
         take: 5,

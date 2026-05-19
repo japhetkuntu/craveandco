@@ -14,17 +14,32 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 const alerts_service_1 = require("../alerts/alerts.service");
+const files_service_1 = require("../files/files.service");
 let KitchenService = class KitchenService {
     prisma;
     alerts;
-    constructor(prisma, alerts) {
+    files;
+    constructor(prisma, alerts, files) {
         this.prisma = prisma;
         this.alerts = alerts;
+        this.files = files;
+    }
+    attachImageUrlsToKitchenOrder(order) {
+        return {
+            ...order,
+            items: order.items.map((item) => ({
+                ...item,
+                menuItem: item.menuItem ? {
+                    ...item.menuItem,
+                    imageUrl: item.menuItem.imageKey ? this.files.getImageUrl(item.menuItem.imageKey) : null,
+                } : null,
+            })),
+        };
     }
     async getLiveOrders(branchId, station, page = 0, limit = 50) {
         const take = Math.min(Math.max(limit, 10), 100);
         const skip = Math.max(page, 0) * take;
-        return this.prisma.order.findMany({
+        const orders = await this.prisma.order.findMany({
             where: {
                 branchId,
                 status: { in: [client_1.OrderStatus.NEW, client_1.OrderStatus.PREPARING, client_1.OrderStatus.READY] },
@@ -43,6 +58,7 @@ let KitchenService = class KitchenService {
             take,
             skip,
         });
+        return orders.map((order) => this.attachImageUrlsToKitchenOrder(order));
     }
     isValidOrderStatus(status) {
         return Object.values(client_1.OrderStatus).includes(status);
@@ -51,11 +67,12 @@ let KitchenService = class KitchenService {
         if (!this.isValidOrderStatus(status)) {
             throw new common_1.BadRequestException(`Invalid order status: ${status}`);
         }
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id: orderId },
             data: { status },
             include: { items: { include: { menuItem: true } } },
         });
+        return this.attachImageUrlsToKitchenOrder(updated);
     }
     async getPrepList(branchId, date, shift, page = 0, limit = 50) {
         const targetDate = new Date(date);
@@ -175,6 +192,8 @@ let KitchenService = class KitchenService {
 exports.KitchenService = KitchenService;
 exports.KitchenService = KitchenService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, alerts_service_1.AlertsService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        alerts_service_1.AlertsService,
+        files_service_1.FilesService])
 ], KitchenService);
 //# sourceMappingURL=kitchen.service.js.map

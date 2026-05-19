@@ -14,12 +14,15 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 const promotions_service_1 = require("../promotions/promotions.service");
+const files_service_1 = require("../files/files.service");
 let OrdersService = class OrdersService {
     prisma;
     promotions;
-    constructor(prisma, promotions) {
+    files;
+    constructor(prisma, promotions, files) {
         this.prisma = prisma;
         this.promotions = promotions;
+        this.files = files;
     }
     orderInclude = {
         items: {
@@ -31,6 +34,23 @@ let OrdersService = class OrdersService {
         customer: true,
     };
     groupedComponentsOptionId = '__meta_grouped_menu_components';
+    attachImageUrl(menuItem) {
+        if (!menuItem)
+            return menuItem;
+        return {
+            ...menuItem,
+            imageUrl: menuItem.imageKey ? this.files.getImageUrl(menuItem.imageKey) : null,
+        };
+    }
+    attachImageUrlsToOrder(order) {
+        return {
+            ...order,
+            items: order.items.map((item) => ({
+                ...item,
+                menuItem: this.attachImageUrl(item.menuItem),
+            })),
+        };
+    }
     getGroupedComponentIds(menuItem) {
         const options = Array.isArray(menuItem?.options) ? menuItem.options : [];
         const groupedOption = options.find((option) => option?.id === this.groupedComponentsOptionId);
@@ -172,7 +192,7 @@ let OrdersService = class OrdersService {
     async create(dto) {
         const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
         const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
-        return this.prisma.order.create({
+        const createdOrder = await this.prisma.order.create({
             data: {
                 branchId: dto.branchId,
                 channel: dto.channel,
@@ -208,11 +228,13 @@ let OrdersService = class OrdersService {
             },
             include: this.orderInclude,
         });
+        return this.enrichOrder(createdOrder);
     }
     enrichOrder(order) {
-        const subtotal = order.items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
-        const discountAmount = Math.max(subtotal - Number(order.total), 0);
-        return { ...order, subtotal, discountAmount };
+        const orderWithImages = this.attachImageUrlsToOrder(order);
+        const subtotal = orderWithImages.items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
+        const discountAmount = Math.max(subtotal - Number(orderWithImages.total), 0);
+        return { ...orderWithImages, subtotal, discountAmount };
     }
     async findOne(id) {
         const order = await this.prisma.order.findUnique({
@@ -223,15 +245,50 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         return this.enrichOrder(order);
     }
+    async findByCustomerId(customerId, page = 0, limit = 50) {
+        const take = Math.min(Math.max(limit, 1), 100);
+        const skip = Math.max(page, 0) * take;
+        const orders = await this.prisma.order.findMany({
+            where: { customerId },
+            include: this.orderInclude,
+            orderBy: { createdAt: 'desc' },
+            take,
+            skip,
+        });
+        return orders.map((order) => this.enrichOrder(order));
+    }
+    async findOneByCustomerId(customerId, id) {
+        const order = await this.prisma.order.findFirst({
+            where: { id, customerId },
+            include: this.orderInclude,
+        });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        return this.enrichOrder(order);
+    }
+    async updatePaymentReference(orderId, paymentReference, paymentStatus, receiptUrl, paymentMethod, paymentLabel) {
+        return this.prisma.order.update({
+            where: { id: orderId },
+            data: {
+                paymentReference,
+                paymentStatus,
+                ...(receiptUrl ? { receiptUrl } : {}),
+                ...(paymentMethod ? { paymentMethod } : {}),
+                ...(paymentLabel ? { paymentLabel } : {}),
+            },
+            include: this.orderInclude,
+        });
+    }
     async updateStatus(id, dto) {
         const order = await this.prisma.order.findUnique({ where: { id } });
         if (!order)
             throw new common_1.NotFoundException('Order not found');
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id },
             data: { status: dto.status },
             include: this.orderInclude,
         });
+        return this.enrichOrder(updated);
     }
     async updateItems(id, dto) {
         const order = await this.prisma.order.findUnique({ where: { id } });
@@ -243,7 +300,7 @@ let OrdersService = class OrdersService {
         const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
         const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
         await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id },
             data: {
                 total,
@@ -274,6 +331,7 @@ let OrdersService = class OrdersService {
             },
             include: this.orderInclude,
         });
+        return this.enrichOrder(updated);
     }
     async addItem(id, dto) {
         const order = await this.prisma.order.findUnique({ where: { id } });
@@ -314,11 +372,12 @@ let OrdersService = class OrdersService {
         const items = await this.prisma.orderItem.findMany({ where: { orderId: id } });
         const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
         const foodCost = items.reduce((sum, item) => sum + Number(item.unitCost) * item.quantity, 0);
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id },
             data: { total, foodCost },
             include: this.orderInclude,
         });
+        return this.enrichOrder(updated);
     }
     async removeItem(orderId, itemId) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
@@ -331,11 +390,12 @@ let OrdersService = class OrdersService {
         const items = await this.prisma.orderItem.findMany({ where: { orderId } });
         const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
         const foodCost = items.reduce((sum, item) => sum + Number(item.unitCost) * item.quantity, 0);
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id: orderId },
             data: { total, foodCost },
             include: this.orderInclude,
         });
+        return this.enrichOrder(updated);
     }
     async pay(id, dto) {
         let order = await this.prisma.order.findUnique({ where: { id } });
@@ -513,6 +573,9 @@ let OrdersService = class OrdersService {
     }
     async getStats(branchId, params) {
         const where = this.buildOrderWhere(branchId, params);
+        if (!params.status) {
+            where.status = { not: client_1.OrderStatus.CANCELLED };
+        }
         if (params.categoryIds?.length) {
             const { items: _items, ...orderWhere } = where;
             const [orderCount, matchingItems] = await Promise.all([
@@ -563,17 +626,19 @@ let OrdersService = class OrdersService {
         return enriched;
     }
     async cancel(id) {
-        return this.prisma.order.update({
+        const updated = await this.prisma.order.update({
             where: { id },
             data: { status: client_1.OrderStatus.CANCELLED },
             include: this.orderInclude,
         });
+        return this.enrichOrder(updated);
     }
 };
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        promotions_service_1.PromotionsService])
+        promotions_service_1.PromotionsService,
+        files_service_1.FilesService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

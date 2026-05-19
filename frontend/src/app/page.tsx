@@ -2,49 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Phone, Clock, ChevronDown, Menu, X, Star, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+import { API_BASE } from '@/lib/constants';
 
 /* ─────────────────────────── Types ─────────────────────────── */
-type MenuItem = { name: string; desc?: string; badge?: string };
-type MenuSection = { category: string; note?: string; items: MenuItem[] };
 
-/* ─────────────────────────── Data ──────────────────────────── */
-// Real free-to-use photos from Unsplash (Keesha's Kitchen — Unsplash License)
-// Optimised via Unsplash CDN: w=1200, q=85, fm=webp, fit=crop
-const UNSPLASH = (id: string, w = 1200, h = 900) =>
-  `https://images.unsplash.com/${id}?fm=webp&q=85&w=${w}&h=${h}&auto=format&fit=crop`;
-
-const meals = [
-  {
-    src: UNSPLASH('photo-1664993101841-036f189719b6', 1400, 900),
-    label: 'Jollof Rice & Chicken',
-    tag: 'Fan Favourite',
-    credit: 'Keesha\'s Kitchen / Unsplash',
-  },
-  {
-    src: UNSPLASH('photo-1664992960082-0ea299a9c53e', 900, 1200),
-    label: 'Jollof Rice & Skewers',
-    tag: 'Crave Pick',
-    credit: 'Keesha\'s Kitchen / Unsplash',
-  },
-  {
-    src: UNSPLASH('photo-1665332561290-cc6757172890', 900, 1200),
-    label: 'Okra Soup Plate',
-    tag: 'Taste of Home',
-    credit: 'Keesha\'s Kitchen / Unsplash',
-  },
-  {
-    src: UNSPLASH('photo-1665332195309-9d75071138f0', 900, 1200),
-    label: 'Fried Fish & Jollof',
-    tag: 'Generous',
-    credit: 'Keesha\'s Kitchen / Unsplash',
-  },
-  {
-    src: UNSPLASH('photo-1668356852725-05a0ceb2b60e', 900, 1200),
-    label: 'Puff Puff & Sides',
-    tag: 'Classic',
-    credit: 'Keesha\'s Kitchen / Unsplash',
-  },
-];
 
 const reviews = [
   { name: 'Abena K.', text: 'The Banku & Tilapia is absolutely divine — crispy on the outside, perfectly spiced inside. I drive across town for this.', rating: 5 },
@@ -52,84 +14,6 @@ const reviews = [
   { name: 'Yaa M.',   text: 'Fufu & Groundnut soup that tastes exactly like Grandma\'s. The atmosphere is warm and the service always makes you feel seen.', rating: 5 },
 ];
 
-const menu: MenuSection[] = [
-  {
-    category: 'Crave Classics',
-    items: [
-      { name: 'Jollof Rice / Fried Rice', desc: 'Chicken, coleslaw, shito, fried plantain', badge: 'CRAVE PICK' },
-      { name: 'Plain Rice + Stew', desc: 'Chicken, beans, coleslaw, spaghetti, egg' },
-      { name: 'Angwamo Loaded', desc: 'Fried egg, sausage, beef, sardine or corned beef, chilli sauce' },
-      { name: 'Assorted Jollof / Fried Rice', desc: 'Chopped chicken, gizzard, sausage, vegetables, shito' },
-      { name: 'Assorted Noodles', desc: 'Gizzard, sausage, egg, vegetables' },
-      { name: 'Peppered Rice', desc: 'Spicy rice with mixed veggies, chicken' },
-    ],
-  },
-  {
-    category: 'Banku Plates',
-    items: [
-      { name: 'Banku (2 balls) + Okro Stew', desc: 'Cow meat, beef, wele' },
-      { name: 'Banku (2 balls) + Grilled Tilapia', desc: 'Perfectly spiced grilled tilapia with fresh banku', badge: 'CRAVE PICK' },
-      { name: 'Extra Banku' },
-    ],
-  },
-  {
-    category: 'Taste of Home',
-    items: [
-      { name: 'Fufu + Goat / Cow', desc: 'Light soup, groundnut soup, palm nut soup, or abunabunu' },
-      { name: 'Fufu + Chicken / Salmon', desc: 'Light soup, groundnut soup, palm nut soup, or abunabunu' },
-      { name: 'Omotuo + Goat / Cow / Chicken', desc: 'Rice balls with groundnut soup' },
-      { name: 'Konkonte + Goat / Cow / Chicken', desc: 'Groundnut soup or palm nut soup' },
-      { name: 'Extra Fufu' }, { name: 'Extra Omotuo' }, { name: 'Extra Konkonte' },
-    ],
-  },
-  {
-    category: 'Ampesi Plates',
-    items: [
-      { name: 'Yam / Plantain + Kontomire Abomu', desc: 'Koobi, Kako, Salmon, Egg' },
-      { name: 'Yam / Plantain + Palava Sauce', desc: 'Koobi, Salmon, Kako, Wele' },
-    ],
-  },
-  {
-    category: 'Combo Meals',
-    items: [
-      { name: 'The Crave Combo', desc: 'Jollof / Fried Rice + Water or Sobolo', badge: 'VALUE' },
-      { name: 'Peppered Rice + Beer', desc: 'Spicy peppered rice paired with Club Beer', badge: 'CRAVE PICK' },
-      { name: 'Banku & Chill', desc: 'Banku + Okro Stew + Sobolo or Asaana' },
-      { name: 'The Full Load', desc: 'Assorted Jollof / Fried Rice + Any Drink' },
-    ],
-  },
-  {
-    category: 'Naija Kitchen',
-    note: 'Bold Nigerian flavours · Pre-order by 9 PM, ready by 10 AM',
-    items: [
-      { name: 'Eba + Egusi Stew', badge: 'PRE-ORDER' },
-      { name: 'Pounded Yam + Egusi Soup', badge: 'PRE-ORDER' },
-    ],
-  },
-  {
-    category: 'The Crave Table',
-    note: 'Great food is better shared · Serves 3 · Pre-order by 9 PM',
-    items: [
-      { name: 'Plantain / Yam + Kontomire Abomu', desc: 'Hand-made stew. Serves 3.', badge: 'PRE-ORDER' },
-      { name: 'Plantain / Yam + Garden Eggs Abomu', badge: 'PRE-ORDER' },
-    ],
-  },
-  {
-    category: 'Add-On Proteins',
-    items: [
-      { name: 'Goat Meat · Cow Meat · Chicken · Tilapia' },
-      { name: 'Snail · Salmon (smoked / fresh) · Intestine · Amane' },
-      { name: 'Crab · Beef · Wele · Egg · Cow Feet · Corned Beef' },
-    ],
-  },
-  {
-    category: 'Drinks',
-    items: [
-      { name: 'Water · Malt · Sobolo · Coca Cola' },
-      { name: 'Club Beer · Smirnoff Ice · BB Cocktail · Club Guldar · Don Simon' },
-    ],
-  },
-];
 
 /* ─────────────────────────── Helpers ───────────────────────── */
 function useInView(threshold = 0.15) {
@@ -157,29 +41,39 @@ function StarRow({ n }: { n: number }) {
   );
 }
 
-function BadgeChip({ label }: { label: string }) {
-  const colours: Record<string, string> = {
-    'CRAVE PICK': 'bg-[#b5451b] text-white',
-    'VALUE':      'bg-[#2d6a4f] text-white',
-    'PRE-ORDER':  'bg-[#7c5c2e] text-white',
-  };
-  return (
-    <span className={`inline-block text-[8px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full ${colours[label] ?? 'bg-zinc-700 text-white'}`}>
-      {label}
-    </span>
-  );
+interface LiveMenuItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  imageUrl?: string | null;
+  available: boolean;
+  category?: { id: string; name: string } | null;
 }
 
-/* ─────────────────────────── Page ──────────────────────────── */
+function formatGHS(value: number) {
+  return new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', minimumFractionDigits: 2 }).format(value);
+}
+
 export default function Home() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const [liveItems, setLiveItems] = useState<LiveMenuItem[] | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const galleryAnim = useInView();
+  const orderAnim   = useInView();
   const menuAnim    = useInView();
   const reviewAnim  = useInView();
   const contactAnim = useInView();
+
+  useEffect(() => {
+    const base = API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
+    fetch(`${base}/api/v1/public/menu/items?limit=100`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setLiveItems(Array.isArray(data) ? data.filter((i: LiveMenuItem) => i.available) : []))
+      .catch(() => setLiveItems([]));
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -191,7 +85,7 @@ export default function Home() {
     document.body.style.overflow = navOpen ? 'hidden' : '';
   }, [navOpen]);
 
-  const navLinks = ['gallery', 'menu', 'reviews', 'contact'];
+  const navLinks = ['order', 'gallery', 'menu', 'reviews', 'contact'];
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -444,6 +338,21 @@ export default function Home() {
           <a href="#contact" className="btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.78rem' }}>
             Reserve a Table
           </a>
+          <Link
+            href="/dashboard/login"
+            style={{
+              fontFamily: "'Lato', sans-serif", fontWeight: 700,
+              fontSize: '0.78rem', letterSpacing: '0.06em', textTransform: 'uppercase',
+              color: scrolled ? 'var(--espresso)' : '#fff',
+              textDecoration: 'none', padding: '0.5rem 0.5rem',
+              borderBottom: '1.5px solid transparent',
+              transition: 'border-color 0.2s, color 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--terracotta)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+          >
+            My Account
+          </Link>
         </div>
 
         {/* Hamburger */}
@@ -492,6 +401,18 @@ export default function Home() {
         <a href="tel:+233000000000" className="btn-primary" style={{ marginTop: '2rem', justifyContent: 'center' }}>
           Call Us Now
         </a>
+        <Link
+          href="/dashboard/login"
+          onClick={() => setNavOpen(false)}
+          style={{
+            marginTop: '0.75rem', textAlign: 'center',
+            fontFamily: "'Lato', sans-serif", fontWeight: 700,
+            fontSize: '0.95rem', letterSpacing: '0.04em',
+            color: 'var(--espresso)', textDecoration: 'underline',
+          }}
+        >
+          Sign in / Create account
+        </Link>
       </div>
 
       {/* ══════════════════════ HERO ══════════════════════ */}
@@ -507,10 +428,9 @@ export default function Home() {
       >
         {/* Background */}
         <div style={{ position: 'absolute', inset: 0 }}>
-          {/* Real photo: Jollof Rice with Chicken — Keesha's Kitchen / Unsplash License */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={UNSPLASH('photo-1664993101841-036f189719b6', 1920, 1080)}
+            src="https://images.unsplash.com/photo-1664993101841-036f189719b6?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop"
             alt="Crave & Co. — Jollof Rice & Chicken"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             loading="eager"
@@ -566,9 +486,9 @@ export default function Home() {
             <button onClick={() => scrollTo('gallery')} className="btn-outline">
               Our Meals
             </button>
-            <button onClick={() => scrollTo('menu')} className="btn-primary">
-              View Menu <ArrowRight size={16} />
-            </button>
+            <a href="/dashboard" className="btn-primary">
+              Order Now <ArrowRight size={16} />
+            </a>
           </div>
 
           {/* Floating stats */}
@@ -616,49 +536,68 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* Desktop grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px,100%), 1fr))',
-            gap: 'clamp(12px,2vw,20px)',
-          }}>
-            {meals.map((meal, i) => (
-              <div
-                key={meal.src}
-                className={`meal-card fade-up${galleryAnim.visible ? ' visible' : ''} delay-${Math.min(i + 1, 4)}`}
-                style={{
-                  position: 'relative',
+          {/* Live meals grid */}
+          {liveItems === null ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px,100%), 1fr))',
+              gap: 'clamp(12px,2vw,20px)',
+            }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{
                   aspectRatio: i === 0 ? '4/3' : '3/4',
                   gridColumn: i === 0 ? 'span 2' : 'span 1',
-                  borderRadius: 20, overflow: 'hidden',
-                  background: '#e8d5bb',
-                  cursor: 'pointer',
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={meal.src}
-                  alt={meal.label}
-                  loading="lazy"
-                  decoding="async"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', inset: 0, transition: 'transform 0.6s ease' }}
-                />
-                {/* Overlay */}
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: 'linear-gradient(to top, rgba(26,18,9,0.65) 0%, transparent 55%)',
+                  borderRadius: 20,
+                  background: 'rgba(245,233,214,0.6)',
+                  animation: 'pulse 1.4s ease-in-out infinite',
                 }} />
-                {/* Tag */}
-                <span className="meal-tag" style={{ position: 'absolute', top: 12, left: 12 }}>{meal.tag}</span>
-                {/* Label */}
-                <div style={{ position: 'absolute', bottom: 14, left: 14, right: 14 }}>
-                  <p className="font-display" style={{
-                    color: '#fff', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2,
-                  }}>{meal.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : liveItems.filter(i => i.imageUrl).length > 0 ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px,100%), 1fr))',
+              gap: 'clamp(12px,2vw,20px)',
+            }}>
+              {liveItems.filter(i => i.imageUrl).slice(0, 5).map((item, i) => (
+                <a
+                  key={item.id}
+                  href="/dashboard"
+                  className={`meal-card fade-up${galleryAnim.visible ? ' visible' : ''} delay-${Math.min(i + 1, 4)}`}
+                  style={{
+                    position: 'relative',
+                    aspectRatio: i === 0 ? '4/3' : '3/4',
+                    gridColumn: i === 0 ? 'span 2' : 'span 1',
+                    borderRadius: 20, overflow: 'hidden',
+                    background: '#e8d5bb',
+                    cursor: 'pointer',
+                    display: 'block',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.imageUrl!}
+                    alt={item.name}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', inset: 0, transition: 'transform 0.6s ease' }}
+                  />
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(26,18,9,0.72) 0%, transparent 55%)',
+                  }} />
+                  {item.category && (
+                    <span className="meal-tag" style={{ position: 'absolute', top: 12, left: 12 }}>{item.category.name}</span>
+                  )}
+                  <div style={{ position: 'absolute', bottom: 14, left: 14, right: 14 }}>
+                    <p className="font-display" style={{ color: '#fff', fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>{item.name}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.75)', fontFamily: "'Lato',sans-serif", fontSize: '0.8rem', marginTop: 3 }}>{formatGHS(Number(item.price))}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -670,6 +609,217 @@ export default function Home() {
         </svg>
       </div>
 
+      {/* ══════════════════════ ORDER ONLINE (LIVE) ══════════════════════ */}
+      <section
+        id="order"
+        style={{
+          background: 'var(--cream)',
+          padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)',
+        }}
+      >
+        <div
+          ref={orderAnim.ref}
+          className={`fade-up${orderAnim.visible ? ' visible' : ''}`}
+          style={{ maxWidth: 1180, margin: '0 auto' }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <span className="section-pill">Order Online</span>
+            <h2
+              className="font-display"
+              style={{
+                fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
+                color: 'var(--espresso)', letterSpacing: '-0.02em',
+              }}
+            >
+              Fresh today, in your hands minutes from now.
+            </h2>
+            <p style={{ color: 'var(--bark)', fontFamily: "'Lato',sans-serif", marginTop: '0.75rem', fontSize: '0.95rem' }}>
+              Tap any dish to start your order. Pay securely with Paystack and track your order in real time.
+            </p>
+          </div>
+
+          {liveItems === null ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px,100%), 1fr))',
+                gap: '1.25rem',
+              }}
+            >
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: 300,
+                    borderRadius: 20,
+                    background: 'rgba(245,233,214,0.6)',
+                    animation: 'pulse 1.4s ease-in-out infinite',
+                  }}
+                />
+              ))}
+            </div>
+          ) : liveItems.length === 0 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                background: 'var(--warm-tan)',
+                borderRadius: 20,
+                padding: '2.5rem 1.5rem',
+                color: 'var(--bark)',
+                fontFamily: "'Lato',sans-serif",
+              }}
+            >
+              <p style={{ marginBottom: '1rem' }}>Today&apos;s online menu is loading. Try our full menu below, or jump straight into the ordering app.</p>
+              <Link href="/dashboard" className="btn-primary" style={{ display: 'inline-flex' }}>
+                Open the order app <ArrowRight size={16} />
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px,100%), 1fr))',
+                  gap: '1.25rem',
+                }}
+              >
+                {liveItems.slice(0, 8).map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/dashboard"
+                    style={{
+                      display: 'flex', flexDirection: 'column',
+                      background: '#fff',
+                      borderRadius: 20,
+                      overflow: 'hidden',
+                      border: '1px solid rgba(124,92,46,0.12)',
+                      boxShadow: '0 4px 18px rgba(26,18,9,0.05)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                    }}
+                    className="meal-card"
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '4/3',
+                        background: 'var(--warm-tan)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            height: '100%',
+                            color: 'var(--bark)',
+                            fontFamily: "'Lato',sans-serif",
+                            fontSize: '0.75rem',
+                            letterSpacing: '0.2em', textTransform: 'uppercase',
+                          }}
+                        >
+                          Crave Classic
+                        </div>
+                      )}
+                      {item.category?.name && (
+                        <span
+                          style={{
+                            position: 'absolute', top: 12, left: 12,
+                            background: 'rgba(26,18,9,0.65)',
+                            color: '#fff', fontSize: 10, fontWeight: 700,
+                            letterSpacing: '0.15em', textTransform: 'uppercase',
+                            padding: '4px 10px', borderRadius: 999,
+                            backdropFilter: 'blur(6px)',
+                            fontFamily: "'Lato',sans-serif",
+                          }}
+                        >
+                          {item.category.name}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        padding: '1rem 1.1rem 1.25rem',
+                        display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1,
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontFamily: "'Lato',sans-serif",
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                          color: 'var(--espresso)',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {item.name}
+                      </h3>
+                      {item.description && (
+                        <p
+                          style={{
+                            fontFamily: "'Lato',sans-serif",
+                            fontSize: '0.8rem',
+                            color: 'var(--bark)',
+                            lineHeight: 1.5,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {item.description}
+                        </p>
+                      )}
+                      <div
+                        style={{
+                          marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          paddingTop: '0.5rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                            fontSize: '1rem', color: 'var(--espresso)',
+                          }}
+                        >
+                          {formatGHS(Number(item.price))}
+                        </span>
+                        <span
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            background: 'var(--terracotta)',
+                            color: '#fff',
+                            fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                            fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                            padding: '6px 12px', borderRadius: 999,
+                          }}
+                        >
+                          Order <ArrowRight size={12} />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+                <Link href="/dashboard" className="btn-primary" style={{ display: 'inline-flex' }}>
+                  Browse full menu & order <ArrowRight size={16} />
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* ══════════════════════ MENU ══════════════════════ */}
       <section id="menu" style={{ background: 'var(--warm-tan)', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }} className="pattern-bg">
         <div ref={menuAnim.ref} className={`fade-up${menuAnim.visible ? ' visible' : ''}`}
@@ -680,69 +830,117 @@ export default function Home() {
               fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
               color: 'var(--espresso)', letterSpacing: '-0.02em',
             }}>
-              What's on Today
+              Our Full Menu
             </h2>
             <p style={{ color: 'var(--bark)', fontFamily: "'Lato',sans-serif", marginTop: '0.75rem', fontSize: '0.95rem' }}>
               Freshly prepared each morning. No compromises, ever.
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            {menu.map((section, si) => (
-              <div
-                key={section.category}
-                className={`fade-up${menuAnim.visible ? ' visible' : ''}`}
-                style={{
-                  background: 'rgba(253,248,242,0.85)',
-                  borderRadius: 18,
-                  padding: 'clamp(1.25rem,3vw,2rem)',
-                  border: '1px solid rgba(124,92,46,0.12)',
-                  backdropFilter: 'blur(8px)',
-                  transitionDelay: `${si * 0.06}s`,
-                }}
-              >
-                {/* Category header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
-                  <h3 className="font-display" style={{
-                    fontSize: '1.15rem', fontWeight: 700, fontStyle: 'italic',
-                    color: 'var(--terracotta)', whiteSpace: 'nowrap',
-                  }}>{section.category}</h3>
-                  <div style={{ flex: 1, height: 1, background: 'rgba(181,69,27,0.2)' }} />
-                </div>
+          {liveItems === null ? (
+            /* Skeletons while loading */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{
+                  height: 140, borderRadius: 18,
+                  background: 'rgba(245,233,214,0.5)',
+                  animation: 'pulse 1.4s ease-in-out infinite',
+                  animationDelay: `${i * 0.15}s`,
+                }} />
+              ))}
+            </div>
+          ) : liveItems.length === 0 ? (
+            <div style={{
+              textAlign: 'center', background: 'rgba(253,248,242,0.85)',
+              borderRadius: 18, padding: '2.5rem 1.5rem',
+              color: 'var(--bark)', fontFamily: "'Lato',sans-serif",
+            }}>
+              <p>Menu is being updated. Check back shortly or order directly in the app.</p>
+              <Link href="/dashboard" className="btn-primary" style={{ display: 'inline-flex', marginTop: '1rem' }}>
+                Open the order app <ArrowRight size={16} />
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+              {Object.entries(
+                liveItems.reduce<Record<string, LiveMenuItem[]>>((acc, item) => {
+                  const cat = item.category?.name ?? 'Other';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(item);
+                  return acc;
+                }, {})
+              ).map(([category, items], si) => (
+                <div
+                  key={category}
+                  className={`fade-up${menuAnim.visible ? ' visible' : ''}`}
+                  style={{
+                    background: 'rgba(253,248,242,0.88)',
+                    borderRadius: 18,
+                    padding: 'clamp(1.25rem,3vw,2rem)',
+                    border: '1px solid rgba(124,92,46,0.12)',
+                    backdropFilter: 'blur(8px)',
+                    transitionDelay: `${si * 0.06}s`,
+                  }}
+                >
+                  {/* Category header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <h3 className="font-display" style={{
+                      fontSize: '1.15rem', fontWeight: 700, fontStyle: 'italic',
+                      color: 'var(--terracotta)', whiteSpace: 'nowrap',
+                    }}>{category}</h3>
+                    <div style={{ flex: 1, height: 1, background: 'rgba(181,69,27,0.2)' }} />
+                  </div>
 
-                {section.note && (
-                  <p style={{
-                    fontFamily: "'Lato',sans-serif", fontSize: '0.78rem', fontStyle: 'italic',
-                    color: 'var(--bark)', marginBottom: '1rem',
-                    paddingLeft: '0.5rem', borderLeft: '2px solid var(--terracotta)',
-                  }}>{section.note}</p>
-                )}
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px,100%), 1fr))',
-                  gap: '1rem 2.5rem',
-                }}>
-                  {section.items.map((item) => (
-                    <div key={item.name} className="menu-item" style={{ paddingBottom: '0.5rem', borderBottom: '1px solid rgba(124,92,46,0.08)' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.4rem' }}>
-                        <span className="menu-item-name" style={{
-                          fontFamily: "'Lato',sans-serif", fontWeight: 700,
-                          fontSize: '0.9rem', color: 'var(--espresso)',
-                        }}>{item.name}</span>
-                        {item.badge && <BadgeChip label={item.badge} />}
-                      </div>
-                      {item.desc && (
-                        <p style={{
-                          fontFamily: "'Lato',sans-serif", fontSize: '0.78rem',
-                          color: 'var(--bark)', marginTop: 2, lineHeight: 1.5,
-                        }}>{item.desc}</p>
-                      )}
-                    </div>
-                  ))}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px,100%), 1fr))',
+                    gap: '0.85rem 2.5rem',
+                  }}>
+                    {items.map((item) => (
+                      <Link
+                        key={item.id}
+                        href="/dashboard"
+                        style={{ textDecoration: 'none', display: 'block' }}
+                      >
+                        <div
+                          className="menu-item"
+                          style={{
+                            paddingBottom: '0.5rem',
+                            borderBottom: '1px solid rgba(124,92,46,0.08)',
+                            cursor: 'pointer',
+                            transition: 'opacity 0.15s',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                            <span style={{
+                              fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                              fontSize: '0.9rem', color: 'var(--espresso)', flex: 1,
+                            }}>{item.name}</span>
+                            <span style={{
+                              fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                              fontSize: '0.85rem', color: 'var(--terracotta)',
+                              whiteSpace: 'nowrap', flexShrink: 0,
+                            }}>{formatGHS(Number(item.price))}</span>
+                          </div>
+                          {item.description && (
+                            <p style={{
+                              fontFamily: "'Lato',sans-serif", fontSize: '0.78rem',
+                              color: 'var(--bark)', marginTop: 2, lineHeight: 1.5,
+                            }}>{item.description}</p>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+
+          <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+            <Link href="/dashboard" className="btn-primary" style={{ display: 'inline-flex' }}>
+              Order now <ArrowRight size={16} />
+            </Link>
           </div>
         </div>
       </section>

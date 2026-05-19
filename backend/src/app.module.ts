@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { CustomerAuthModule } from './customer-auth/customer-auth.module';
+import { PublicModule } from './public/public.module';
+import { FilesModule } from './files/files.module';
 import { OrdersModule } from './orders/orders.module';
 import { MenuModule } from './menu/menu.module';
 import { RecipesModule } from './recipes/recipes.module';
@@ -21,12 +24,16 @@ import { OpsModule } from './ops/ops.module';
 import { GrowthModule } from './growth/growth.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { SpecialOrdersModule } from './special-orders/special-orders.module';
+import { EngagementModule } from './engagement/engagement.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    CustomerAuthModule,
+    PublicModule,
+    FilesModule,
     OrdersModule,
     MenuModule,
     RecipesModule,
@@ -46,6 +53,7 @@ import { SpecialOrdersModule } from './special-orders/special-orders.module';
     GrowthModule,
     PromotionsModule,
     SpecialOrdersModule,
+    EngagementModule,
   ],
 })
 export class AppModule {}

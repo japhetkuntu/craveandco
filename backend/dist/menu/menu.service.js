@@ -12,11 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MenuService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const files_service_1 = require("../files/files.service");
 let MenuService = class MenuService {
     prisma;
+    files;
     groupedComponentsOptionId = '__meta_grouped_menu_components';
-    constructor(prisma) {
+    constructor(prisma, files) {
         this.prisma = prisma;
+        this.files = files;
     }
     splitVisibleAndHiddenOptions(options) {
         if (!Array.isArray(options)) {
@@ -40,7 +43,12 @@ let MenuService = class MenuService {
         const groupedComponentIds = grouped
             ? (grouped.values ?? []).map((v) => v.id)
             : [];
-        return { ...item, options: visible, groupedComponentIds };
+        return {
+            ...item,
+            options: visible,
+            groupedComponentIds,
+            imageUrl: item.imageKey ? this.files.getImageUrl(item.imageKey) : null,
+        };
     }
     async createCategory(dto) {
         return this.prisma.menuCategory.create({ data: dto });
@@ -72,9 +80,14 @@ let MenuService = class MenuService {
     async createItem(branchId, dto) {
         const created = await this.prisma.menuItem.create({
             data: {
-                ...dto,
                 branchId,
+                categoryId: dto.categoryId,
+                name: dto.name,
+                description: dto.description,
+                price: dto.price,
+                imageKey: dto.imageKey ?? undefined,
                 available: dto.available ?? true,
+                dayparts: dto.dayparts ?? ['ALL'],
                 options: dto.options,
             },
             include: { category: true },
@@ -87,7 +100,10 @@ let MenuService = class MenuService {
         const items = await this.prisma.menuItem.findMany({
             where: { branchId, ...(categoryId && { categoryId }) },
             include: { category: true },
-            orderBy: { name: 'asc' },
+            orderBy: [
+                { imageKey: { sort: 'asc', nulls: 'last' } },
+                { name: 'asc' },
+            ],
             take,
             skip,
         });
@@ -97,7 +113,16 @@ let MenuService = class MenuService {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
         if (!item)
             throw new common_1.NotFoundException('Menu item not found');
-        const data = { ...dto };
+        const data = {
+            name: dto.name ?? item.name,
+            description: dto.description ?? item.description,
+            price: dto.price ?? item.price,
+            categoryId: dto.categoryId ?? item.categoryId,
+            imageKey: dto.imageKey === undefined ? item.imageKey : dto.imageKey,
+            available: dto.available ?? item.available,
+            dayparts: dto.dayparts ?? item.dayparts,
+            options: item.options,
+        };
         if (dto.options !== undefined) {
             const { hidden } = this.splitVisibleAndHiddenOptions(item.options);
             data.options = [...dto.options, ...hidden];
@@ -107,13 +132,22 @@ let MenuService = class MenuService {
             data,
             include: { category: true },
         });
+        if (dto.imageKey !== undefined &&
+            item.imageKey &&
+            item.imageKey !== dto.imageKey) {
+            await this.files.deleteImage(item.imageKey).catch(() => null);
+        }
         return this.toPublicMenuItem(updated);
     }
     async deleteItem(id) {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
         if (!item)
             throw new common_1.NotFoundException('Menu item not found');
-        return this.prisma.menuItem.delete({ where: { id } });
+        const deleted = await this.prisma.menuItem.delete({ where: { id } });
+        if (item.imageKey) {
+            await this.files.deleteImage(item.imageKey).catch(() => null);
+        }
+        return deleted;
     }
     async toggleAvailability(id) {
         const item = await this.prisma.menuItem.findUnique({ where: { id } });
@@ -129,6 +163,7 @@ let MenuService = class MenuService {
 exports.MenuService = MenuService;
 exports.MenuService = MenuService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        files_service_1.FilesService])
 ], MenuService);
 //# sourceMappingURL=menu.service.js.map

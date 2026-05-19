@@ -22,7 +22,7 @@ interface Order {
   createdAt: string;
   matchedItemCount?: number;
   items: {
-    menuItem: { name: string; category?: { id: string; name: string } | null };
+    menuItem: { name: string; category?: { id: string; name: string } | null; imageUrl?: string | null };
     quantity: number;
     unitPrice: number;
     unitCost: number;
@@ -304,7 +304,9 @@ export default function OwnerOrdersPage() {
         <>
           <div className="space-y-6">
             {Object.entries(groupedOrders).map(([groupLabel, groupOrders]) => {
-              const groupTotal = groupOrders.reduce((sum, order) => sum + Number(order.total), 0);
+              const groupTotal = groupOrders
+                .filter((order) => order.status !== 'CANCELLED')
+                .reduce((sum, order) => sum + Number(order.total), 0);
               return (
                 <div key={groupLabel} className="space-y-3">
                   {groupBy !== 'NONE' && (
@@ -353,11 +355,19 @@ export default function OwnerOrdersPage() {
                               const itemMatches = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(item.menuItem?.category?.id ?? '');
                               return (
                               <div key={idx} className={`flex items-center justify-between gap-3 rounded-2xl p-3 transition-opacity ${itemMatches ? 'bg-surface-base' : 'bg-surface-base opacity-40'}`}>
-                                <div>
-                                  <p className="font-medium text-text-primary">{item.quantity}x {item.menuItem?.name}
-                                    {!itemMatches && <span className="ml-1.5 text-xs text-text-tertiary">({item.menuItem?.category?.name})</span>}
-                                  </p>
-                                  <p className="text-xs text-text-secondary">{formatCurrency(item.unitPrice * item.quantity)} total</p>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {item.menuItem?.imageUrl ? (
+                                    <div className="shrink-0 w-14 h-14 overflow-hidden rounded-2xl bg-surface-raised">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={item.menuItem.imageUrl} alt={item.menuItem?.name ?? 'Menu item'} className="h-full w-full object-cover" />
+                                    </div>
+                                  ) : null}
+                                  <div>
+                                    <p className="font-medium text-text-primary">{item.quantity}x {item.menuItem?.name}
+                                      {!itemMatches && <span className="ml-1.5 text-xs text-text-tertiary">({item.menuItem?.category?.name})</span>}
+                                    </p>
+                                    <p className="text-xs text-text-secondary">{formatCurrency(item.unitPrice * item.quantity)} total</p>
+                                  </div>
                                 </div>
                                 <span className="text-xs text-text-tertiary">Cost {formatCurrency(item.unitCost * item.quantity)}</span>
                               </div>
@@ -374,8 +384,16 @@ export default function OwnerOrdersPage() {
                                 const itemMatches = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(item.menuItem?.category?.id ?? '');
                                 return (
                                 <div key={idx} className={`space-y-2 rounded-2xl p-3 transition-opacity ${itemMatches ? 'bg-surface-raised' : 'bg-surface-raised opacity-40'}`}>
-                                  <div className="flex items-center justify-between gap-3 text-text-primary">
-                                    <span className="font-semibold text-sm">{item.quantity}x {item.menuItem?.name}</span>
+                                  <div className="flex items-start justify-between gap-3 text-text-primary">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {item.menuItem?.imageUrl ? (
+                                        <div className="shrink-0 w-14 h-14 overflow-hidden rounded-2xl bg-surface-raised">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={item.menuItem.imageUrl} alt={item.menuItem?.name ?? 'Menu item'} className="h-full w-full object-cover" />
+                                        </div>
+                                      ) : null}
+                                      <span className="font-semibold text-sm truncate">{item.quantity}x {item.menuItem?.name}</span>
+                                    </div>
                                     <span className="font-mono text-sm">{formatCurrency(item.unitPrice * item.quantity)}</span>
                                   </div>
                                   {item.selectedOptions?.length ? (

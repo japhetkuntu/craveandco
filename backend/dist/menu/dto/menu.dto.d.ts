@@ -16,7 +16,7 @@ export declare class CreateMenuItemDto {
     name: string;
     description?: string;
     price: number;
-    imageUrl?: string;
+    imageKey?: string;
     available?: boolean;
     dayparts?: string[];
     options?: MenuItemOptionDto[];
@@ -25,7 +25,7 @@ export declare class UpdateMenuItemDto {
     name?: string;
     description?: string;
     price?: number;
-    imageUrl?: string;
+    imageKey?: string | null;
     available?: boolean;
     categoryId?: string;
     dayparts?: string[];

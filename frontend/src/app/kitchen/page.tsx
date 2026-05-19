@@ -14,7 +14,7 @@ interface SelectedOption { optionId: string; values: string[] }
 interface OrderItem {
   id: string; quantity: number; notes?: string;
   selectedOptions?: SelectedOption[];
-  menuItem: { name: string; options?: MenuOption[] };
+  menuItem: { name: string; options?: MenuOption[]; imageUrl?: string | null };
 }
 interface Order {
   id: string; channel: string; status: string; createdAt: string;
@@ -238,6 +238,12 @@ function OrderCard({ order, onAdvance, isAdvancing }: {
               <span className="shrink-0 w-9 h-9 rounded-xl bg-[var(--color-gold)] text-white text-base font-black flex items-center justify-center">
                 {item.quantity}
               </span>
+              {item.menuItem.imageUrl ? (
+                <div className="shrink-0 w-14 h-14 overflow-hidden rounded-2xl bg-surface-base">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.menuItem.imageUrl} alt={item.menuItem.name} className="h-full w-full object-cover" />
+                </div>
+              ) : null}
               <div className="flex-1 min-w-0 pt-1">
                 <p className="text-sm font-bold text-text-primary leading-tight">{item.menuItem.name}</p>
                 {opts.length > 0 && (

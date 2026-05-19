@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { FilesService } from '../files/files.service';
 import { CreateMenuItemDto, UpdateMenuItemDto, CreateCategoryDto, UpdateCategoryDto } from './dto/menu.dto';
 export declare class MenuService {
     private prisma;
+    private files;
     private readonly groupedComponentsOptionId;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, files: FilesService);
     private splitVisibleAndHiddenOptions;
     private toPublicMenuItem;
     createCategory(dto: CreateCategoryDto): Promise<{
@@ -21,10 +23,10 @@ export declare class MenuService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
             categoryId: string;
+            description: string | null;
             price: import("@prisma/client/runtime/library").Decimal;
-            imageUrl: string | null;
+            imageKey: string | null;
             available: boolean;
             dayparts: string[];
             options: import("@prisma/client/runtime/library").JsonValue | null;
@@ -68,15 +70,17 @@ export declare class MenuService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
     findItems(branchId: string, categoryId?: string, page?: number, limit?: number): Promise<({
         category: {
@@ -93,15 +97,17 @@ export declare class MenuService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     })[]>;
     updateItem(id: string, dto: UpdateMenuItemDto): Promise<{
         category: {
@@ -118,15 +124,17 @@ export declare class MenuService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
     deleteItem(id: string): Promise<{
         name: string;
@@ -134,10 +142,10 @@ export declare class MenuService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
@@ -148,14 +156,16 @@ export declare class MenuService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        description: string | null;
         categoryId: string;
+        description: string | null;
         price: import("@prisma/client/runtime/library").Decimal;
-        imageUrl: string | null;
+        imageKey: string | null;
         available: boolean;
         dayparts: string[];
         options: import("@prisma/client/runtime/library").JsonValue | null;
     } & {
+        options: any[];
         groupedComponentIds: string[];
+        imageUrl: string | null;
     }>;
 }

@@ -22,10 +22,10 @@ export declare class ReportsController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                description: string | null;
                 categoryId: string;
+                description: string | null;
                 price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
+                imageKey: string | null;
                 available: boolean;
                 dayparts: string[];
                 options: import("@prisma/client/runtime/library").JsonValue | null;

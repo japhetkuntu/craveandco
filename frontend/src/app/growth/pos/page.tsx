@@ -32,6 +32,7 @@ interface MenuItem {
   available: boolean;
   category: { id: string; name: string };
   options?: MenuOption[];
+  imageUrl?: string | null;
 }
 
 interface Category { id: string; name: string; }
@@ -944,10 +945,16 @@ export default function GrowthPOSPage() {
                   <button
                     key={item.id}
                     onClick={() => openItem(item)}
-                    className={`relative flex min-h-[100px] sm:min-h-[115px] md:min-h-[125px] flex-col justify-between overflow-hidden bg-surface-raised rounded-[22px] border border-border-subtle p-3 sm:p-4 text-left transition-all duration-200 hover:border-gold hover:shadow-lg active:-translate-y-0.5 ${
+                    className={`relative flex min-h-[130px] sm:min-h-[145px] md:min-h-[155px] flex-col justify-between overflow-hidden bg-surface-raised rounded-[22px] border border-border-subtle p-3 sm:p-4 text-left transition-all duration-200 hover:border-gold hover:shadow-lg active:-translate-y-0.5 ${
                       inCart ? 'border-gold shadow-sm ring-1 ring-gold' : ''
                     }`}
                   >
+                    {item.imageUrl ? (
+                      <div className="mb-3 h-28 w-full overflow-hidden rounded-[18px] bg-surface-base">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                      </div>
+                    ) : null}
                     {inCart && (
                       <span className="absolute top-3 right-3 z-10 bg-gold text-white text-[11px] font-bold rounded-full w-7 h-7 flex items-center justify-center shadow-lg border-2 border-white">
                         {inCart.quantity}

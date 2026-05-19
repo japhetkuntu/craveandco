@@ -79,10 +79,10 @@ export declare class CustomersService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            customerId: string | null;
             notes: string | null;
             channel: import("@prisma/client").$Enums.OrderChannel;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
-            customerId: string | null;
             guestName: string | null;
             status: import("@prisma/client").$Enums.OrderStatus;
             paymentLabel: string | null;
@@ -90,6 +90,8 @@ export declare class CustomersService {
             promotionId: string | null;
             total: Prisma.Decimal;
             foodCost: Prisma.Decimal;
+            paymentReference: string | null;
+            paymentStatus: string | null;
             paidAt: Date | null;
         })[];
         loyaltyTransactions: {

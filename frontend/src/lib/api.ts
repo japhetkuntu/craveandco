@@ -1,4 +1,5 @@
 import { API_BASE, API_PATHS } from '@/lib/constants';
+import { friendlyError } from '@/lib/utils';
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -89,16 +90,7 @@ export async function api<T = any>(
     }
 
     const body = await res.json().catch(() => ({}));
-    let message =
-      typeof body.message === 'string'
-        ? body.message
-        : res.statusText || `API error ${res.status}`;
-
-    if (!message && body.message) {
-      message = JSON.stringify(body.message);
-    }
-
-    throw new Error(message);
+    throw new Error(friendlyError(res.status, body?.message));
   }
 
   const text = await res.text();
@@ -117,6 +109,33 @@ export function patch<T = any>(path: string, data: any, token?: string) {
   return api<T>(path, { method: 'PATCH', body: JSON.stringify(data), token });
 }
 
+export function put<T = any>(path: string, data: any, token?: string) {
+  return api<T>(path, { method: 'PUT', body: JSON.stringify(data), token });
+}
+
 export function del<T = any>(path: string, token?: string) {
   return api<T>(path, { method: 'DELETE', token });
+}
+
+export async function uploadFile<T = any>(path: string, formData: FormData, token?: string): Promise<T> {
+  const authToken = token || getStoredAuth()?.accessToken;
+  const baseUrl = API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
+  const requestUrl = path.startsWith('http') ? path : `${baseUrl}${path}`;
+
+  const res = await fetch(requestUrl, {
+    method: 'POST',
+    headers: {
+      ...(authToken && { Authorization: `Bearer ${authToken}` }),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof body.message === 'string' ? body.message : `Upload failed: ${res.status}`,
+    );
+  }
+
+  return res.json();
 }

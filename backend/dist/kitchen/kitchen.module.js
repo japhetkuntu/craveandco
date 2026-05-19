@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const alerts_module_1 = require("../alerts/alerts.module");
 const kitchen_service_1 = require("./kitchen.service");
 const kitchen_controller_1 = require("./kitchen.controller");
+const files_module_1 = require("../files/files.module");
 let KitchenModule = class KitchenModule {
 };
 exports.KitchenModule = KitchenModule;
 exports.KitchenModule = KitchenModule = __decorate([
     (0, common_1.Module)({
-        imports: [alerts_module_1.AlertsModule],
+        imports: [alerts_module_1.AlertsModule, files_module_1.FilesModule],
         providers: [kitchen_service_1.KitchenService],
         controllers: [kitchen_controller_1.KitchenController],
     })

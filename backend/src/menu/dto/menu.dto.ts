@@ -24,7 +24,7 @@ export class CreateMenuItemDto {
   @IsString() @IsNotEmpty() name: string;
   @IsOptional() @IsString() description?: string;
   @IsNumber() price: number;
-  @IsOptional() @IsString() imageUrl?: string;
+  @IsOptional() @IsString() imageKey?: string;
   @IsOptional() @IsBoolean() available?: boolean;
   @IsOptional() @IsArray() dayparts?: string[];
   @IsOptional()
@@ -38,7 +38,7 @@ export class UpdateMenuItemDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsNumber() price?: number;
-  @IsOptional() @IsString() imageUrl?: string;
+  @IsOptional() @IsString() imageKey?: string | null;
   @IsOptional() @IsBoolean() available?: boolean;
   @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsArray() dayparts?: string[];

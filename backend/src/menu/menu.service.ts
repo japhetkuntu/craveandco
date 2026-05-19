@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FilesService } from '../files/files.service';
 import {
   CreateMenuItemDto,
   UpdateMenuItemDto,
@@ -11,7 +12,10 @@ import {
 export class MenuService {
   private readonly groupedComponentsOptionId = '__meta_grouped_menu_components';
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private files: FilesService,
+  ) {}
 
   private splitVisibleAndHiddenOptions(options: unknown) {
     if (!Array.isArray(options)) {
@@ -31,13 +35,18 @@ export class MenuService {
     return { visible, hidden };
   }
 
-  private toPublicMenuItem<T extends { options?: unknown }>(item: T): T & { groupedComponentIds: string[] } {
+  private toPublicMenuItem<T extends { options?: unknown; imageKey?: string | null }>(item: T) {
     const { visible, hidden } = this.splitVisibleAndHiddenOptions(item.options);
     const grouped = hidden.find((h: any) => h.id === this.groupedComponentsOptionId);
     const groupedComponentIds: string[] = grouped
       ? (grouped.values ?? []).map((v: any) => v.id as string)
       : [];
-    return { ...item, options: visible, groupedComponentIds };
+    return {
+      ...item,
+      options: visible,
+      groupedComponentIds,
+      imageUrl: item.imageKey ? this.files.getImageUrl(item.imageKey) : null,
+    };
   }
 
   async createCategory(dto: CreateCategoryDto) {
@@ -74,9 +83,14 @@ export class MenuService {
   async createItem(branchId: string, dto: CreateMenuItemDto) {
     const created = await this.prisma.menuItem.create({
       data: {
-        ...dto,
         branchId,
+        categoryId: dto.categoryId,
+        name: dto.name,
+        description: dto.description,
+        price: dto.price,
+        imageKey: dto.imageKey ?? undefined,
         available: dto.available ?? true,
+        dayparts: dto.dayparts ?? ['ALL'],
         options: dto.options as any,
       },
       include: { category: true },
@@ -91,7 +105,10 @@ export class MenuService {
     const items = await this.prisma.menuItem.findMany({
       where: { branchId, ...(categoryId && { categoryId }) },
       include: { category: true },
-      orderBy: { name: 'asc' },
+      orderBy: [
+        { imageKey: { sort: 'asc', nulls: 'last' } },
+        { name: 'asc' },
+      ],
       take,
       skip,
     });
@@ -103,7 +120,17 @@ export class MenuService {
     const item = await this.prisma.menuItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Menu item not found');
 
-    const data: any = { ...dto };
+    const data: any = {
+      name: dto.name ?? item.name,
+      description: dto.description ?? item.description,
+      price: dto.price ?? item.price,
+      categoryId: dto.categoryId ?? item.categoryId,
+      imageKey: dto.imageKey === undefined ? item.imageKey : dto.imageKey,
+      available: dto.available ?? item.available,
+      dayparts: dto.dayparts ?? item.dayparts,
+      options: item.options,
+    };
+
     if (dto.options !== undefined) {
       const { hidden } = this.splitVisibleAndHiddenOptions(item.options);
       data.options = [...(dto.options as any[]), ...hidden] as any;
@@ -114,13 +141,27 @@ export class MenuService {
       data,
       include: { category: true },
     });
+
+    // Clean up old image from storage if it was replaced
+    if (
+      dto.imageKey !== undefined &&
+      item.imageKey &&
+      item.imageKey !== dto.imageKey
+    ) {
+      await this.files.deleteImage(item.imageKey).catch(() => null);
+    }
+
     return this.toPublicMenuItem(updated);
   }
 
   async deleteItem(id: string) {
     const item = await this.prisma.menuItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Menu item not found');
-    return this.prisma.menuItem.delete({ where: { id } });
+    const deleted = await this.prisma.menuItem.delete({ where: { id } });
+    if (item.imageKey) {
+      await this.files.deleteImage(item.imageKey).catch(() => null);
+    }
+    return deleted;
   }
 
   async toggleAvailability(id: string) {

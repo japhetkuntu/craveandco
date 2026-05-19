@@ -122,6 +122,14 @@ enum PromotionStatus {
   EXPIRED
 }
 
+enum EngagementChannel {
+  CALL
+  WHATSAPP
+  SMS
+  IN_PERSON
+  EMAIL
+}
+
 // ─── CORE ───────────────────────────────────────────────
 
 model Branch {
@@ -150,6 +158,7 @@ model Branch {
   auditLogs          AuditLog[]
   paymentTypes       PaymentType[]
   promotions         Promotion[]
+  engagementLogs     CustomerEngagementLog[]
 
   @@map("branches")
 }
@@ -174,6 +183,7 @@ model User {
   auditLogs      AuditLog[]
   handoverNotes  HandoverNote[]
   specialOrders  SpecialOrder[]
+  engagementLogs CustomerEngagementLog[]
 
   @@index([branchId])
   @@map("users")
@@ -215,7 +225,7 @@ model MenuItem {
   name         String
   description  String?
   price        Decimal      @db.Decimal(10, 2)
-  imageUrl     String?
+  imageKey     String?
   available    Boolean      @default(true)
   dayparts     String[]     @default(["ALL"])
   createdAt    DateTime     @default(now())
@@ -404,13 +414,15 @@ model Order {
   status        OrderStatus   @default(NEW)
   total         Decimal       @db.Decimal(10, 2)
   foodCost      Decimal       @db.Decimal(10, 2) @default(0)
-  paymentMethod PaymentMethod?
-  paymentLabel  String?
-  customerId    String?
-  customer      Customer?     @relation(fields: [customerId], references: [id])
-  guestName     String?
-  receiptUrl    String?
-  notes         String?
+  paymentMethod     PaymentMethod?
+  paymentLabel      String?
+  paymentReference  String?         @unique
+  paymentStatus     String?
+  customerId        String?
+  customer          Customer?       @relation(fields: [customerId], references: [id])
+  guestName         String?
+  receiptUrl        String?
+  notes             String?
   paidAt        DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -544,7 +556,7 @@ model Customer {
   id          String    @id @default(cuid())
   name        String
   phone       String?   @unique
-  email       String?
+  email       String?   @unique
   birthday    DateTime? @db.Date
   firstSeenAt DateTime  @default(now())
   lastSeenAt  DateTime  @default(now())
@@ -556,9 +568,38 @@ model Customer {
   orders              Order[]
   loyaltyTransactions LoyaltyTransaction[]
   feedbackTickets     FeedbackTicket[]
+  account             CustomerAccount?
+  refreshTokens      CustomerRefreshToken[]
+  engagementLogs     CustomerEngagementLog[]
 
   @@index([lastSeenAt])
   @@map("customers")
+}
+
+model CustomerAccount {
+  id           String   @id @default(cuid())
+  customerId   String   @unique
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now())
+
+  @@map("customer_accounts")
+}
+
+model CustomerRefreshToken {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@map("customer_refresh_tokens")
 }
 
 model LoyaltyTransaction {
@@ -692,4 +733,27 @@ model FileObject {
   createdAt DateTime @default(now())
 
   @@map("file_objects")
+}
+
+// ─── ENGAGEMENT ─────────────────────────────────────────
+
+model CustomerEngagementLog {
+  id          String            @id @default(cuid())
+  branchId    String
+  branch      Branch            @relation(fields: [branchId], references: [id])
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  engagedById String
+  engagedBy   User              @relation(fields: [engagedById], references: [id])
+  date        DateTime          @db.Date
+  engaged     Boolean           @default(false)
+  engagedAt   DateTime?
+  channel     EngagementChannel?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([customerId, date])
+  @@index([branchId, date])
+  @@map("customer_engagement_logs")
 }

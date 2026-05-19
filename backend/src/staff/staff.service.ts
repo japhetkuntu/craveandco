@@ -105,7 +105,7 @@ export class StaffService {
     nextDate.setDate(nextDate.getDate() + 1);
 
     const orders = await this.prisma.order.aggregate({
-      where: { branchId, createdAt: { gte: targetDate, lt: nextDate } },
+      where: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: 'CANCELLED' } },
       _sum: { total: true },
     });
 

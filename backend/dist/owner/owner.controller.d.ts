@@ -43,10 +43,10 @@ export declare class OwnerController {
         branchId: string;
         id: string;
         createdAt: Date;
-        receiptUrl: string | null;
         description: string | null;
-        paidAt: Date;
         category: string;
+        receiptUrl: string | null;
+        paidAt: Date;
         amount: import("@prisma/client/runtime/library").Decimal;
         approved: boolean | null;
         paidBy: string;
@@ -55,10 +55,10 @@ export declare class OwnerController {
         branchId: string;
         id: string;
         createdAt: Date;
-        receiptUrl: string | null;
         description: string | null;
-        paidAt: Date;
         category: string;
+        receiptUrl: string | null;
+        paidAt: Date;
         amount: import("@prisma/client/runtime/library").Decimal;
         approved: boolean | null;
         paidBy: string;
@@ -67,10 +67,10 @@ export declare class OwnerController {
         branchId: string;
         id: string;
         createdAt: Date;
-        receiptUrl: string | null;
         description: string | null;
-        paidAt: Date;
         category: string;
+        receiptUrl: string | null;
+        paidAt: Date;
         amount: import("@prisma/client/runtime/library").Decimal;
         approved: boolean | null;
         paidBy: string;

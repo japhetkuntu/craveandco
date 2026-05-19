@@ -139,6 +139,17 @@ export const API_PATHS = {
     dashboard: '/api/v1/growth/dashboard',
     churnRisk: '/api/v1/growth/churn-risk',
   },
+  engagement: {
+    daily: (date: string) => `/api/v1/engagement?date=${date}`,
+    dailyPaged: (date: string, page: number, limit: number, search?: string) => {
+      let url = `/api/v1/engagement?date=${date}&page=${page}&limit=${limit}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+      return url;
+    },
+    upsert: (customerId: string) => `/api/v1/engagement/${customerId}`,
+    analytics: (from: string, to: string) => `/api/v1/engagement/analytics?from=${from}&to=${to}`,
+    dailySummary: (date: string) => `/api/v1/engagement/daily-summary?date=${date}`,
+  },
   promotions: {
     list: '/api/v1/promotions',
     active: '/api/v1/promotions/active',
@@ -188,6 +199,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Reports', href: '/owner/reports', icon: <BarChart3 size={20} /> },
     { label: 'Alerts', href: '/owner/alerts', icon: <Bell size={20} /> },
     { label: 'Promotions', href: '/owner/promotions', icon: <Tag size={20} /> },
+    { label: 'Engagement', href: '/owner/engagement', icon: <HeartHandshake size={20} /> },
     { label: 'Settings', href: '/owner/settings', icon: <Settings size={20} /> },
   ],
   KITCHEN_STAFF: [
@@ -214,6 +226,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Dashboard', href: '/growth', icon: <TrendingUp size={20} /> },
     { label: 'POS', href: '/growth/pos', icon: <ShoppingCart size={20} /> },
     { label: 'Customers', href: '/growth/customers', icon: <Users size={20} /> },
+    { label: 'Engagement', href: '/growth/engagement', icon: <HeartHandshake size={20} /> },
     { label: 'Special Orders', href: '/growth/special-orders', icon: <Star size={20} /> },
     { label: 'Campaigns', href: '/growth/campaigns', icon: <Megaphone size={20} /> },
     { label: 'Loyalty', href: '/growth/loyalty', icon: <HeartHandshake size={20} /> },

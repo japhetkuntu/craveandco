@@ -108,7 +108,7 @@ let StaffService = class StaffService {
         const nextDate = new Date(targetDate);
         nextDate.setDate(nextDate.getDate() + 1);
         const orders = await this.prisma.order.aggregate({
-            where: { branchId, createdAt: { gte: targetDate, lt: nextDate } },
+            where: { branchId, createdAt: { gte: targetDate, lt: nextDate }, status: { not: 'CANCELLED' } },
             _sum: { total: true },
         });
         const attendance = await this.prisma.attendanceLog.findMany({
