@@ -384,6 +384,24 @@ export default function MenuPage() {
           .cat-side-count, .cat-row.zigzag .cat-side-count { align-self: center; }
           .cat-items-grid { grid-template-columns: 1fr; width: 100%; }
         }
+        .menu-card-desc {
+          font-family: 'Lato', sans-serif; font-size: 0.875rem;
+          color: var(--bark); line-height: 1.65;
+          display: -webkit-box; -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .menu-sticky-bar {
+          position: sticky; top: 64px; z-index: 100;
+          background: rgba(253,248,242,0.97);
+          backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          border-bottom: 1px solid rgba(124,92,46,0.1);
+          box-shadow: 0 2px 12px rgba(26,18,9,0.05);
+        }
+        @keyframes statsFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .stats-fade { animation: statsFadeIn 0.4s ease forwards; }
       `}</style>
 
       {/* ── NAV ── */}
@@ -535,7 +553,7 @@ export default function MenuPage() {
           Soulful West African flavours, made fresh every single day.
         </p>
         {!loading && (
-          <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', marginBottom: '2rem' }}>
+          <div className="stats-fade" style={{ display: 'flex', gap: '2rem', justifyContent: 'center', marginBottom: '2rem' }}>
             <div style={{ textAlign: 'center' }}>
               <div className="font-display" style={{ fontWeight: 900, fontSize: '2rem', color: '#fff', lineHeight: 1 }}>
                 {items.filter((i) => i.available).length}
@@ -568,33 +586,35 @@ export default function MenuPage() {
         )}
       </header>
 
-      {/* ── MENU ITEMS ── */}
-      <main style={{ background: 'var(--cream)', padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 5vw, 2.5rem)', flexShrink: 0 }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-
-          {/* Search + filter */}
-          <div style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="menu-search-wrap">
-              <span className="menu-search-icon"><Search size={16} /></span>
-              <input
-                type="search"
-                className="menu-search-input"
-                placeholder="Search dishes…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="filter-chips">
-              <button type="button" className={`filter-chip${activeCategory === 'ALL' ? ' active' : ''}`} onClick={() => setActiveCategory('ALL')}>
-                All{items.filter((i) => i.available).length > 0 ? ` (${items.filter((i) => i.available).length})` : ''}
-              </button>
-              {categories.map((cat) => (
-                <button key={cat.id} type="button" className={`filter-chip${activeCategory === cat.id ? ' active' : ''}`} onClick={() => setActiveCategory(cat.id)}>
-                  {cat.name}{categoryItemCount[cat.id] ? ` (${categoryItemCount[cat.id]})` : ''}
-                </button>
-              ))}
-            </div>
+      {/* ── STICKY FILTER BAR ── */}
+      <div className="menu-sticky-bar">
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0.875rem clamp(1rem, 5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="menu-search-wrap">
+            <span className="menu-search-icon"><Search size={16} /></span>
+            <input
+              type="search"
+              className="menu-search-input"
+              placeholder="Search dishes…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
+          <div className="filter-chips">
+            <button type="button" className={`filter-chip${activeCategory === 'ALL' ? ' active' : ''}`} onClick={() => setActiveCategory('ALL')}>
+              All{items.filter((i) => i.available).length > 0 ? ` (${items.filter((i) => i.available).length})` : ''}
+            </button>
+            {categories.map((cat) => (
+              <button key={cat.id} type="button" className={`filter-chip${activeCategory === cat.id ? ' active' : ''}`} onClick={() => setActiveCategory(cat.id)}>
+                {cat.name}{categoryItemCount[cat.id] ? ` (${categoryItemCount[cat.id]})` : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── MENU ITEMS ── */}
+      <main style={{ background: 'var(--cream)', padding: 'clamp(1.5rem, 4vw, 3rem) clamp(1rem, 5vw, 2.5rem) clamp(2rem, 5vw, 4rem)', flexShrink: 0 }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
 
           {/* Results counter */}
           {!loading && !error && (
@@ -646,7 +666,7 @@ export default function MenuPage() {
                             {item.name}
                           </h3>
                           {item.description && (
-                            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'var(--bark)', lineHeight: 1.65 }}>
+                            <p className="menu-card-desc">
                               {item.description}
                             </p>
                           )}

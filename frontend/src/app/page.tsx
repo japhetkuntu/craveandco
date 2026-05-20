@@ -1,49 +1,36 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap } from 'lucide-react';
+import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
 
-// TODO: Replace placeholder photos with your own restaurant shots for best results.
 const SLIDES = [
-  // {
-  //   src: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-  //   alt: 'Fufu',
-  //   caption: 'Fufu — hand-pounded to perfection, served with rich stew.',
-  // },
+  {
+    src: 'https://images.pexels.com/photos/5333327/pexels-photo-5333327.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop',
+    alt: 'Ghanaian Jollof Rice',
+    caption: "Jollof Rice \u2014 Ghana's finest, slow-cooked in rich tomato and spice.",
+  },
   {
     src: 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
     alt: 'Banku & Okro Stew',
-    caption: 'Banku & Okro Stew — smooth, sour dough with thick flavourful okro.',
+    caption: 'Banku & Okro Stew \u2014 smooth, sour dough with thick flavourful okro.',
   },
   {
-    src: 'https://images.unsplash.com/photo-1664993101841-036f189719b6?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-    alt: 'Jollof Rice',
-    caption: 'Jollof Rice — Ghana\'s finest, cooked slow in tomato and spice.',
+    src: 'https://images.pexels.com/photos/32612769/pexels-photo-32612769.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop',
+    alt: 'Waakye',
+    caption: 'Waakye \u2014 rice and beans with stew, gari, and shito. A true Ghanaian staple.',
   },
   {
-    src: 'https://images.unsplash.com/photo-1619557512034-b925c195e328?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-    alt: 'Fried Rice',
-    caption: 'Fried Rice — tossed with fresh vegetables and seasoning.',
+    src: 'https://images.pexels.com/photos/35136066/pexels-photo-35136066.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop',
+    alt: 'Kelewele',
+    caption: 'Kelewele \u2014 spiced fried plantain with roasted groundnuts. The best Ghanaian snack.',
   },
-  // {
-  //   src: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-  //   alt: 'Plain Rice',
-  //   caption: 'Plain Rice — fluffy and fresh, the perfect base for any stew.',
-  // },
-  
-
-  // {
-  //   src: 'https://images.unsplash.com/photo-1702647105022-124b48120582?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-  //   alt: 'Club Beer',
-  //   caption: 'Club Beer — ice cold, the perfect Ghanaian mealtime companion.',
-  // },
   {
-    src: 'https://images.unsplash.com/photo-1764032757567-231d0e210201?fm=webp&q=85&w=1920&h=1080&auto=format&fit=crop',
-    alt: 'Bottled Water',
-    caption: 'Bottled Water — chilled and refreshing, always available.',
+    src: 'https://images.pexels.com/photos/32612771/pexels-photo-32612771.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop',
+    alt: 'Ghanaian Fried Rice',
+    caption: 'Fried Rice \u2014 tossed with fresh vegetables, served with omelette and shito.',
   },
 ];
 
@@ -83,6 +70,13 @@ export default function Home() {
     const id = setInterval(() => setSlideIdx((s) => (s + 1) % SLIDES.length), 5000);
     return () => clearInterval(id);
   }, []);
+
+  const openNow = (() => {
+    const h = new Date().getHours();
+    if (h >= 8 && h < 22) return { open: true, label: 'Open Now · Closes 10pm' };
+    if (h >= 22) return { open: false, label: 'Closed · Opens 8am' };
+    return { open: false, label: 'Opens at 8am' };
+  })();
 
   const scrollToContact = () => {
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -418,6 +412,14 @@ export default function Home() {
               </a>
             )}
           </div>
+          <p style={{
+            fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.72rem',
+            letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '1.75rem',
+            color: openNow.open ? 'rgba(110,230,160,0.9)' : 'rgba(255,255,255,0.45)',
+          }}>
+            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: openNow.open ? '#6ee6a0' : 'rgba(255,255,255,0.3)', marginRight: '0.4rem', verticalAlign: 'middle' }} />
+            {openNow.label}
+          </p>
         </div>
 
         {/* Prev / Next arrows */}
@@ -573,12 +575,96 @@ export default function Home() {
                 <MessageCircle size={24} style={{ color: '#b5451b' }} />
               </div>
               <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '0.5rem' }}>Step 03</p>
-              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: '0.6rem' }}>Send &amp; Pick Up</h3>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: '0.6rem' }}>Send &amp; Enjoy</h3>
               <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, marginBottom: '1.5rem' }}>
-                Hit &lsquo;Order on WhatsApp&rsquo; — your full cart arrives pre-formatted. We&apos;ll confirm and have it hot and ready for collection.
+                Hit &lsquo;Order on WhatsApp&rsquo; — your full cart arrives pre-formatted. Choose pickup from Ashongman Estate or delivery straight to you.
               </p>
               <button onClick={scrollToContact} className="step-cta">Get Directions <ArrowRight size={13} /></button>
             </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ── DELIVERY APPS ── */}
+      <section style={{ background: '#f0e8d8', padding: 'clamp(3rem,6vw,5rem) clamp(1rem,5vw,2.5rem)' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
+          <span style={{
+            display: 'inline-block', fontFamily: "'Lato',sans-serif", fontWeight: 700,
+            fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: 'var(--terracotta)', background: 'rgba(181,69,27,0.1)',
+            padding: '5px 14px', borderRadius: 999, marginBottom: '1rem',
+          }}>
+            Delivery
+          </span>
+          <h2 className="font-display" style={{
+            fontSize: 'clamp(1.75rem,4vw,2.75rem)', fontWeight: 900, lineHeight: 1.15,
+            color: 'var(--espresso)', letterSpacing: '-0.02em', marginBottom: '0.75rem',
+          }}>
+            Also on Your Favourite <em>Delivery Apps</em>
+          </h2>
+          <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.95rem', color: 'var(--bark)', maxWidth: 460, margin: '0 auto 2.5rem' }}>
+            Get Crave &amp; Co. delivered straight to your door via Bolt Food or Hubtel.
+          </p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+
+            {/* Bolt Food */}
+            <a
+              href="https://food.bolt.eu/en-US/137/p/188979"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', flex: '1 1 260px', maxWidth: 360 }}
+            >
+              <div
+                style={{
+                  background: '#fff', borderRadius: 20, padding: '1.75rem 1.5rem',
+                  border: '1px solid rgba(52,209,134,0.25)',
+                  boxShadow: '0 4px 20px rgba(52,209,134,0.1)',
+                  display: 'flex', alignItems: 'center', gap: '1.25rem',
+                  transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.transform = 'translateY(-3px)'; d.style.boxShadow = '0 12px 36px rgba(52,209,134,0.2)'; }}
+                onMouseLeave={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.transform = 'none'; d.style.boxShadow = '0 4px 20px rgba(52,209,134,0.1)'; }}
+              >
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: '#34d186', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={26} style={{ color: '#fff' }} />
+                </div>
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--bark)', marginBottom: '0.2rem' }}>Order Delivery</p>
+                  <p className="font-display" style={{ color: 'var(--espresso)', fontWeight: 700, fontSize: '1.3rem', lineHeight: 1.2 }}>Bolt Food</p>
+                  <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.8rem', color: '#34d186', fontWeight: 700, marginTop: '0.25rem' }}>Order now ↗</p>
+                </div>
+              </div>
+            </a>
+
+            {/* Hubtel */}
+            <a
+              href="https://hubtel.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', flex: '1 1 260px', maxWidth: 360 }}
+            >
+              <div
+                style={{
+                  background: '#fff', borderRadius: 20, padding: '1.75rem 1.5rem',
+                  border: '1px solid rgba(255,107,53,0.2)',
+                  boxShadow: '0 4px 20px rgba(255,107,53,0.08)',
+                  display: 'flex', alignItems: 'center', gap: '1.25rem',
+                  transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.transform = 'translateY(-3px)'; d.style.boxShadow = '0 12px 36px rgba(255,107,53,0.18)'; }}
+                onMouseLeave={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.transform = 'none'; d.style.boxShadow = '0 4px 20px rgba(255,107,53,0.08)'; }}
+              >
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: '#ff6b35', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Truck size={26} style={{ color: '#fff' }} />
+                </div>
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--bark)', marginBottom: '0.2rem' }}>Order Delivery</p>
+                  <p className="font-display" style={{ color: 'var(--espresso)', fontWeight: 700, fontSize: '1.3rem', lineHeight: 1.2 }}>Hubtel</p>
+                  <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.8rem', color: '#ff6b35', fontWeight: 700, marginTop: '0.25rem' }}>Search &ldquo;Crave Co&rdquo; ↗</p>
+                </div>
+              </div>
+            </a>
 
           </div>
         </div>
