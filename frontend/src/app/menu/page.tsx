@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Phone, Menu, X, MessageCircle, ChevronLeft, Search } from 'lucide-react';
+import { Phone, Menu, X, MessageCircle, ChevronLeft, Search, MapPin, Truck, Store } from 'lucide-react';
 import Link from 'next/link';
 import { API_BASE } from '@/lib/constants';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
@@ -119,6 +119,8 @@ export default function MenuPage() {
   }, [visibleItems, categories, activeCategory]);
 
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
+  const [deliveryLocation, setDeliveryLocation] = useState('');
   const cartItemCount = useMemo(() => Object.values(cart).reduce((s, n) => s + n, 0), [cart]);
   const cartTotal = useMemo(
     () => items.reduce((s, item) => s + (cart[item.id] ?? 0) * Number(item.price), 0),
@@ -127,9 +129,12 @@ export default function MenuPage() {
   const buildWhatsAppOrder = () => {
     const lines = items
       .filter((item) => (cart[item.id] ?? 0) > 0)
-      .map((item) => `• ${cart[item.id]}× ${item.name} — ${formatCurrency(Number(item.price) * (cart[item.id] ?? 1))}`)
+      .map((item) => `• ${cart[item.id]}\u00d7 ${item.name} \u2014 ${formatCurrency(Number(item.price) * (cart[item.id] ?? 1))}`)
       .join('\n');
-    const msg = `Hi! I\u2019d like to place an order from Crave & Co. \uD83C\uDF7D\uFE0F\n\n${lines}\n\nTotal: ${formatCurrency(cartTotal)}\n\nPlease confirm. Thank you! \uD83D\uDE4F`;
+    const deliveryLine = deliveryType === 'delivery'
+      ? `\nDelivery to: ${deliveryLocation.trim() || '(location to be shared in chat)'}`
+      : '\nPickup from Crave & Co. (Ashongman Estate, Accra)';
+    const msg = `Hi! I\u2019d like to place an order from Crave & Co. \uD83C\uDF7D\uFE0F\n\n${lines}\n\nSubtotal: ${formatCurrency(cartTotal)}${deliveryLine}\n\nPlease confirm. Thank you! \uD83D\uDE4F`;
     return `https://wa.me/233540951665?text=${encodeURIComponent(msg)}`;
   };
 
@@ -272,12 +277,50 @@ export default function MenuPage() {
         }
         .order-tray.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
         .order-tray-inner {
+          display: flex; flex-direction: column; gap: 0.75rem;
+        }
+        .order-tray-row {
           display: flex; align-items: center; justify-content: space-between; gap: 1rem;
         }
         @media (max-width: 440px) {
-          .order-tray-inner { flex-direction: column; align-items: stretch; gap: 0.75rem; }
-          .order-tray-inner > a { justify-content: center; }
+          .order-tray-row { flex-wrap: wrap; }
+          .order-tray-row > a { width: 100%; justify-content: center; }
         }
+        .delivery-toggle {
+          display: flex; gap: 0.4rem;
+          border-top: 1px solid rgba(255,255,255,0.07);
+          padding-top: 0.75rem;
+        }
+        .delivery-btn {
+          flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+          padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+          background: transparent; color: rgba(255,255,255,0.45);
+          font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.78rem;
+          letter-spacing: 0.06em; cursor: pointer;
+          transition: all 0.2s; min-height: 44px;
+        }
+        .delivery-btn.active {
+          background: rgba(255,255,255,0.1); color: #fff;
+          border-color: rgba(255,255,255,0.28);
+        }
+        .delivery-btn.active.delivery { background: rgba(181,69,27,0.25); border-color: rgba(181,69,27,0.55); color: #f8c39a; }
+        .delivery-loc {
+          overflow: hidden;
+          max-height: 0;
+          transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.25s ease;
+          opacity: 0; margin-top: 0;
+        }
+        .delivery-loc.open { max-height: 80px; opacity: 1; margin-top: 0.1rem; }
+        .delivery-loc-wrap { position: relative; display: flex; align-items: center; }
+        .delivery-loc-icon { position: absolute; left: 0.75rem; color: rgba(255,255,255,0.35); pointer-events: none; }
+        .delivery-loc-input {
+          width: 100%; padding: 0.6rem 0.75rem 0.6rem 2.25rem;
+          background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 10px; color: #fff; font-family: 'Lato', sans-serif;
+          font-size: 0.82rem; outline: none;
+        }
+        .delivery-loc-input::placeholder { color: rgba(255,255,255,0.3); }
+        .delivery-loc-input:focus { border-color: rgba(181,69,27,0.6); background: rgba(255,255,255,0.1); }
 
         /* ── CATEGORY ZIGZAG LAYOUT ── */
         .cat-row {
@@ -752,36 +795,76 @@ export default function MenuPage() {
           boxShadow: '0 8px 40px rgba(26,18,9,0.45), 0 2px 8px rgba(26,18,9,0.2)',
           border: '1px solid rgba(255,255,255,0.08)',
         }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.2rem' }}>
-              <span style={{
-                background: 'var(--terracotta)', color: '#fff',
-                borderRadius: 999, padding: '1px 9px', minWidth: 24, textAlign: 'center',
-                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '12px',
-              }}>{cartItemCount}</span>
-              <span style={{
-                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.72rem',
-                color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase',
-              }}>item{cartItemCount !== 1 ? 's' : ''} selected</span>
+          {/* Top row: count + total + WA button */}
+          <div className="order-tray-row">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.2rem' }}>
+                <span style={{
+                  background: 'var(--terracotta)', color: '#fff',
+                  borderRadius: 999, padding: '1px 9px', minWidth: 24, textAlign: 'center',
+                  fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '12px',
+                }}>{cartItemCount}</span>
+                <span style={{
+                  fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.72rem',
+                  color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase',
+                }}>item{cartItemCount !== 1 ? 's' : ''} selected</span>
+              </div>
+              <div className="font-display" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+                {formatCurrency(cartTotal)}
+              </div>
             </div>
-            <div className="font-display" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
-              {formatCurrency(cartTotal)}
-            </div>
+            <a
+              href={buildWhatsAppOrder()}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                background: '#25D366', color: '#fff',
+                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.9rem',
+                padding: '0.75rem 1.5rem', borderRadius: 12, textDecoration: 'none',
+                boxShadow: '0 4px 16px rgba(37,211,102,0.4)', whiteSpace: 'nowrap',
+                minHeight: 44,
+              }}
+            >
+              <MessageCircle size={16} /> Order on WhatsApp
+            </a>
           </div>
-          <a
-            href={buildWhatsAppOrder()}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
-              background: '#25D366', color: '#fff',
-              fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.9rem',
-              padding: '0.75rem 1.5rem', borderRadius: 12, textDecoration: 'none',
-              boxShadow: '0 4px 16px rgba(37,211,102,0.4)', whiteSpace: 'nowrap',
-            }}
-          >
-            <MessageCircle size={16} /> Order on WhatsApp
-          </a>
+
+          {/* Delivery type toggle */}
+          <div className="delivery-toggle">
+            <button
+              type="button"
+              className={`delivery-btn${deliveryType === 'pickup' ? ' active' : ''}`}
+              onClick={() => setDeliveryType('pickup')}
+            >
+              <Store size={14} /> Pickup
+            </button>
+            <button
+              type="button"
+              className={`delivery-btn delivery${deliveryType === 'delivery' ? ' active delivery' : ''}`}
+              onClick={() => setDeliveryType('delivery')}
+            >
+              <Truck size={14} /> Delivery
+            </button>
+          </div>
+
+          {/* Location field — slides in when delivery is selected */}
+          <div className={`delivery-loc${deliveryType === 'delivery' ? ' open' : ''}`}>
+            <div className="delivery-loc-wrap">
+              <span className="delivery-loc-icon"><MapPin size={14} /></span>
+              <input
+                type="text"
+                className="delivery-loc-input"
+                placeholder="Your area or landmark (e.g. East Legon, Shell station)"
+                value={deliveryLocation}
+                onChange={(e) => setDeliveryLocation(e.target.value)}
+                aria-label="Delivery location"
+              />
+            </div>
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.7rem', color: 'rgba(255,255,255,0.28)', marginTop: '0.4rem', lineHeight: 1.4 }}>
+              Delivery cost confirmed on WhatsApp before we leave.
+            </p>
+          </div>
         </div>
       </div>
     </>
