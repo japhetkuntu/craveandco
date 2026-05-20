@@ -20,6 +20,7 @@ export function ContactOrderModal({ onClose }: Props) {
       role="dialog"
       aria-modal="true"
       onClick={onClose}
+      className="order-modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
@@ -33,8 +34,21 @@ export function ContactOrderModal({ onClose }: Props) {
         padding: 'clamp(1rem, 5vw, 2rem)',
       }}
     >
+      <style>{`
+        .order-modal-backdrop { display: flex; }
+        @media (max-width: 540px) {
+          .order-modal-backdrop { align-items: flex-end !important; padding: 0 !important; }
+          .order-modal-card {
+            border-radius: 24px 24px 0 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            padding-bottom: calc(2rem + env(safe-area-inset-bottom)) !important;
+          }
+        }
+      `}</style>
       <div
         onClick={(e) => e.stopPropagation()}
+        className="order-modal-card"
         style={{
           background: '#fdf8f2',
           borderRadius: 28,
@@ -105,7 +119,7 @@ export function ContactOrderModal({ onClose }: Props) {
               marginBottom: '0.75rem',
             }}
           >
-            Place Your Order
+            Pick Your Dishes
           </h2>
           <p
             style={{
@@ -117,13 +131,43 @@ export function ContactOrderModal({ onClose }: Props) {
               margin: '0 auto',
             }}
           >
-            Reach us on WhatsApp or give us a call — our team is ready to take
-            your order right now.
+            Browse the menu, tap{' '}
+            <strong style={{ color: '#1a1209' }}>+ Add</strong>
+            {' '}on your favourites, then send your full cart to WhatsApp in one tap — or call us directly.
           </p>
         </div>
 
         {/* CTA buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <a
+            href="/menu"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.625rem',
+              background: '#1a1209',
+              color: '#fff',
+              fontFamily: "'Lato', sans-serif",
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              padding: '0.9rem 1.5rem',
+              borderRadius: 999,
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(26,18,9,0.2)',
+              transition: 'background 0.2s, transform 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#2d1f10';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#1a1209';
+              e.currentTarget.style.transform = 'none';
+            }}
+          >
+            Browse Menu &amp; Build Your Order →
+          </a>
           <a
             href={CONTACT_WHATSAPP_LINK}
             target="_blank"
@@ -203,10 +247,9 @@ export function ContactOrderModal({ onClose }: Props) {
               lineHeight: 1.55,
             }}
           >
-            🚀{' '}
-            <strong style={{ color: '#1a1209' }}>Online ordering coming soon.</strong>{' '}
-            We&apos;re setting up online ordering — we&apos;ll reach out as soon as
-            it&apos;s live!
+            �{' '}
+            <strong style={{ color: '#1a1209' }}>No account needed.</strong>{' '}
+            Your cart is pre-formatted and sent as a WhatsApp message — we&apos;ll confirm and have it ready for you.
           </p>
         </div>
       </div>

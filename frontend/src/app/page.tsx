@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
@@ -52,11 +52,26 @@ export default function Home() {
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
+  const [showFloatingCTA, setShowFloatingCTA] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 60);
+      setShowFloatingCTA(window.scrollY > window.innerHeight * 0.8);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add('revealed'); io.unobserve(e.target); }
+      }),
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
 
   useEffect(() => {
@@ -155,6 +170,54 @@ export default function Home() {
           cursor: pointer; padding: 0; transition: all 0.4s ease;
         }
         .hero-dot.active { background: #fff; }
+
+        /* Scroll-reveal */
+        .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        .reveal.revealed { opacity: 1; transform: none; }
+        .reveal-d1 { transition-delay: 0.1s; }
+        .reveal-d2 { transition-delay: 0.2s; }
+        .reveal-d3 { transition-delay: 0.3s; }
+
+        /* Feature cards */
+        .feat-card {
+          background: #fff; border-radius: 24px;
+          padding: clamp(1.5rem, 3vw, 2.5rem);
+          border: 1px solid rgba(124,92,46,0.1);
+          box-shadow: 0 2px 20px rgba(26,18,9,0.05);
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .feat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(26,18,9,0.1); }
+
+        /* Step cards */
+        .step-card {
+          text-align: center; padding: clamp(2rem, 3vw, 3rem);
+          border: 1px solid rgba(255,255,255,0.12); border-radius: 24px;
+          background: rgba(255,255,255,0.06);
+          transition: background 0.25s ease, border-color 0.25s ease;
+          flex: 1 1 240px; max-width: 300px;
+        }
+        .step-card:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
+        .step-arrow { display: flex; align-items: center; padding-bottom: 5rem; flex-shrink: 0; }
+        .step-cta {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 0.5rem 1.1rem; border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.22); color: #fff;
+          font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.78rem;
+          letter-spacing: 0.08em; text-transform: uppercase;
+          text-decoration: none; background: none; cursor: pointer;
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .step-cta:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+        @media (max-width: 720px) { .step-arrow { display: none; } .step-card { max-width: 100%; } }
+
+        /* Floating CTA */
+        .floating-cta {
+          position: fixed; bottom: 1.75rem; left: 50%; z-index: 999;
+          transform: translateX(-50%) translateY(80px);
+          opacity: 0; pointer-events: none;
+          transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+        }
+        .floating-cta.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
       `}</style>
 
       {/* ── NAV ── */}
@@ -312,7 +375,7 @@ export default function Home() {
             border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999,
             display: 'inline-block', padding: '5px 16px',
           }}>
-            Accra · Ghana · Est. 2021
+            Accra · Ghana · Est. 2026
           </p>
           <h1 className="font-display shimmer-text" style={{
             fontSize: 'clamp(3rem,10vw,7rem)', fontWeight: 900,
@@ -341,7 +404,7 @@ export default function Home() {
               Browse Menu <ArrowRight size={16} />
             </Link>
             {!ECOMMERCE_ENABLED && (
-              <button type="button" onClick={() => setOrderModalOpen(true)} style={{
+              <a href="#how-it-works" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 background: 'transparent', color: '#fff',
                 border: '1.5px solid rgba(255,255,255,0.45)',
@@ -349,9 +412,10 @@ export default function Home() {
                 fontSize: '0.9rem', letterSpacing: '0.04em',
                 padding: '0.875rem 1.75rem', borderRadius: 999,
                 cursor: 'pointer', transition: 'background 0.2s',
+                textDecoration: 'none',
               }}>
-                <MessageCircle size={16} /> How to Order
-              </button>
+                How It Works <ArrowRight size={16} />
+              </a>
             )}
           </div>
         </div>
@@ -386,6 +450,137 @@ export default function Home() {
               aria-label={`Go to slide ${i + 1}`}
             />
           ))}
+        </div>
+      </section>
+
+      {/* ── WHY SECTION ── */}
+      <section style={{ background: 'var(--cream)', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <span style={{
+              display: 'inline-block', fontFamily: "'Lato',sans-serif", fontWeight: 700,
+              fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase',
+              color: 'var(--terracotta)', background: 'rgba(181,69,27,0.1)',
+              padding: '5px 14px', borderRadius: 999, marginBottom: '1rem',
+            }}>
+              Why Crave &amp; Co.
+            </span>
+            <h2 className="font-display" style={{
+              fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
+              color: 'var(--espresso)', letterSpacing: '-0.02em',
+            }}>
+              Bold Flavours. <em>Honest Food.</em>
+            </h2>
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.95rem', color: 'var(--bark)', marginTop: '0.75rem', maxWidth: 520, margin: '0.75rem auto 0' }}>
+              Everything we serve is made from scratch, rooted in West African tradition and served with pride.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px,100%),1fr))', gap: '1.5rem' }}>
+            <div className="feat-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                <Utensils size={24} style={{ color: 'var(--terracotta)' }} />
+              </div>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--espresso)', marginBottom: '0.5rem' }}>Freshly Made Every Day</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'var(--bark)', lineHeight: 1.7 }}>
+                No reheated food, no shortcuts. Every dish is prepared fresh each morning using quality ingredients.
+              </p>
+            </div>
+            <div className="feat-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                <Star size={24} style={{ color: 'var(--terracotta)' }} />
+              </div>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--espresso)', marginBottom: '0.5rem' }}>Authentic Ghanaian Recipes</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'var(--bark)', lineHeight: 1.7 }}>
+                Bold spices, rich stews, and hearty portions rooted in the food culture of Accra and beyond.
+              </p>
+            </div>
+            <div className="feat-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                <Zap size={24} style={{ color: 'var(--terracotta)' }} />
+              </div>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--espresso)', marginBottom: '0.5rem' }}>Order in Seconds</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'var(--bark)', lineHeight: 1.7 }}>
+                Pick your dishes, tap ‘+ Add’, then send your full cart to WhatsApp in one tap. No app, no sign-up.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS ── */}
+      <section id="how-it-works" style={{ background: '#1a1209', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <span style={{
+              display: 'inline-block', fontFamily: "'Lato',sans-serif", fontWeight: 700,
+              fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase',
+              color: 'rgba(181,69,27,0.85)', background: 'rgba(181,69,27,0.15)',
+              padding: '5px 14px', borderRadius: 999, marginBottom: '1rem',
+            }}>
+              How It Works
+            </span>
+            <h2 className="font-display" style={{
+              fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
+              color: '#fff', letterSpacing: '-0.02em',
+            }}>
+              From Browse to <em>Bite</em>
+            </h2>
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.95rem', color: 'rgba(255,255,255,0.45)', marginTop: '0.75rem', maxWidth: 480, margin: '0.75rem auto 0' }}>
+              No apps, no sign-ups. Just great food, ordered on WhatsApp in seconds.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 0, flexWrap: 'wrap' }}>
+
+            {/* Step 1 */}
+            <div className="step-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <Utensils size={24} style={{ color: '#b5451b' }} />
+              </div>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '0.5rem' }}>Step 01</p>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: '0.6rem' }}>Browse the Menu</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, marginBottom: '1.5rem' }}>
+                Explore dishes grouped by category. Filter by type or search by name — from Jollof Rice to Banku &amp; Stew.
+              </p>
+              <Link href="/menu" className="step-cta">View Full Menu <ArrowRight size={13} /></Link>
+            </div>
+
+            {/* Arrow */}
+            <div className="step-arrow">
+              <ArrowRight size={22} color="rgba(255,255,255,0.2)" />
+            </div>
+
+            {/* Step 2 */}
+            <div className="step-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <Zap size={24} style={{ color: '#b5451b' }} />
+              </div>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '0.5rem' }}>Step 02</p>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: '0.6rem' }}>Add to Your Order</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, marginBottom: '1.5rem' }}>
+                Tap <strong style={{ color: 'rgba(255,255,255,0.75)' }}>+ Add</strong> on each dish. Your order tray builds automatically — adjust quantities and see your total live.
+              </p>
+              <Link href="/menu" className="step-cta">Build Your Order <ArrowRight size={13} /></Link>
+            </div>
+
+            {/* Arrow */}
+            <div className="step-arrow">
+              <ArrowRight size={22} color="rgba(255,255,255,0.2)" />
+            </div>
+
+            {/* Step 3 */}
+            <div className="step-card">
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(181,69,27,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <MessageCircle size={24} style={{ color: '#b5451b' }} />
+              </div>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '0.5rem' }}>Step 03</p>
+              <h3 className="font-display" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: '0.6rem' }}>Send &amp; Pick Up</h3>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, marginBottom: '1.5rem' }}>
+                Hit &lsquo;Order on WhatsApp&rsquo; — your full cart arrives pre-formatted. We&apos;ll confirm and have it hot and ready for collection.
+              </p>
+              <button onClick={scrollToContact} className="step-cta">Get Directions <ArrowRight size={13} /></button>
+            </div>
+
+          </div>
         </div>
       </section>
 
@@ -576,6 +771,27 @@ export default function Home() {
 
       {!ECOMMERCE_ENABLED && orderModalOpen && (
         <ContactOrderModal onClose={() => setOrderModalOpen(false)} />
+      )}
+
+      {/* ── FLOATING CTA ── */}
+      {!ECOMMERCE_ENABLED && (
+        <div className={`floating-cta${showFloatingCTA ? ' visible' : ''}`} aria-hidden={!showFloatingCTA}>
+          <button
+            type="button"
+            onClick={() => setOrderModalOpen(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: '#25D366', color: '#fff', border: 'none', cursor: 'pointer',
+              fontFamily: "'Lato',sans-serif", fontWeight: 700,
+              fontSize: '0.9rem', letterSpacing: '0.04em',
+              padding: '0.875rem 1.75rem', borderRadius: 999,
+              boxShadow: '0 8px 32px rgba(37,211,102,0.4)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <MessageCircle size={17} /> Order on WhatsApp
+          </button>
+        </div>
       )}
     </>
   );

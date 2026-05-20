@@ -61,6 +61,13 @@ export default function MenuPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [showFloatingCTA, setShowFloatingCTA] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowFloatingCTA(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const visibleItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((item) => {
@@ -70,6 +77,61 @@ export default function MenuPage() {
       return true;
     });
   }, [items, activeCategory, search]);
+
+  const categoryItemCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach((item) => {
+      if (!item.available) return;
+      const catId = item.category?.id ?? item.categoryId;
+      if (catId) counts[catId] = (counts[catId] ?? 0) + 1;
+    });
+    return counts;
+  }, [items]);
+
+  const groupedItems = useMemo(() => {
+    if (activeCategory !== 'ALL') {
+      const cat = categories.find((c) => c.id === activeCategory);
+      return [{ category: cat ?? null, items: visibleItems }];
+    }
+    const grouped: Record<string, MenuItem[]> = {};
+    const uncategorized: MenuItem[] = [];
+    visibleItems.forEach((item) => {
+      const catId = item.category?.id ?? item.categoryId;
+      if (catId) {
+        if (!grouped[catId]) grouped[catId] = [];
+        grouped[catId].push(item);
+      } else {
+        uncategorized.push(item);
+      }
+    });
+    const groups: { category: Category | null; items: MenuItem[] }[] = [];
+    categories.forEach((cat) => {
+      if (grouped[cat.id]?.length) groups.push({ category: cat, items: grouped[cat.id] });
+    });
+    if (uncategorized.length) groups.push({ category: null, items: uncategorized });
+    // Categories where at least one item has an image float to the top
+    groups.sort((a, b) => {
+      const aHasImg = a.items.some((i) => !!i.imageUrl) ? 0 : 1;
+      const bHasImg = b.items.some((i) => !!i.imageUrl) ? 0 : 1;
+      return aHasImg - bHasImg;
+    });
+    return groups;
+  }, [visibleItems, categories, activeCategory]);
+
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const cartItemCount = useMemo(() => Object.values(cart).reduce((s, n) => s + n, 0), [cart]);
+  const cartTotal = useMemo(
+    () => items.reduce((s, item) => s + (cart[item.id] ?? 0) * Number(item.price), 0),
+    [cart, items],
+  );
+  const buildWhatsAppOrder = () => {
+    const lines = items
+      .filter((item) => (cart[item.id] ?? 0) > 0)
+      .map((item) => `• ${cart[item.id]}× ${item.name} — ${formatCurrency(Number(item.price) * (cart[item.id] ?? 1))}`)
+      .join('\n');
+    const msg = `Hi! I\u2019d like to place an order from Crave & Co. \uD83C\uDF7D\uFE0F\n\n${lines}\n\nTotal: ${formatCurrency(cartTotal)}\n\nPlease confirm. Thank you! \uD83D\uDE4F`;
+    return `https://wa.me/233540951665?text=${encodeURIComponent(msg)}`;
+  };
 
   return (
     <>
@@ -129,29 +191,13 @@ export default function MenuPage() {
           transition: transform 0.4s ease;
         }
         .menu-card:hover .menu-card-img { transform: scale(1.04); }
-        .menu-card-placeholder {
-          width: 100%; height: 220px; display: flex;
-          flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
-          background: linear-gradient(135deg, #1a1209 0%, #3d2510 55%, #1a1209 100%);
-          position: relative; overflow: hidden;
-        }
-        .menu-card-placeholder::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: radial-gradient(ellipse at 50% 60%, rgba(181,69,27,0.22) 0%, transparent 68%);
-        }
-        .menu-card-initial {
-          font-family: 'Playfair Display', serif; font-size: 5.5rem; font-weight: 900;
-          font-style: italic; color: rgba(255,255,255,0.1); line-height: 1;
-          position: relative; z-index: 1; user-select: none; pointer-events: none;
-        }
-        .menu-card-no-img-label {
-          font-family: 'Lato', sans-serif; font-weight: 700; font-size: 10px;
-          letter-spacing: 0.3em; text-transform: uppercase;
-          color: rgba(255,255,255,0.28); position: relative; z-index: 1;
+        .menu-card-accent-bar {
+          height: 4px;
+          background: linear-gradient(90deg, var(--terracotta) 0%, #d4a017 60%, rgba(253,248,242,0) 100%);
+          border-radius: 20px 20px 0 0;
         }
         @media (max-width: 480px) {
-          .menu-card-img, .menu-card-placeholder { height: 180px; }
+          .menu-card-img { height: 180px; }
         }
         .menu-search-wrap { position: relative; display: flex; align-items: center; }
         .menu-search-icon { position: absolute; left: 1rem; color: var(--bark); pointer-events: none; }
@@ -166,16 +212,135 @@ export default function MenuPage() {
         .filter-chips { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
         .filter-chips::-webkit-scrollbar { display: none; }
         .filter-chip {
-          flex-shrink: 0; padding: 0.45rem 1rem; border-radius: 999px;
+          flex-shrink: 0; padding: 0.6rem 1rem; border-radius: 999px;
           font-family: 'Lato', sans-serif; font-weight: 700; font-size: 11px;
           letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer;
           transition: all 0.2s; border: 1px solid rgba(124,92,46,0.25);
-          background: #fff; color: var(--bark);
+          background: #fff; color: var(--bark); min-height: 44px;
         }
         .filter-chip:hover { border-color: var(--terracotta); color: var(--terracotta); }
         .filter-chip.active { background: var(--espresso); color: #fff; border-color: var(--espresso); }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
         .skeleton { animation: pulse 1.5s ease-in-out infinite; background: rgba(124,92,46,0.1); border-radius: 20px; }
+        @keyframes shimmer-text { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
+        .hero-shimmer {
+          background: linear-gradient(90deg, #ffffff 0%, rgba(253,216,154,1) 30%, #ffffff 50%, rgba(253,216,154,1) 70%, #ffffff 100%);
+          background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text; animation: shimmer-text 6s linear infinite;
+        }
+        .add-btn {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 0.625rem 1.2rem; border-radius: 999px;
+          background: var(--espresso); color: #fff; border: none; cursor: pointer;
+          font-family: 'Lato', sans-serif; font-weight: 700; font-size: 0.78rem;
+          letter-spacing: 0.06em; transition: background 0.2s, transform 0.15s; flex-shrink: 0;
+          min-height: 44px;
+        }
+        .add-btn:hover { background: var(--terracotta); transform: translateY(-1px); }
+        .qty-row {
+          display: inline-flex; align-items: center; border-radius: 999px;
+          border: 1.5px solid var(--espresso); overflow: hidden; flex-shrink: 0;
+        }
+        .qty-btn {
+          width: 38px; height: 38px; min-width: 38px; display: flex; align-items: center; justify-content: center;
+          background: none; border: none; cursor: pointer; color: var(--espresso);
+          font-size: 1.1rem; font-weight: 700; line-height: 1;
+          transition: background 0.15s, color 0.15s;
+        }
+        .qty-btn:hover { background: var(--espresso); color: #fff; }
+        .qty-count {
+          min-width: 28px; text-align: center; font-family: 'Lato', sans-serif;
+          font-weight: 700; font-size: 0.9rem; color: var(--espresso);
+        }
+        .menu-floating-cta {
+          position: fixed;
+          bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px));
+          left: 50%; z-index: 999;
+          transform: translateX(-50%) translateY(80px);
+          opacity: 0; pointer-events: none;
+          transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+        }
+        .menu-floating-cta.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+        .order-tray {
+          position: fixed;
+          bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px));
+          left: 50%; z-index: 1000;
+          transform: translateX(-50%) translateY(120px);
+          opacity: 0; pointer-events: none;
+          transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+          width: min(540px, calc(100vw - 2rem));
+        }
+        .order-tray.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+        .order-tray-inner {
+          display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        @media (max-width: 440px) {
+          .order-tray-inner { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+          .order-tray-inner > a { justify-content: center; }
+        }
+
+        /* ── CATEGORY ZIGZAG LAYOUT ── */
+        .cat-row {
+          display: flex; flex-direction: row;
+          gap: clamp(1.5rem, 4vw, 3rem); margin-bottom: clamp(3rem, 7vw, 5.5rem);
+          align-items: flex-start;
+        }
+        .cat-row.zigzag { flex-direction: row-reverse; }
+        .cat-side-header {
+          flex: 0 0 clamp(140px, 18%, 210px); position: sticky; top: 80px;
+          display: flex; flex-direction: column; gap: 0.6rem;
+          padding-right: 1.75rem; border-right: 1.5px solid rgba(124,92,46,0.13);
+        }
+        .cat-row.zigzag .cat-side-header {
+          padding-right: 0; padding-left: 1.75rem;
+          border-right: none; border-left: 1.5px solid rgba(124,92,46,0.13);
+          align-items: flex-end; text-align: right;
+        }
+        .cat-side-header::before {
+          content: ''; display: block; width: 28px; height: 3px;
+          background: linear-gradient(90deg, var(--terracotta) 0%, #d4a017 100%);
+          border-radius: 2px; flex-shrink: 0;
+        }
+        .cat-row.zigzag .cat-side-header::before { margin-left: auto; }
+        .cat-side-num {
+          font-family: 'Playfair Display', serif; font-size: 2.5rem;
+          font-weight: 900; font-style: italic;
+          color: rgba(181,69,27,0.12); line-height: 1; user-select: none;
+        }
+        .cat-side-name {
+          font-family: 'Playfair Display', serif;
+          font-size: clamp(1.2rem, 2.5vw, 1.7rem);
+          font-weight: 900; font-style: italic; color: var(--espresso); line-height: 1.15;
+        }
+        .cat-side-count {
+          display: inline-flex; font-family: 'Lato', sans-serif; font-weight: 700;
+          font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+          color: var(--bark); background: rgba(124,92,46,0.08);
+          border: 1px solid rgba(124,92,46,0.15); padding: 3px 10px;
+          border-radius: 999px; align-self: flex-start;
+        }
+        .cat-row.zigzag .cat-side-count { align-self: flex-end; }
+        .cat-items-grid {
+          flex: 1; min-width: 0; display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
+          gap: clamp(1rem, 2.5vw, 1.5rem); align-content: start;
+        }
+        @media (max-width: 620px) {
+          .cat-row, .cat-row.zigzag { flex-direction: column; gap: 1rem; }
+          .cat-side-header {
+            flex: none; position: static;
+            flex-direction: row; flex-wrap: wrap; align-items: center;
+            padding-right: 0; padding-left: 0; border-right: none; border-left: none;
+            padding-bottom: 0.75rem; border-bottom: 1.5px solid rgba(124,92,46,0.12);
+            gap: 0.4rem 0.75rem; text-align: left;
+          }
+          .cat-row.zigzag .cat-side-header { align-items: center; text-align: left; }
+          .cat-side-header::before { display: none; }
+          .cat-side-num { font-size: 1.6rem; }
+          .cat-side-name { font-size: 1.3rem; }
+          .cat-side-count, .cat-row.zigzag .cat-side-count { align-self: center; }
+          .cat-items-grid { grid-template-columns: 1fr; width: 100%; }
+        }
       `}</style>
 
       {/* ── NAV ── */}
@@ -311,10 +476,10 @@ export default function MenuPage() {
         }}>
           Accra · Ghana · Est. 2026
         </p>
-        <h1 className="font-display" style={{
+        <h1 className="font-display hero-shimmer" style={{
           fontSize: 'clamp(2.5rem, 7vw, 5rem)', fontWeight: 900,
           lineHeight: 1.05, letterSpacing: '-0.02em',
-          color: '#fff', marginBottom: '0.75rem',
+          marginBottom: '0.75rem',
         }}>
           Our Menu
         </h1>
@@ -377,14 +542,28 @@ export default function MenuPage() {
               />
             </div>
             <div className="filter-chips">
-              <button type="button" className={`filter-chip${activeCategory === 'ALL' ? ' active' : ''}`} onClick={() => setActiveCategory('ALL')}>All</button>
+              <button type="button" className={`filter-chip${activeCategory === 'ALL' ? ' active' : ''}`} onClick={() => setActiveCategory('ALL')}>
+                All{items.filter((i) => i.available).length > 0 ? ` (${items.filter((i) => i.available).length})` : ''}
+              </button>
               {categories.map((cat) => (
                 <button key={cat.id} type="button" className={`filter-chip${activeCategory === cat.id ? ' active' : ''}`} onClick={() => setActiveCategory(cat.id)}>
-                  {cat.name}
+                  {cat.name}{categoryItemCount[cat.id] ? ` (${categoryItemCount[cat.id]})` : ''}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Results counter */}
+          {!loading && !error && (
+            <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem', color: 'var(--bark)', marginBottom: '1.25rem', letterSpacing: '0.04em' }}>
+              {visibleItems.length === 0
+                ? 'No dishes match your search'
+                : activeCategory === 'ALL'
+                  ? `${visibleItems.length} dish${visibleItems.length !== 1 ? 'es' : ''} available${search ? ` · "${search}"` : ''}`
+                  : `${visibleItems.length} dish${visibleItems.length !== 1 ? 'es' : ''} in ${categories.find((c) => c.id === activeCategory)?.name ?? 'this category'}${search ? ` · "${search}"` : ''}`
+              }
+            </p>
+          )}
 
           {/* Items */}
           {loading ? (
@@ -395,48 +574,76 @@ export default function MenuPage() {
             <div style={{ borderRadius: 20, background: '#fff0ee', border: '1px solid rgba(181,69,27,0.2)', padding: '2rem', textAlign: 'center', fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'var(--terracotta)', marginBottom: '2rem' }}>
               {error}
             </div>
-          ) : visibleItems.length === 0 ? (
+          ) : groupedItems.length === 0 ? (
             <div style={{ borderRadius: 20, border: '1.5px dashed rgba(124,92,46,0.25)', background: '#fff', padding: '3rem', textAlign: 'center', fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'var(--bark)', marginBottom: '2rem' }}>
               No dishes match your search.
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 'clamp(1rem, 2.5vw, 1.5rem)', marginBottom: 'clamp(3rem, 6vw, 5rem)' }}>
-              {visibleItems.map((item) => (
-                <div key={item.id} className="menu-card">
-                  <div style={{ position: 'relative', overflow: 'hidden' }}>
-                    {item.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img className="menu-card-img" src={item.imageUrl} alt={item.name} loading="lazy" decoding="async" />
-                    ) : (
-                      <div className="menu-card-placeholder">
-                        <span className="menu-card-initial">{item.name.charAt(0)}</span>
-                        <span className="menu-card-no-img-label">Crave &amp; Co.</span>
-                      </div>
-                    )}
-                    {item.category?.name && (
-                      <span style={{
-                        position: 'absolute', top: '0.75rem', left: '0.75rem',
-                        background: 'rgba(10,6,2,0.65)', backdropFilter: 'blur(4px)',
-                        borderRadius: 999, padding: '3px 10px',
-                        fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '10px',
-                        letterSpacing: '0.15em', textTransform: 'uppercase', color: '#fff',
-                      }}>
-                        {item.category.name}
-                      </span>
-                    )}
+            <div style={{ marginBottom: 'clamp(3rem, 6vw, 5rem)' }}>
+              {groupedItems.map(({ category, items: groupItems }, sectionIdx) => (
+                <div key={category?.id ?? 'other'} className={`cat-row${sectionIdx % 2 === 1 ? ' zigzag' : ''}`}>
+                  <div className="cat-side-header">
+                    <span className="cat-side-num">{String(sectionIdx + 1).padStart(2, '0')}</span>
+                    <h2 className="cat-side-name">{category?.name ?? 'Other'}</h2>
+                    <span className="cat-side-count">{groupItems.length} dish{groupItems.length !== 1 ? 'es' : ''}</span>
                   </div>
-                  <div style={{ padding: 'clamp(1rem, 2.5vw, 1.5rem)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <h3 className="font-display" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.35rem)', fontWeight: 700, color: 'var(--espresso)' }}>
-                      {item.name}
-                    </h3>
-                    {item.description && (
-                      <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'var(--bark)', lineHeight: 1.65 }}>
-                        {item.description}
-                      </p>
-                    )}
-                    <p style={{ fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '1.05rem', color: 'var(--espresso)', marginTop: '0.25rem' }}>
-                      {formatCurrency(Number(item.price))}
-                    </p>
+                  <div className="cat-items-grid">
+                    {groupItems.map((item) => (
+                      <div key={item.id} className="menu-card">
+                        {item.imageUrl ? (
+                          <div style={{ position: 'relative', overflow: 'hidden' }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img className="menu-card-img" src={item.imageUrl} alt={item.name} loading="lazy" decoding="async" />
+                          </div>
+                        ) : (
+                          <div className="menu-card-accent-bar" />
+                        )}
+                        <div style={{ padding: 'clamp(1rem, 2.5vw, 1.5rem)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <h3 className="font-display" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.35rem)', fontWeight: 700, color: 'var(--espresso)' }}>
+                            {item.name}
+                          </h3>
+                          {item.description && (
+                            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'var(--bark)', lineHeight: 1.65 }}>
+                              {item.description}
+                            </p>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: "'Lato',sans-serif", fontWeight: 900, fontSize: '1.1rem', color: 'var(--terracotta)' }}>
+                              {formatCurrency(Number(item.price))}
+                            </span>
+                            {(cart[item.id] ?? 0) === 0 ? (
+                              <button
+                                type="button"
+                                className="add-btn"
+                                onClick={() => setCart((prev) => ({ ...prev, [item.id]: 1 }))}
+                              >
+                                + Add
+                              </button>
+                            ) : (
+                              <div className="qty-row">
+                                <button
+                                  type="button"
+                                  className="qty-btn"
+                                  aria-label="Remove one"
+                                  onClick={() => setCart((prev) => {
+                                    const n = (prev[item.id] ?? 1) - 1;
+                                    if (n <= 0) { const next = { ...prev }; delete next[item.id]; return next; }
+                                    return { ...prev, [item.id]: n };
+                                  })}
+                                >−</button>
+                                <span className="qty-count">{cart[item.id]}</span>
+                                <button
+                                  type="button"
+                                  className="qty-btn"
+                                  aria-label="Add one more"
+                                  onClick={() => setCart((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }))}
+                                >+</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -523,6 +730,60 @@ export default function MenuPage() {
       {!ECOMMERCE_ENABLED && orderModalOpen && (
         <ContactOrderModal onClose={() => setOrderModalOpen(false)} />
       )}
+
+      {/* Floating generic CTA — only while cart is empty */}
+      <div className={`menu-floating-cta${showFloatingCTA && cartItemCount === 0 ? ' visible' : ''}`} aria-hidden={!(showFloatingCTA && cartItemCount === 0)}>
+        <a href={CONTACT_WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: '#25D366', color: '#fff',
+          fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.9rem',
+          padding: '0.875rem 1.75rem', borderRadius: 999, textDecoration: 'none',
+          boxShadow: '0 4px 20px rgba(37,211,102,0.45)',
+        }}>
+          <MessageCircle size={18} /> Order on WhatsApp
+        </a>
+      </div>
+
+      {/* Order tray — springs up when items are in cart */}
+      <div className={`order-tray${cartItemCount > 0 ? ' visible' : ''}`} aria-hidden={cartItemCount === 0}>
+        <div className="order-tray-inner" style={{
+          background: 'var(--espresso)', borderRadius: 20,
+          padding: '1rem 1.25rem',
+          boxShadow: '0 8px 40px rgba(26,18,9,0.45), 0 2px 8px rgba(26,18,9,0.2)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.2rem' }}>
+              <span style={{
+                background: 'var(--terracotta)', color: '#fff',
+                borderRadius: 999, padding: '1px 9px', minWidth: 24, textAlign: 'center',
+                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '12px',
+              }}>{cartItemCount}</span>
+              <span style={{
+                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.72rem',
+                color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>item{cartItemCount !== 1 ? 's' : ''} selected</span>
+            </div>
+            <div className="font-display" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+              {formatCurrency(cartTotal)}
+            </div>
+          </div>
+          <a
+            href={buildWhatsAppOrder()}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0,
+              background: '#25D366', color: '#fff',
+              fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.9rem',
+              padding: '0.75rem 1.5rem', borderRadius: 12, textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(37,211,102,0.4)', whiteSpace: 'nowrap',
+            }}
+          >
+            <MessageCircle size={16} /> Order on WhatsApp
+          </a>
+        </div>
+      </div>
     </>
   );
 }
