@@ -603,7 +603,7 @@ export default function MenuPage() {
             <button type="button" className={`filter-chip${activeCategory === 'ALL' ? ' active' : ''}`} onClick={() => setActiveCategory('ALL')}>
               All{items.filter((i) => i.available).length > 0 ? ` (${items.filter((i) => i.available).length})` : ''}
             </button>
-            {categories.map((cat) => (
+            {categories.filter((cat) => !!categoryItemCount[cat.id]).map((cat) => (
               <button key={cat.id} type="button" className={`filter-chip${activeCategory === cat.id ? ' active' : ''}`} onClick={() => setActiveCategory(cat.id)}>
                 {cat.name}{categoryItemCount[cat.id] ? ` (${categoryItemCount[cat.id]})` : ''}
               </button>
