@@ -438,6 +438,13 @@ export default function MenuPage() {
           }}>
             Our Menu
           </span>
+          <Link href="/#catering" style={{
+            fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: 'var(--bark)', textDecoration: 'none',
+          }}>
+            Catering
+          </Link>
           {ECOMMERCE_ENABLED ? (
             <Link href="/dashboard" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -503,6 +510,14 @@ export default function MenuPage() {
         }}>
           Our Menu
         </span>
+        <Link href="/#catering" onClick={() => setNavOpen(false)} style={{
+          fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '1.1rem',
+          color: 'var(--espresso)', textDecoration: 'none',
+          padding: '0.75rem 0', borderBottom: '1px solid rgba(124,92,46,0.12)',
+          display: 'block',
+        }}>
+          Catering
+        </Link>
         <a href="tel:0540951665" style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           marginTop: '2rem', background: 'var(--terracotta)', color: '#fff',

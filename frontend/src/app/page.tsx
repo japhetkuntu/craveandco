@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck } from 'lucide-react';
+import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck, Users, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
@@ -246,6 +246,14 @@ export default function Home() {
           }}>
             Our Menu
           </Link>
+          <a href="#catering" style={{
+            fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: scrolled ? 'var(--espresso)' : '#fff', textDecoration: 'none',
+            transition: 'color 0.3s',
+          }}>
+            Catering
+          </a>
           <button onClick={scrollToContact} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem',
@@ -312,6 +320,14 @@ export default function Home() {
         }}>
           Our Menu
         </Link>
+        <a href="#catering" onClick={() => setNavOpen(false)} style={{
+          fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '1.1rem',
+          color: 'var(--espresso)', textDecoration: 'none',
+          padding: '0.75rem 0', borderBottom: '1px solid rgba(124,92,46,0.12)',
+          display: 'block',
+        }}>
+          Catering
+        </a>
         <button onClick={scrollToContact} style={{
           background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
           fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '1.1rem',
@@ -666,6 +682,79 @@ export default function Home() {
               </div>
             </a>
 
+          </div>
+        </div>
+      </section>
+
+      {/* ── CATERING ── */}
+      <section id="catering" style={{ background: '#1a0e06', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <span style={{
+              display: 'inline-block', fontFamily: "'Lato',sans-serif", fontWeight: 700,
+              fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase',
+              color: 'rgba(212,160,23,0.9)', background: 'rgba(212,160,23,0.12)',
+              padding: '5px 14px', borderRadius: 999, marginBottom: '1rem',
+            }}>
+              Catering &amp; Events
+            </span>
+            <h2 className="font-display" style={{
+              fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
+              color: '#fff', letterSpacing: '-0.02em', marginBottom: '0.75rem',
+            }}>
+              We Come to <em>Your Event</em>
+            </h2>
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.95rem', color: 'rgba(255,255,255,0.5)', maxWidth: 520, margin: '0 auto 0' }}>
+              Authentic Ghanaian cuisine served fresh at your event — birthday parties, corporate lunches, weddings, and everything in between.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px,100%),1fr))', gap: '1.25rem', marginBottom: '3rem' }}>
+            {[
+              { icon: <Calendar size={22} style={{ color: '#d4a017' }} />, title: 'Birthdays &amp; Parties', body: 'Let us handle the food so you can focus on the celebration. From jollof to desserts.' },
+              { icon: <Users size={22} style={{ color: '#d4a017' }} />, title: 'Corporate Events', body: 'Impress colleagues and clients with a spread of bold West African flavours.' },
+              { icon: <Star size={22} style={{ color: '#d4a017' }} />, title: 'Weddings &amp; Durbars', body: 'Traditional ceremonies, receptions, and outdoor durbars done the Ghanaian way.' },
+              { icon: <Utensils size={22} style={{ color: '#d4a017' }} />, title: 'Buffet-Style Serving', body: 'Hot, fresh buffet lines with full setup — soups, stews, rice dishes, and more.' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.05)', borderRadius: 20,
+                padding: 'clamp(1.25rem,2.5vw,1.75rem)',
+                border: '1px solid rgba(212,160,23,0.15)',
+                transition: 'background 0.25s, border-color 0.25s',
+              }}
+              onMouseEnter={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.background = 'rgba(255,255,255,0.08)'; d.style.borderColor = 'rgba(212,160,23,0.35)'; }}
+              onMouseLeave={(e) => { const d = e.currentTarget as HTMLDivElement; d.style.background = 'rgba(255,255,255,0.05)'; d.style.borderColor = 'rgba(212,160,23,0.15)'; }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(212,160,23,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                  {item.icon}
+                </div>
+                <h3 className="font-display" style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', marginBottom: '0.5rem' }} dangerouslySetInnerHTML={{ __html: item.title }} />
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.875rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.7 }}>{item.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1.5rem' }}>
+              Tell us your headcount, date, and preferred dishes — we&rsquo;ll handle the rest.
+            </p>
+            <a
+              href={`https://wa.me/233540951665?text=${encodeURIComponent("Hi! I'd like to enquire about catering for an event. Could you share your catering packages? 🍽️")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: '#d4a017', color: '#1a0e06',
+                fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                fontSize: '0.9rem', letterSpacing: '0.04em',
+                padding: '0.9rem 2rem', borderRadius: 999,
+                textDecoration: 'none', transition: 'background 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#e6b31a'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#d4a017'; }}
+            >
+              <MessageCircle size={17} /> Get a Catering Quote
+            </a>
           </div>
         </div>
       </section>
