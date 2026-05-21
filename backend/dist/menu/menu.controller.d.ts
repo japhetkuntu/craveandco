@@ -10,6 +10,8 @@ export declare class MenuController {
         createdAt: Date;
         updatedAt: Date;
         sortOrder: number;
+        autoDeductInventory: boolean;
+        internalOnly: boolean;
     }>;
     findCategories(page?: string, limit?: string): Promise<({
         items: {
@@ -33,6 +35,8 @@ export declare class MenuController {
         createdAt: Date;
         updatedAt: Date;
         sortOrder: number;
+        autoDeductInventory: boolean;
+        internalOnly: boolean;
     })[]>;
     updateCategory(id: string, dto: UpdateCategoryDto): Promise<{
         name: string;
@@ -41,6 +45,8 @@ export declare class MenuController {
         createdAt: Date;
         updatedAt: Date;
         sortOrder: number;
+        autoDeductInventory: boolean;
+        internalOnly: boolean;
     }>;
     deleteCategory(id: string): Promise<{
         name: string;
@@ -49,6 +55,8 @@ export declare class MenuController {
         createdAt: Date;
         updatedAt: Date;
         sortOrder: number;
+        autoDeductInventory: boolean;
+        internalOnly: boolean;
     }>;
     createItem(branchId: string, dto: CreateMenuItemDto): Promise<{
         category: {
@@ -58,6 +66,8 @@ export declare class MenuController {
             createdAt: Date;
             updatedAt: Date;
             sortOrder: number;
+            autoDeductInventory: boolean;
+            internalOnly: boolean;
         };
     } & {
         name: string;
@@ -85,6 +95,8 @@ export declare class MenuController {
             createdAt: Date;
             updatedAt: Date;
             sortOrder: number;
+            autoDeductInventory: boolean;
+            internalOnly: boolean;
         };
     } & {
         name: string;
@@ -112,6 +124,8 @@ export declare class MenuController {
             createdAt: Date;
             updatedAt: Date;
             sortOrder: number;
+            autoDeductInventory: boolean;
+            internalOnly: boolean;
         };
     } & {
         name: string;

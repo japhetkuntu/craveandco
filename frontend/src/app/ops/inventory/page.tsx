@@ -8,6 +8,7 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Package, AlertTriangle, Plus, X, Pencil, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { IngredientCombobox } from '@/components/ui/ingredient-combobox';
 
 interface StockItem {
   id: string;
@@ -220,31 +221,16 @@ export default function OpsInventoryPage() {
           </div>
           <div className="p-4">
             <form onSubmit={handleMovement} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">Search ingredient</label>
-                <input
-                  type="text"
-                  placeholder="Type ingredient name or unit"
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">Which ingredient?</label>
-                <select
-                  value={movementData.ingredientId}
-                  onChange={(e) => setMovementData({ ...movementData, ingredientId: e.target.value })}
-                  className="w-full h-12 px-4 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-                  required
-                >
-                  <option value="">Choose an ingredient...</option>
-                  {ingredients.map((ing) => (
-                    <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                  ))}
-                </select>
-                {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
-              </div>
+              <IngredientCombobox
+                label="Ingredient"
+                ingredients={ingredients}
+                value={movementData.ingredientId}
+                onChange={(id) => setMovementData({ ...movementData, ingredientId: id })}
+                onSearch={setIngredientSearch}
+                loading={ingredientsLoading}
+                placeholder="Search ingredients…"
+                required
+              />
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">What happened?</label>
                 <select

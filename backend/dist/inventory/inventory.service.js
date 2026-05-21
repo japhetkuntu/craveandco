@@ -98,7 +98,7 @@ let InventoryService = class InventoryService {
                 skip,
                 orderBy: { name: 'asc' },
             }),
-            this.prisma.ingredient.findMany({ select: { id: true, reorderLevel: true } }),
+            this.prisma.ingredient.findMany({ select: { id: true, reorderLevel: true, currentCost: true } }),
             this.prisma.inventoryMovement.groupBy({
                 by: ['ingredientId', 'type'],
                 where: { branchId },
@@ -128,7 +128,11 @@ let InventoryService = class InventoryService {
                 supplier: ing.supplier,
             };
         });
-        const totalAssetValue = items.reduce((sum, item) => sum + item.onHand * item.currentCost, 0);
+        const totalAssetValue = allIngredients.reduce((sum, ingredient) => {
+            const onHand = movementMap.get(ingredient.id) ?? 0;
+            return sum + onHand * Number(ingredient.currentCost);
+        }, 0);
+        const totalOnHand = allIngredients.reduce((sum, ingredient) => sum + (movementMap.get(ingredient.id) ?? 0), 0);
         const pageLowStockCount = items.filter((item) => item.belowReorder).length;
         return {
             items,
@@ -136,6 +140,7 @@ let InventoryService = class InventoryService {
             lowStockCount,
             pageLowStockCount,
             totalAssetValue,
+            totalOnHand,
         };
     }
     async getCurrentOnHand(branchId, ingredientId) {

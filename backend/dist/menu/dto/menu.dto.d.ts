@@ -34,9 +34,13 @@ export declare class UpdateMenuItemDto {
 export declare class CreateCategoryDto {
     name: string;
     sortOrder?: number;
+    autoDeductInventory?: boolean;
+    internalOnly?: boolean;
 }
 export declare class UpdateCategoryDto {
     name?: string;
     sortOrder?: number;
+    autoDeductInventory?: boolean;
+    internalOnly?: boolean;
 }
 export {};

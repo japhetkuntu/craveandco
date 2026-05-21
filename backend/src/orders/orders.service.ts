@@ -277,7 +277,57 @@ export class OrdersService {
       },
       include: this.orderInclude,
     });
+    await this.deductInventoryForOrder(createdOrder.id, dto.branchId, createdOrder.items);
     return this.enrichOrder(createdOrder);
+  }
+
+  /**
+   * For each order item whose menu category has autoDeductInventory = true,
+   * create USAGE inventory movements (one per ingredient per order item).
+   * Uses the pre-computed ingredientCosts stored on each OrderItem.
+   */
+  private async deductInventoryForOrder(orderId: string, branchId: string, orderItems: any[]) {
+    const movements: any[] = [];
+    for (const orderItem of orderItems) {
+      if (!orderItem.menuItem?.category?.autoDeductInventory) continue;
+      for (const cost of orderItem.ingredientCosts ?? []) {
+        const qty = Number(cost.quantity) * orderItem.quantity;
+        if (qty <= 0) continue;
+        movements.push({
+          ingredientId: cost.ingredientId,
+          branchId,
+          type: 'USAGE',
+          quantity: -qty, // negative = stock reduction
+          reason: `Auto-deducted: ${orderItem.menuItem.name} ×${orderItem.quantity}`,
+          referenceId: orderId,
+        });
+      }
+    }
+    if (movements.length > 0) {
+      await this.prisma.inventoryMovement.createMany({ data: movements });
+    }
+  }
+
+  /**
+   * Reverse all USAGE movements that were auto-created for a given order
+   * (used on cancellation or item re-set). Creates ADJUSTMENT movements with
+   * positive quantities to restore the deducted stock.
+   */
+  private async reverseInventoryForOrder(orderId: string, branchId: string) {
+    const deductions = await this.prisma.inventoryMovement.findMany({
+      where: { referenceId: orderId, type: 'USAGE' },
+    });
+    if (deductions.length === 0) return;
+    await this.prisma.inventoryMovement.createMany({
+      data: deductions.map((m) => ({
+        ingredientId: m.ingredientId,
+        branchId,
+        type: 'ADJUSTMENT',
+        quantity: Math.abs(Number(m.quantity)),
+        reason: `Reversal: order ${orderId}`,
+        referenceId: orderId,
+      })),
+    });
   }
 
   private enrichOrder(order: any) {
@@ -350,6 +400,10 @@ export class OrdersService {
       data: { status: dto.status as OrderStatus },
       include: this.orderInclude,
     });
+    // Reverse auto-deductions when an order is cancelled
+    if (dto.status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
+      await this.reverseInventoryForOrder(id, order.branchId);
+    }
     return this.enrichOrder(updated);
   }
 
@@ -364,6 +418,9 @@ export class OrdersService {
       dto.items.map((i) => i.menuItemId),
     );
     const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
+
+    // Reverse any existing auto-deductions before replacing items
+    await this.reverseInventoryForOrder(id, order.branchId);
 
     // Delete existing items and recreate
     await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
@@ -399,6 +456,8 @@ export class OrdersService {
       },
       include: this.orderInclude,
     });
+    // Re-apply deductions for the new item set
+    await this.deductInventoryForOrder(id, order.branchId, updated.items);
     return this.enrichOrder(updated);
   }
 

@@ -52,9 +52,13 @@ export class UpdateMenuItemDto {
 export class CreateCategoryDto {
   @IsString() @IsNotEmpty() name: string;
   @IsOptional() @IsNumber() sortOrder?: number;
+  @IsOptional() @IsBoolean() autoDeductInventory?: boolean;
+  @IsOptional() @IsBoolean() internalOnly?: boolean;
 }
 
 export class UpdateCategoryDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsNumber() sortOrder?: number;
+  @IsOptional() @IsBoolean() autoDeductInventory?: boolean;
+  @IsOptional() @IsBoolean() internalOnly?: boolean;
 }

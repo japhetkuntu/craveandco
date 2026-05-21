@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Truck, Plus, X, Phone, Mail } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { IngredientCombobox } from '@/components/ui/ingredient-combobox';
 
 interface Supplier {
   id: string;
@@ -87,18 +88,6 @@ export default function OpsPurchasingPage() {
     notes: '',
     items: [{ id: crypto.randomUUID(), ingredientId: '', inputMode: 'quantity', quantity: '', amount: '', unitCost: '' }],
   });
-  const [ingredientSearchByItemId, setIngredientSearchByItemId] = useState<Record<string, string>>({});
-
-  const getIngredientLabel = (ingredientId: string) => ingredients.find((ing) => ing.id === ingredientId)?.name ?? '';
-
-  const initializeIngredientSearch = (items: NewOrderItem[]) => {
-    setIngredientSearchByItemId(
-      items.reduce<Record<string, string>>((acc, item) => {
-        acc[item.id] = getIngredientLabel(item.ingredientId);
-        return acc;
-      }, {}),
-    );
-  };
 
   const fetchIngredients = useCallback(async (search = '') => {
     if (!token) return;
@@ -156,7 +145,6 @@ export default function OpsPurchasingPage() {
       ...prev,
       items: [...prev.items, newItem],
     }));
-    setIngredientSearchByItemId((prev) => ({ ...prev, [newItem.id]: '' }));
   };
 
   const updateOrderItem = (index: number, key: keyof NewOrderItem, value: string) => {
@@ -168,15 +156,7 @@ export default function OpsPurchasingPage() {
 
   const removeOrderItem = (index: number) => {
     if (newOrder.items.length === 1) return; // keep at least one
-    const removedItemId = newOrder.items[index]?.id;
     setNewOrder((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== index) }));
-    if (removedItemId) {
-      setIngredientSearchByItemId((prev) => {
-        const next = { ...prev };
-        delete next[removedItemId];
-        return next;
-      });
-    }
   };
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
@@ -217,7 +197,6 @@ export default function OpsPurchasingPage() {
       setShowCreateOrder(false);
       const resetItems: NewOrderItem[] = [{ id: crypto.randomUUID(), ingredientId: '', inputMode: 'quantity', quantity: '', amount: '', unitCost: '' }];
       setNewOrder({ supplierId: '', notes: '', items: resetItems });
-      initializeIngredientSearch(resetItems);
       await loadData();
     } catch (err) { console.error(err); }
     finally { setCreatingOrder(false); }
@@ -431,7 +410,7 @@ export default function OpsPurchasingPage() {
                 <h2 className="text-xl font-semibold text-text-primary">Create Purchase Order</h2>
                 <p className="text-sm text-text-secondary mt-1">Order ingredients from a supplier.</p>
               </div>
-              <Button variant="secondary" onClick={() => { setShowCreateOrder(false); initializeIngredientSearch(newOrder.items); }}>Close</Button>
+              <Button variant="secondary" onClick={() => setShowCreateOrder(false)}>Close</Button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
               <form id="new-order-form" className="space-y-5" onSubmit={handleCreateOrder}>
@@ -466,44 +445,20 @@ export default function OpsPurchasingPage() {
                             </button>
                           )}
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-text-secondary mb-1">Search ingredient</label>
-                          <input
-                            type="text"
-                            placeholder="Type ingredient name or unit"
-                            value={ingredientSearchByItemId[item.id] ?? getIngredientLabel(item.ingredientId)}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setIngredientSearchByItemId((prev) => ({ ...prev, [item.id]: value }));
-                              fetchIngredients(value).catch(console.error);
-                            }}
-                            className="w-full h-11 px-4 rounded-2xl border border-border-default bg-surface-input text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                          />
-                        </div>
-                        <select
+                        <IngredientCombobox
+                          ingredients={ingredients}
                           value={item.ingredientId}
-                          onChange={(e) => {
-                            const selectedId = e.target.value;
-                            const selected = ingredients.find((ing) => ing.id === selectedId);
+                          onChange={(selectedId) => {
+                            const sel = ingredients.find((ing) => ing.id === selectedId);
                             updateOrderItem(index, 'ingredientId', selectedId);
-                            if (selected) updateOrderItem(index, 'unitCost', String(selected.currentCost));
+                            if (sel) updateOrderItem(index, 'unitCost', String(sel.currentCost));
                             else updateOrderItem(index, 'unitCost', '');
-                            setIngredientSearchByItemId((prev) => ({
-                              ...prev,
-                              [item.id]: selectedId ? getIngredientLabel(selectedId) : prev[item.id] ?? '',
-                            }));
                           }}
-                          className="w-full h-12 px-4 rounded-2xl border border-border-default bg-surface-input text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
+                          onSearch={(q) => fetchIngredients(q).catch(console.error)}
+                          loading={ingredientsLoading}
+                          placeholder="Search ingredients…"
                           required
-                        >
-                          <option value="">Choose ingredient...</option>
-                          {ingredients.map((ing) => (
-                            <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                          ))}
-                        </select>
-                        <p className="text-[11px] text-text-tertiary">
-                          {ingredients.length} ingredient(s) found
-                        </p>
+                        />
                         {/* Input mode toggle */}
                         <div className="flex items-center gap-1 rounded-2xl bg-surface-elevated p-1 text-xs font-semibold w-fit">
                           <button
@@ -595,7 +550,7 @@ export default function OpsPurchasingPage() {
               </form>
             </div>
             <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateOrder(false); initializeIngredientSearch(newOrder.items); }}>Cancel</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setShowCreateOrder(false)}>Cancel</Button>
               <Button variant="primary" className="flex-1" loading={creatingOrder} disabled={!newOrder.supplierId} onClick={handleCreateOrder}>Save Order</Button>
             </div>
           </div>

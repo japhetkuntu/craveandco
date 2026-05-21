@@ -174,6 +174,8 @@ __decorate([
 class CreateCategoryDto {
     name;
     sortOrder;
+    autoDeductInventory;
+    internalOnly;
 }
 exports.CreateCategoryDto = CreateCategoryDto;
 __decorate([
@@ -186,9 +188,21 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateCategoryDto.prototype, "sortOrder", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateCategoryDto.prototype, "autoDeductInventory", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateCategoryDto.prototype, "internalOnly", void 0);
 class UpdateCategoryDto {
     name;
     sortOrder;
+    autoDeductInventory;
+    internalOnly;
 }
 exports.UpdateCategoryDto = UpdateCategoryDto;
 __decorate([
@@ -201,4 +215,14 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], UpdateCategoryDto.prototype, "sortOrder", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateCategoryDto.prototype, "autoDeductInventory", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateCategoryDto.prototype, "internalOnly", void 0);
 //# sourceMappingURL=menu.dto.js.map

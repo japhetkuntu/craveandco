@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Receipt, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { IngredientCombobox } from '@/components/ui/ingredient-combobox';
 
 interface WasteEntry {
   id: string;
@@ -184,31 +185,16 @@ export default function KitchenWastePage() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
               <form id="waste-form" onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">Search ingredient</label>
-                  <input
-                    type="text"
-                    value={ingredientSearch}
-                    onChange={(e) => setIngredientSearch(e.target.value)}
-                    placeholder="Type ingredient name or unit"
-                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">What ingredient was wasted?</label>
-                  <select
-                    value={ingredientId}
-                    onChange={(e) => setIngredientId(e.target.value)}
-                    required
-                    className="w-full rounded-2xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
-                  >
-                    <option value="">Choose ingredient…</option>
-                    {ingredients.map((ing) => (
-                      <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                    ))}
-                  </select>
-                  {ingredientsLoading && <p className="mt-1 text-xs text-text-tertiary">Loading ingredients...</p>}
-                </div>
+                <IngredientCombobox
+                  label="What ingredient was wasted?"
+                  ingredients={ingredients}
+                  value={ingredientId}
+                  onChange={setIngredientId}
+                  onSearch={setIngredientSearch}
+                  loading={ingredientsLoading}
+                  placeholder="Search ingredients…"
+                  required
+                />
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     How much was wasted?{selectedIngredient ? ` (${selectedIngredient.unit})` : ''}

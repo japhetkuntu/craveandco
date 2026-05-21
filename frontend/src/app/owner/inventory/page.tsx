@@ -26,6 +26,7 @@ interface StockResponse {
   lowStockCount: number;
   pageLowStockCount: number;
   totalAssetValue?: number;
+  totalOnHand?: number;
 }
 
 interface MovementEntry {
@@ -44,6 +45,7 @@ export default function OwnerInventoryPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [totalAssetValue, setTotalAssetValue] = useState(0);
+  const [totalOnHand, setTotalOnHand] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -63,7 +65,6 @@ export default function OwnerInventoryPage() {
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const totalOnHand = stock.reduce((sum, item) => sum + item.onHand, 0);
   const lowStockPercent = totalItems > 0 ? Math.round((lowStockCount / totalItems) * 100) : 0;
 
   const resetInventoryForm = () => {
@@ -159,6 +160,7 @@ export default function OwnerInventoryPage() {
       setTotalItems(response.totalCount);
       setLowStockCount(response.lowStockCount);
       setTotalAssetValue(response.totalAssetValue ?? 0);
+      setTotalOnHand(response.totalOnHand ?? 0);
       setLowStock(lowStockItems);
       setMovementAnalytics(movementAnalyticsResponse);
       setMovements(movementHistory);
@@ -212,18 +214,30 @@ export default function OwnerInventoryPage() {
       </div>
 
       {movementAnalytics && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: 'Movements', value: movementAnalytics.totalMovements },
-            { label: 'Purchases', value: movementAnalytics.typeCounts.PURCHASE_IN || 0 },
-            { label: 'Waste', value: movementAnalytics.typeCounts.WASTE || 0 },
-            { label: 'Adjustments', value: movementAnalytics.typeCounts.ADJUSTMENT || 0 },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-2xl border border-border-subtle bg-surface-raised p-3 flex flex-col gap-1">
-              <p className="text-xs text-text-tertiary">{label}</p>
-              <p className="text-2xl font-bold font-mono text-text-primary">{value}</p>
-            </div>
-          ))}
+        <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
+          <div className="px-4 py-3 border-b border-border-subtle">
+            <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Movement Analytics</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              { label: 'All Movements', count: movementAnalytics.totalMovements, qty: null, tone: 'default' },
+              { label: 'Purchased', count: movementAnalytics.typeCounts.PURCHASE_IN || 0, qty: movementAnalytics.typeQuantities.PURCHASE_IN || 0, tone: 'green' },
+              { label: 'Used', count: movementAnalytics.typeCounts.USAGE || 0, qty: movementAnalytics.typeQuantities.USAGE || 0, tone: 'default' },
+              { label: 'Wasted', count: movementAnalytics.typeCounts.WASTE || 0, qty: movementAnalytics.typeQuantities.WASTE || 0, tone: 'red' },
+              { label: 'Adjustments', count: movementAnalytics.typeCounts.ADJUSTMENT || 0, qty: movementAnalytics.typeQuantities.ADJUSTMENT || 0, tone: 'yellow' },
+              { label: 'Stock Counts', count: movementAnalytics.typeCounts.STOCK_COUNT || 0, qty: null, tone: 'default' },
+            ].map(({ label, count, qty, tone }) => {
+              const tv = tone === 'green' ? 'text-success' : tone === 'red' ? 'text-error' : tone === 'yellow' ? 'text-warning' : 'text-text-primary';
+              const bg = tone === 'green' ? 'bg-success-muted' : tone === 'red' ? 'bg-error-muted' : tone === 'yellow' ? 'bg-warning-muted' : '';
+              return (
+                <div key={label} className={`p-4 border-r border-b border-border-subtle last:border-r-0 flex flex-col gap-0.5 ${bg}`}>
+                  <p className="text-xs text-text-tertiary">{label}</p>
+                  <p className={`text-2xl font-bold font-mono ${tv}`}>{count}</p>
+                  {qty !== null && <p className="text-xs text-text-tertiary font-mono">{Number(qty).toFixed(2)} units</p>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

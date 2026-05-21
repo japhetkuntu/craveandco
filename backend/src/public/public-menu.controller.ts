@@ -21,7 +21,7 @@ export class PublicMenuController {
     const resolvedBranchId = await this.resolveBranchId(branchId);
     const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
-    return this.menu.findItems(resolvedBranchId, categoryId, pageNumber, limitNumber);
+    return this.menu.findItems(resolvedBranchId, categoryId, pageNumber, limitNumber, true);
   }
 
   @Get('categories')
@@ -33,12 +33,7 @@ export class PublicMenuController {
     await this.resolveBranchId(branchId);
     const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
-    return this.prisma.menuCategory.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-      take: limitNumber,
-      skip: pageNumber * limitNumber,
-    });
+    return this.menu.findCategories(pageNumber, limitNumber, true);
   }
 
   private async resolveBranchId(branchId?: string) {

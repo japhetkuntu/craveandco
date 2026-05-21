@@ -53,12 +53,12 @@ export class MenuService {
     return this.prisma.menuCategory.create({ data: dto });
   }
 
-  async findCategories(page = 0, limit = 50) {
+  async findCategories(page = 0, limit = 50, excludeInternalOnly = false) {
     const take = Math.min(Math.max(limit, 10), 100);
     const skip = Math.max(page, 0) * take;
 
     return this.prisma.menuCategory.findMany({
-      where: { active: true },
+      where: { active: true, ...(excludeInternalOnly && { internalOnly: false }) },
       orderBy: { sortOrder: 'asc' },
       include: { items: true },
       take,
@@ -98,12 +98,16 @@ export class MenuService {
     return this.toPublicMenuItem(created);
   }
 
-  async findItems(branchId: string, categoryId?: string, page = 0, limit = 50) {
+  async findItems(branchId: string, categoryId?: string, page = 0, limit = 50, excludeInternalOnly = false) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max(page, 0) * take;
 
     const items = await this.prisma.menuItem.findMany({
-      where: { branchId, ...(categoryId && { categoryId }) },
+      where: {
+        branchId,
+        ...(categoryId && { categoryId }),
+        ...(excludeInternalOnly && { category: { internalOnly: false } }),
+      },
       include: { category: true },
       orderBy: [
         { imageKey: { sort: 'asc', nulls: 'last' } },

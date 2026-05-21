@@ -230,7 +230,48 @@ let OrdersService = class OrdersService {
             },
             include: this.orderInclude,
         });
+        await this.deductInventoryForOrder(createdOrder.id, dto.branchId, createdOrder.items);
         return this.enrichOrder(createdOrder);
+    }
+    async deductInventoryForOrder(orderId, branchId, orderItems) {
+        const movements = [];
+        for (const orderItem of orderItems) {
+            if (!orderItem.menuItem?.category?.autoDeductInventory)
+                continue;
+            for (const cost of orderItem.ingredientCosts ?? []) {
+                const qty = Number(cost.quantity) * orderItem.quantity;
+                if (qty <= 0)
+                    continue;
+                movements.push({
+                    ingredientId: cost.ingredientId,
+                    branchId,
+                    type: 'USAGE',
+                    quantity: -qty,
+                    reason: `Auto-deducted: ${orderItem.menuItem.name} ×${orderItem.quantity}`,
+                    referenceId: orderId,
+                });
+            }
+        }
+        if (movements.length > 0) {
+            await this.prisma.inventoryMovement.createMany({ data: movements });
+        }
+    }
+    async reverseInventoryForOrder(orderId, branchId) {
+        const deductions = await this.prisma.inventoryMovement.findMany({
+            where: { referenceId: orderId, type: 'USAGE' },
+        });
+        if (deductions.length === 0)
+            return;
+        await this.prisma.inventoryMovement.createMany({
+            data: deductions.map((m) => ({
+                ingredientId: m.ingredientId,
+                branchId,
+                type: 'ADJUSTMENT',
+                quantity: Math.abs(Number(m.quantity)),
+                reason: `Reversal: order ${orderId}`,
+                referenceId: orderId,
+            })),
+        });
     }
     enrichOrder(order) {
         const orderWithImages = this.attachImageUrlsToOrder(order);
@@ -290,6 +331,9 @@ let OrdersService = class OrdersService {
             data: { status: dto.status },
             include: this.orderInclude,
         });
+        if (dto.status === client_1.OrderStatus.CANCELLED && order.status !== client_1.OrderStatus.CANCELLED) {
+            await this.reverseInventoryForOrder(id, order.branchId);
+        }
         return this.enrichOrder(updated);
     }
     async updateItems(id, dto) {
@@ -301,6 +345,7 @@ let OrdersService = class OrdersService {
         }
         const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
         const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
+        await this.reverseInventoryForOrder(id, order.branchId);
         await this.prisma.orderItem.deleteMany({ where: { orderId: id } });
         const updated = await this.prisma.order.update({
             where: { id },
@@ -333,6 +378,7 @@ let OrdersService = class OrdersService {
             },
             include: this.orderInclude,
         });
+        await this.deductInventoryForOrder(id, order.branchId, updated.items);
         return this.enrichOrder(updated);
     }
     async addItem(id, dto) {

@@ -21,6 +21,8 @@ export declare class OrdersService {
     private normalizeSelectedOptions;
     private calculateTotals;
     create(dto: CreateOrderDto, initiatedById?: string): Promise<any>;
+    private deductInventoryForOrder;
+    private reverseInventoryForOrder;
     private enrichOrder;
     findOne(id: string): Promise<any>;
     findByCustomerId(customerId: string, page?: number, limit?: number): Promise<any[]>;
@@ -48,6 +50,8 @@ export declare class OrdersService {
                     createdAt: Date;
                     updatedAt: Date;
                     sortOrder: number;
+                    autoDeductInventory: boolean;
+                    internalOnly: boolean;
                 };
             } & {
                 name: string;

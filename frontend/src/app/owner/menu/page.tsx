@@ -40,6 +40,8 @@ interface MenuItem {
 interface Category {
   id: string;
   name: string;
+  autoDeductInventory: boolean;
+  internalOnly: boolean;
 }
 
 interface RecipeItem {
@@ -90,6 +92,8 @@ export default function OwnerMenuPage() {
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+  const [editCategoryAutoDeduct, setEditCategoryAutoDeduct] = useState(false);
+  const [editCategoryInternalOnly, setEditCategoryInternalOnly] = useState(false);
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([]);
@@ -605,6 +609,8 @@ export default function OwnerMenuPage() {
     setCategoryError('');
     setEditCategory(category);
     setEditCategoryName(category.name);
+    setEditCategoryAutoDeduct(category.autoDeductInventory);
+    setEditCategoryInternalOnly(category.internalOnly);
     setShowEditCategoryModal(true);
   };
 
@@ -612,6 +618,8 @@ export default function OwnerMenuPage() {
     setShowEditCategoryModal(false);
     setEditCategory(null);
     setEditCategoryName('');
+    setEditCategoryAutoDeduct(false);
+    setEditCategoryInternalOnly(false);
     setCategoryError('');
   };
 
@@ -627,7 +635,7 @@ export default function OwnerMenuPage() {
     try {
       const updated = await patch(
         `/api/v1/menu/categories/${editCategory.id}`,
-        { name: editCategoryName.trim() },
+        { name: editCategoryName.trim(), autoDeductInventory: editCategoryAutoDeduct, internalOnly: editCategoryInternalOnly },
         token ?? undefined,
       );
       setCategories((prev) => prev.map((cat) => (cat.id === updated.id ? updated : cat)));
@@ -768,9 +776,16 @@ export default function OwnerMenuPage() {
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.name)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${activeCategory === cat.name ? 'bg-[var(--color-gold)] text-white shadow-sm' : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'}`}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+              activeCategory === cat.name ? 'bg-[var(--color-gold)] text-white shadow-sm' : 'bg-surface-raised border border-border-subtle text-text-secondary hover:text-text-primary'
+            }`}
           >
             {cat.name}
+            {cat.internalOnly && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                activeCategory === cat.name ? 'bg-white/20 text-white' : 'bg-surface-elevated text-text-tertiary'
+              }`}>STAFF</span>
+            )}
           </button>
         ))}
       </div>
@@ -933,9 +948,9 @@ export default function OwnerMenuPage() {
               </div>
               <Button variant="secondary" onClick={closeEditCategory}>Close</Button>
             </div>
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               {categoryError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error mb-4">{categoryError}</div>}
-              <form id="edit-category-form" onSubmit={handleEditCategory}>
+              <form id="edit-category-form" onSubmit={handleEditCategory} className="space-y-4">
                 <label className="block">
                   <span className="text-sm font-medium text-text-secondary">Category Name</span>
                   <input
@@ -948,6 +963,44 @@ export default function OwnerMenuPage() {
                     placeholder="Category name"
                   />
                 </label>
+                <button
+                  type="button"
+                  onClick={() => setEditCategoryAutoDeduct((v) => !v)}
+                  className={`w-full flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition-colors ${
+                    editCategoryAutoDeduct
+                      ? 'bg-success-muted border-success/30 text-success'
+                      : 'bg-surface-input border-border-default text-text-secondary'
+                  }`}
+                >
+                  <span className="font-medium">Auto-deduct inventory on order</span>
+                  <span className={`text-xs font-bold ${editCategoryAutoDeduct ? 'text-success' : 'text-text-tertiary'}`}>
+                    {editCategoryAutoDeduct ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                {editCategoryAutoDeduct && (
+                  <p className="text-xs text-text-tertiary px-1">
+                    When enabled, placing an order with items in this category will automatically create a stock usage movement for each linked ingredient.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setEditCategoryInternalOnly((v) => !v)}
+                  className={`w-full flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition-colors ${
+                    editCategoryInternalOnly
+                      ? 'bg-warning-muted border-warning/30 text-warning'
+                      : 'bg-surface-input border-border-default text-text-secondary'
+                  }`}
+                >
+                  <span className="font-medium">Staff-only (hide from website)</span>
+                  <span className={`text-xs font-bold ${editCategoryInternalOnly ? 'text-warning' : 'text-text-tertiary'}`}>
+                    {editCategoryInternalOnly ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                {editCategoryInternalOnly && (
+                  <p className="text-xs text-text-tertiary px-1">
+                    This category and its items will not appear on the website or customer-facing menu. Only visible to staff in the portal.
+                  </p>
+                )}
               </form>
             </div>
             <div className="border-t border-border-subtle px-6 py-4 flex gap-3">

@@ -17,6 +17,7 @@ import {
   Mail,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
@@ -121,6 +122,8 @@ export default function OwnerEngagementPage() {
   const [error, setError] = useState('');
   const [trendPage, setTrendPage] = useState(0);
   const TREND_PAGE_SIZE = 7;
+
+  const [selectedActivity, setSelectedActivity] = useState<RecentActivity | null>(null);
 
   const fetchDailySummary = useCallback(async () => {
     setDailyLoading(true);
@@ -473,7 +476,8 @@ export default function OwnerEngagementPage() {
               {recentActivity.map((act) => (
                 <div
                   key={act.id}
-                  className="flex items-start gap-3 py-2 border-b border-border-subtle last:border-0"
+                  onClick={() => setSelectedActivity(act)}
+                  className="flex items-start gap-3 py-2 border-b border-border-subtle last:border-0 cursor-pointer hover:bg-surface-elevated/50 rounded-lg px-1 -mx-1 transition-colors"
                 >
                   <div className={`mt-0.5 shrink-0 ${act.engaged ? 'text-success' : 'text-text-tertiary'}`}>
                     {act.engaged ? <CheckCircle2 size={16} /> : <HeartHandshake size={16} />}
@@ -490,6 +494,7 @@ export default function OwnerEngagementPage() {
                     {act.notes && (
                       <p className="text-xs text-text-secondary mt-0.5 italic truncate">"{act.notes}"</p>
                     )}
+                    <p className="text-xs text-[var(--color-gold)] mt-0.5">Tap for details</p>
                   </div>
                   <div className="shrink-0 text-right">
                     {act.orderedToday && (
@@ -507,6 +512,73 @@ export default function OwnerEngagementPage() {
           )}
         </div>
       </div>
+
+      {/* Activity detail modal */}
+      {selectedActivity && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-md rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">{selectedActivity.customer.name}</h2>
+                <p className="text-sm text-text-secondary mt-0.5">
+                  {new Date(selectedActivity.date.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <button onClick={() => setSelectedActivity(null)} className="p-2 rounded-full hover:bg-surface-elevated text-text-tertiary">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                  selectedActivity.engaged ? 'bg-success-muted text-success' : 'bg-surface-elevated text-text-secondary'
+                }`}>
+                  <CheckCircle2 size={12} />
+                  {selectedActivity.engaged ? 'Engaged' : 'Not engaged'}
+                </span>
+                {selectedActivity.orderedToday && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-warning-muted text-warning">
+                    <ShoppingBag size={12} /> Ordered
+                  </span>
+                )}
+                {selectedActivity.channel && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-surface-elevated text-text-secondary">
+                    {CHANNEL_ICONS[selectedActivity.channel] ?? CHANNEL_ICONS.UNKNOWN}
+                    {selectedActivity.channel.charAt(0) + selectedActivity.channel.slice(1).toLowerCase().replace('_', '-')}
+                  </span>
+                )}
+              </div>
+              {/* Detail rows */}
+              <div className="space-y-2 text-sm">
+                <div className="flex gap-2">
+                  <span className="text-text-tertiary w-28 shrink-0">Logged by</span>
+                  <span className="text-text-primary font-medium">{selectedActivity.engagedBy.name}</span>
+                </div>
+                {selectedActivity.engagedAt && (
+                  <div className="flex gap-2">
+                    <span className="text-text-tertiary w-28 shrink-0">Time</span>
+                    <span className="text-text-primary">
+                      {new Date(selectedActivity.engagedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {/* Full note */}
+              {selectedActivity.notes ? (
+                <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4">
+                  <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">Note</p>
+                  <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">{selectedActivity.notes}</p>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4">
+                  <p className="text-sm text-text-tertiary italic">No note recorded for this interaction.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
