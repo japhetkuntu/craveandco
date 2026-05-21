@@ -37,10 +37,13 @@ let InventoryController = class InventoryController {
     updateIngredient(id, dto) {
         return this.inventory.updateIngredient(id, dto);
     }
-    getStock(branchId, page = '0', limit = '10') {
+    deleteIngredient(id) {
+        return this.inventory.deleteIngredient(id);
+    }
+    getStock(branchId, page = '0', limit = '10', search) {
         const pageNumber = (0, pagination_1.normalizePage)(page);
         const limitNumber = (0, pagination_1.normalizeLimit)(limit);
-        return this.inventory.getStock(branchId, pageNumber, limitNumber);
+        return this.inventory.getStock(branchId, pageNumber, limitNumber, search);
     }
     createMovement(dto) {
         return this.inventory.createMovement(dto);
@@ -91,13 +94,22 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], InventoryController.prototype, "updateIngredient", null);
 __decorate([
+    (0, common_1.Delete)('ingredients/:id'),
+    (0, roles_decorator_1.Roles)('OWNER'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], InventoryController.prototype, "deleteIngredient", null);
+__decorate([
     (0, common_1.Get)('stock'),
     (0, roles_decorator_1.Roles)('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('branchId')),
     __param(1, (0, common_1.Query)('page')),
     __param(2, (0, common_1.Query)('limit')),
+    __param(3, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:paramtypes", [String, Object, Object, String]),
     __metadata("design:returntype", void 0)
 ], InventoryController.prototype, "getStock", null);
 __decorate([

@@ -74,12 +74,25 @@ let InventoryService = class InventoryService {
             data.reorderLevel = dto.reorderLevel;
         return this.prisma.ingredient.update({ where: { id }, data });
     }
-    async getStock(branchId, page = 0, limit = 10) {
+    async deleteIngredient(id) {
+        return this.prisma.$transaction([
+            this.prisma.recipeItem.deleteMany({ where: { ingredientId: id } }),
+            this.prisma.stockCount.deleteMany({ where: { ingredientId: id } }),
+            this.prisma.inventoryMovement.deleteMany({ where: { ingredientId: id } }),
+            this.prisma.purchaseOrderItem.deleteMany({ where: { ingredientId: id } }),
+            this.prisma.ingredient.delete({ where: { id } }),
+        ]);
+    }
+    async getStock(branchId, page = 0, limit = 10, search) {
         const take = Math.min(Math.max(limit, 10), 100);
         const skip = Math.max(page, 0) * take;
+        const searchWhere = search?.trim()
+            ? { name: { contains: search.trim(), mode: 'insensitive' } }
+            : undefined;
         const [totalCount, ingredients, allIngredients, allMovements] = await Promise.all([
-            this.prisma.ingredient.count(),
+            this.prisma.ingredient.count({ where: searchWhere }),
             this.prisma.ingredient.findMany({
+                where: searchWhere,
                 include: { supplier: true },
                 take,
                 skip,

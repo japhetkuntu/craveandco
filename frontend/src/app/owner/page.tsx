@@ -839,9 +839,9 @@ export default function OwnerDashboard() {
                         {po.items.map((item) => (
                           <tr key={item.id} className="border-b border-border-subtle last:border-0">
                             <td className="px-3 py-2 font-medium text-text-primary">{item.ingredient?.name}</td>
-                            <td className="px-3 py-2 text-right text-text-secondary">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right text-text-secondary">{Number(item.quantity).toFixed(2)}</td>
                             <td className="px-3 py-2 text-right text-text-secondary">{formatCurrency(item.unitCost)}</td>
-                            <td className="px-3 py-2 text-right text-text-secondary hidden sm:table-cell">{item.receivedQty}</td>
+                            <td className="px-3 py-2 text-right text-text-secondary hidden sm:table-cell">{Number(item.receivedQty).toFixed(2)}</td>
                             <td className="px-3 py-2 text-right font-medium text-text-primary">
                               {formatCurrency(Number(item.quantity) * Number(item.unitCost))}
                             </td>
@@ -951,7 +951,7 @@ export default function OwnerDashboard() {
                         return (
                           <tr key={item.id} className="border-b border-border-subtle last:border-0">
                             <td className="px-4 py-3 font-medium text-text-primary">{item.name}</td>
-                            <td className="px-4 py-3 text-right text-text-secondary">{Number(item.quantity)}</td>
+                            <td className="px-4 py-3 text-right text-text-secondary">{Number(item.quantity).toFixed(2)}</td>
                             <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{formatCurrency(Number(item.costPrice))}</td>
                             <td className="px-4 py-3 text-right text-text-secondary">{formatCurrency(Number(item.sellPrice))}</td>
                             <td className={`px-4 py-3 text-right font-semibold ${iMargin >= 40 ? 'text-success' : iMargin >= 20 ? 'text-warning' : 'text-error'}`}>

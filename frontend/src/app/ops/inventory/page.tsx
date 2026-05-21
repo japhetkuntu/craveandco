@@ -6,7 +6,7 @@ import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
-import { Package, AlertTriangle, Plus, X, Pencil } from 'lucide-react';
+import { Package, AlertTriangle, Plus, X, Pencil, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface StockItem {
@@ -61,6 +61,7 @@ export default function OpsInventoryPage() {
   const [loading, setLoading] = useState(true);
   const [stockPage, setStockPage] = useState(0);
   const [stockLimit] = useState(15);
+  const [stockSearch, setStockSearch] = useState('');
   const [lowStockPage, setLowStockPage] = useState(0);
   const [lowStockLimit] = useState(10);
   const [movementPage, setMovementPage] = useState(0);
@@ -76,17 +77,11 @@ export default function OpsInventoryPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
-  // Add ingredient form (collapsible)
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', unit: '', currentCost: '', reorderLevel: '' });
-  const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState('');
-
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
       const [s, ls, mv] = await Promise.all([
-        get(`/api/v1/inventory/stock${buildQueryString({ page: stockPage, limit: stockLimit })}`, token),
+        get(`/api/v1/inventory/stock${buildQueryString({ page: stockPage, limit: stockLimit, search: stockSearch.trim() || undefined })}`, token),
         get(`/api/v1/inventory/alerts/low-stock${buildQueryString({ page: lowStockPage, limit: lowStockLimit })}`, token),
         get(`/api/v1/inventory/movements${buildQueryString({ page: movementPage, limit: movementLimit })}`, token),
       ]);
@@ -106,7 +101,7 @@ export default function OpsInventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, stockPage, stockLimit, lowStockPage, lowStockLimit, movementPage, movementLimit]);
+  }, [token, stockPage, stockLimit, stockSearch, lowStockPage, lowStockLimit, movementPage, movementLimit]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -119,27 +114,7 @@ export default function OpsInventoryPage() {
       .finally(() => setIngredientsLoading(false));
   }, [token, showMovementForm, ingredientSearch]);
 
-  const handleAddIngredient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !addForm.name.trim()) { setAddError('Name is required'); return; }
-    setAddSaving(true);
-    setAddError('');
-    try {
-      await post('/api/v1/inventory/ingredients', {
-        name: addForm.name.trim(),
-        unit: addForm.unit.trim() || 'unit',
-        currentCost: Number(addForm.currentCost) || 0,
-        reorderLevel: Number(addForm.reorderLevel) || 0,
-      }, token);
-      setAddForm({ name: '', unit: '', currentCost: '', reorderLevel: '' });
-      setShowAddForm(false);
-      await fetchData();
-    } catch {
-      setAddError('Could not save. Please try again.');
-    } finally {
-      setAddSaving(false);
-    }
-  };
+  const handleAddIngredient = async (_e: React.FormEvent) => { /* removed — ops cannot add items */ };
 
   const startEdit = (item: StockItem) => {
     setEditingItem(item);
@@ -322,7 +297,7 @@ export default function OpsInventoryPage() {
                 <div>
                   <p className="text-sm font-semibold text-text-primary">{item.name}</p>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    Only {item.onHand} {item.unit} left — reorder when below {item.reorderLevel}
+                    Only {Number(item.onHand).toFixed(2)} {item.unit} left — reorder when below {Number(item.reorderLevel).toFixed(2)}
                   </p>
                 </div>
                 <span className="text-xs font-bold text-warning bg-warning-muted px-2 py-1 rounded-full border border-warning/30">
@@ -345,66 +320,22 @@ export default function OpsInventoryPage() {
 
       {/* All stock table */}
       <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
-        <div className="px-4 py-3 border-b border-border-subtle">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">All Ingredients</p>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="text-sm text-gold font-semibold hover:underline flex items-center gap-1"
-            >
-              <Plus size={14} /> Add new
-            </button>
+        <div className="px-4 py-3 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">All Ingredients</p>
+        </div>
+        <div className="px-4 pb-3 border-b border-border-subtle">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Search ingredients…"
+              value={stockSearch}
+              onChange={(e) => { setStockSearch(e.target.value); setStockPage(0); }}
+              className="w-full h-10 pl-9 pr-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
+            />
           </div>
         </div>
         <div className="space-y-4">
-          {/* Add form (inline collapsible) */}
-          {showAddForm && (
-            <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4 space-y-3">
-              <p className="text-sm font-semibold text-text-primary">Add New Ingredient</p>
-              <form onSubmit={handleAddIngredient} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={addForm.name}
-                    onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                    placeholder="e.g. Tomatoes"
-                    className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Unit</label>
-                    <input
-                      type="text"
-                      value={addForm.unit}
-                      onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
-                      placeholder="e.g. kg"
-                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Reorder when below</label>
-                    <input
-                      type="number"
-                      value={addForm.reorderLevel}
-                      onChange={(e) => setAddForm({ ...addForm, reorderLevel: e.target.value })}
-                      placeholder="e.g. 5"
-                      className="w-full h-12 px-3 rounded-xl border border-border-default bg-surface-input text-base text-text-primary"
-                      min={0}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" loading={addSaving} size="sm">Save</Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>Cancel</Button>
-                  {addError && <span className="text-xs text-error self-center">{addError}</span>}
-                </div>
-              </form>
-            </div>
-          )}
-
           {/* Edit form (inline, replaces row) */}
           {editingItem && (
             <div className="rounded-2xl bg-surface-elevated border border-gold/30 p-4 space-y-3">
@@ -460,7 +391,7 @@ export default function OpsInventoryPage() {
                       <span className={`w-2 h-2 rounded-full shrink-0 ${isLow ? 'bg-warning' : 'bg-success'}`} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">{item.name}</p>
-                        <p className="text-xs text-text-tertiary">{item.onHand} {item.unit} on hand</p>
+                        <p className="text-xs text-text-tertiary">{Number(item.onHand).toFixed(2)} {item.unit} on hand</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -506,7 +437,7 @@ export default function OpsInventoryPage() {
                       {m.reason && <p className="text-xs text-text-tertiary mt-0.5">{m.reason}</p>}
                     </div>
                     <div className="text-right shrink-0 ml-3">
-                      <p className="text-sm font-bold text-text-primary">{m.quantity}</p>
+                      <p className="text-sm font-bold text-text-primary">{Number(m.quantity).toFixed(2)}</p>
                       <p className="text-xs text-text-tertiary">{new Date(m.createdAt).toLocaleDateString('en-GH')}</p>
                     </div>
                   </div>

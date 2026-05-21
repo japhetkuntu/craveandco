@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
-import { formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import {
   HeartHandshake,
   Search,
@@ -386,8 +386,8 @@ export default function EngagementPage() {
                         <span>
                           Placed a completed order today at{' '}
                           {new Date(row.order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {' — GHS '}
-                          {Number(row.order.total).toFixed(2)}
+                          {' — '}
+                          {formatCurrency(Number(row.order.total))}
                         </span>
                       </div>
                     )}

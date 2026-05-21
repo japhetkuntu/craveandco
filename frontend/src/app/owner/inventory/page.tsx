@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { get, post, patch } from '@/lib/api';
+import { get, post, patch, del } from '@/lib/api';
 import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
-import { Package, AlertTriangle, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Plus, Trash2, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 interface StockItem {
@@ -58,6 +58,10 @@ export default function OwnerInventoryPage() {
   const [inventorySaving, setInventorySaving] = useState(false);
   const [inventoryError, setInventoryError] = useState('');
   const [showItemModal, setShowItemModal] = useState(false);
+  const [stockSearch, setStockSearch] = useState('');
+  const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const totalOnHand = stock.reduce((sum, item) => sum + item.onHand, 0);
   const lowStockPercent = totalItems > 0 ? Math.round((lowStockCount / totalItems) * 100) : 0;
@@ -78,6 +82,27 @@ export default function OwnerInventoryPage() {
     });
     setEditingIngredientId(item.id);
     setInventoryError('');
+  };
+
+  const handleDelete = (item: StockItem) => {
+    setDeletingItem(item);
+    setDeleteError('');
+  };
+
+  const confirmDelete = async () => {
+    if (!token || !deletingItem) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await del(`/api/v1/inventory/ingredients/${deletingItem.id}`, token);
+      setDeletingItem(null);
+      await loadStock();
+    } catch (err) {
+      console.error(err);
+      setDeleteError('Could not delete this item. It may be referenced by existing records.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleInventorySubmit = async (e: React.FormEvent) => {
@@ -119,7 +144,7 @@ export default function OwnerInventoryPage() {
     setLoading(true);
     try {
       const [stockResponse, lowStockItems, movementAnalyticsResponse, movementHistory] = await Promise.all([
-        get(`/api/v1/inventory/stock${buildQueryString({ page, limit })}`, token),
+        get(`/api/v1/inventory/stock${buildQueryString({ page, limit, search: stockSearch.trim() || undefined })}`, token),
         get(`/api/v1/inventory/alerts/low-stock${buildQueryString({ page: lowStockPage, limit: lowStockLimit })}`, token),
         get('/api/v1/inventory/movements/analytics', token),
         get(`/api/v1/inventory/movements${buildQueryString({ page: movementPage, limit: movementLimit })}`, token),
@@ -142,7 +167,7 @@ export default function OwnerInventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, limit, lowStockPage, lowStockLimit, movementPage, movementLimit]);
+  }, [token, page, limit, stockSearch, lowStockPage, lowStockLimit, movementPage, movementLimit]);
 
   useEffect(() => {
     void loadStock();
@@ -172,7 +197,7 @@ export default function OwnerInventoryPage() {
           { icon: <Package size={18} />, label: 'Total Items', value: totalItems, tone: undefined },
           { icon: <AlertTriangle size={18} />, label: 'Low Stock', value: lowStockCount, tone: lowStockCount > 0 ? 'red' as const : 'green' as const },
           { icon: <Package size={18} />, label: 'Inventory Worth', value: formatCurrency(totalAssetValue), tone: undefined },
-          { icon: <Package size={18} />, label: 'Total Quantity', value: totalOnHand, tone: undefined },
+          { icon: <Package size={18} />, label: 'Total Quantity', value: Number(totalOnHand).toFixed(2), tone: undefined },
           { icon: <AlertTriangle size={18} />, label: 'Low Stock %', value: `${lowStockPercent}%`, tone: lowStockPercent > 20 ? 'yellow' as const : undefined },
         ].map(({ icon, label, value, tone }) => {
           const bg = tone === 'green' ? 'bg-success-muted border-success/30' : tone === 'red' ? 'bg-error-muted border-error/30' : tone === 'yellow' ? 'bg-warning-muted border-warning/30' : 'bg-surface-raised border-border-subtle';
@@ -213,7 +238,7 @@ export default function OwnerInventoryPage() {
               <div key={item.id} className="flex items-center justify-between rounded-2xl bg-surface-raised border border-border-subtle p-3">
                 <span className="font-medium text-text-primary">{item.name}</span>
                 <span className="text-sm text-error font-bold">
-                  {item.onHand} {item.unit} <span className="text-text-tertiary font-normal">(reorder at {item.reorderLevel})</span>
+                  {Number(item.onHand).toFixed(2)} {item.unit} <span className="text-text-tertiary font-normal">(reorder at {Number(item.reorderLevel).toFixed(2)})</span>
                 </span>
               </div>
             ))}
@@ -230,8 +255,20 @@ export default function OwnerInventoryPage() {
 
       {/* Stock table */}
       <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
-        <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Stock Levels</p>
+        </div>
+        <div className="px-4 pb-3 border-b border-border-subtle">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Search ingredients…"
+              value={stockSearch}
+              onChange={(e) => { setStockSearch(e.target.value); setPage(0); }}
+              className="w-full h-10 pl-9 pr-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -254,14 +291,19 @@ export default function OwnerInventoryPage() {
                       {item.name}
                       {isLow && <span className="ml-2 text-xs text-error font-semibold">Low</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-text-secondary">{item.onHand}</td>
+                    <td className="px-4 py-3 text-right font-mono text-text-secondary">{Number(item.onHand).toFixed(2)}</td>
                     <td className="px-4 py-3 text-text-secondary">{item.unit}</td>
                     <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{item.currentCost.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{item.reorderLevel}</td>
+                    <td className="px-4 py-3 text-right text-text-secondary hidden sm:table-cell">{item.reorderLevel.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button size="sm" variant="secondary" onClick={() => { startInventoryEdit(item); setShowItemModal(true); }}>
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => { startInventoryEdit(item); setShowItemModal(true); }}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => handleDelete(item)} className="text-error hover:border-error/50">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -305,7 +347,7 @@ export default function OwnerInventoryPage() {
                   <td className="px-4 py-3 text-text-secondary">{new Date(movement.createdAt).toLocaleDateString('en-GH')}</td>
                   <td className="px-4 py-3 font-medium text-text-primary">{movement.ingredient?.name || '—'}</td>
                   <td className="px-4 py-3 text-text-secondary">{movement.type.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-right font-mono">{movement.quantity}</td>
+                  <td className="px-4 py-3 text-right font-mono">{Number(movement.quantity).toFixed(2)}</td>
                   <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{movement.reason || '—'}</td>
                 </tr>
               ))}
@@ -325,6 +367,32 @@ export default function OwnerInventoryPage() {
           />
         </div>
       </div>
+
+      {/* Delete Confirm Modal */}
+      {deletingItem && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl overflow-hidden">
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-error-muted flex items-center justify-center">
+                  <Trash2 size={18} className="text-error" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">Delete Ingredient</h2>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Are you sure you want to delete <strong className="text-text-primary">{deletingItem.name}</strong>? This cannot be undone.
+                  </p>
+                </div>
+              </div>
+              {deleteError && <div className="rounded-2xl bg-error-muted p-3 text-sm text-error">{deleteError}</div>}
+            </div>
+            <div className="border-t border-border-subtle px-6 py-4 flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeletingItem(null)} disabled={deleteLoading}>Cancel</Button>
+              <Button variant="primary" className="flex-1 !bg-red-600 !border-red-600 hover:!bg-red-700" onClick={confirmDelete} loading={deleteLoading}>Delete</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Item Modal */}
       {showItemModal && (

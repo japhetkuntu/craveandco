@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -36,16 +36,23 @@ export class InventoryController {
     return this.inventory.updateIngredient(id, dto);
   }
 
+  @Delete('ingredients/:id')
+  @Roles('OWNER')
+  deleteIngredient(@Param('id') id: string) {
+    return this.inventory.deleteIngredient(id);
+  }
+
   @Get('stock')
   @Roles('OWNER', 'OPERATIONS_MANAGER', 'KITCHEN_STAFF')
   getStock(
     @CurrentUser('branchId') branchId: string,
     @Query('page') page = '0',
     @Query('limit') limit = '10',
+    @Query('search') search?: string,
   ) {
     const pageNumber = normalizePage(page);
     const limitNumber = normalizeLimit(limit);
-    return this.inventory.getStock(branchId, pageNumber, limitNumber);
+    return this.inventory.getStock(branchId, pageNumber, limitNumber, search);
   }
 
   @Post('movements')

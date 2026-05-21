@@ -34,7 +34,17 @@ export declare class InventoryService {
         reorderLevel: Prisma.Decimal;
         supplierId: string | null;
     }>;
-    getStock(branchId: string, page?: number, limit?: number): Promise<{
+    deleteIngredient(id: string): Promise<[Prisma.BatchPayload, Prisma.BatchPayload, Prisma.BatchPayload, Prisma.BatchPayload, {
+        name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        unit: string;
+        currentCost: Prisma.Decimal;
+        reorderLevel: Prisma.Decimal;
+        supplierId: string | null;
+    }]>;
+    getStock(branchId: string, page?: number, limit?: number, search?: string): Promise<{
         items: {
             id: string;
             name: string;

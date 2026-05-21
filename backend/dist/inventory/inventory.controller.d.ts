@@ -30,7 +30,17 @@ export declare class InventoryController {
         reorderLevel: import("@prisma/client/runtime/library").Decimal;
         supplierId: string | null;
     }>;
-    getStock(branchId: string, page?: string, limit?: string): Promise<{
+    deleteIngredient(id: string): Promise<[import("@prisma/client").Prisma.BatchPayload, import("@prisma/client").Prisma.BatchPayload, import("@prisma/client").Prisma.BatchPayload, import("@prisma/client").Prisma.BatchPayload, {
+        name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        unit: string;
+        currentCost: import("@prisma/client/runtime/library").Decimal;
+        reorderLevel: import("@prisma/client/runtime/library").Decimal;
+        supplierId: string | null;
+    }]>;
+    getStock(branchId: string, page?: string, limit?: string, search?: string): Promise<{
         items: {
             id: string;
             name: string;
