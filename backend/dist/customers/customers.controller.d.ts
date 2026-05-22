@@ -1,5 +1,5 @@
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, SendSmsDto, UpdateCustomerDto } from './dto/customers.dto';
 export declare class CustomersController {
     private customers;
     constructor(customers: CustomersService);
@@ -126,5 +126,10 @@ export declare class CustomersController {
         lastSeenAt: Date;
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
+    }>;
+    sendSms(dto: SendSmsDto): Promise<{
+        sent: number;
+        failed: number;
+        noPhone: string[];
     }>;
 }

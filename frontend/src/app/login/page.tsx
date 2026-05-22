@@ -23,10 +23,12 @@ export default function LoginPage() {
       if (stored) {
         const payload = JSON.parse(atob(JSON.parse(stored).accessToken.split('.')[1]));
         router.push(getRoleDashboard(payload.role));
+        // Keep loading=true — spinner runs until navigation completes and component unmounts
+        return;
       }
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || 'Login failed');
-    } finally {
       setLoading(false);
     }
   };

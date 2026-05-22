@@ -25,6 +25,7 @@ export class EngagementService {
         engagedBy: { connect: { id: engagedById } },
         date: dateOnly,
         engaged: dto.engaged,
+        reached: dto.reached ?? null,
         engagedAt: dto.engagedAt ? new Date(dto.engagedAt) : null,
         channel: dto.channel ?? null,
         notes: dto.notes ?? null,
@@ -32,6 +33,7 @@ export class EngagementService {
       update: {
         engagedBy: { connect: { id: engagedById } },
         engaged: dto.engaged,
+        reached: dto.reached ?? null,
         engagedAt: dto.engagedAt ? new Date(dto.engagedAt) : null,
         channel: dto.channel ?? null,
         notes: dto.notes ?? null,
@@ -121,6 +123,7 @@ export class EngagementService {
           ? {
               id: log.id,
               engaged: log.engaged,
+              reached: log.reached,
               engagedAt: log.engagedAt,
               channel: log.channel,
               notes: log.notes,
@@ -200,6 +203,7 @@ export class EngagementService {
     const totalLogs = logs.length;
     const totalEngaged = engagedLogs.length;
     const totalConverted = orderedSet.size;
+    const totalReached = engagedLogs.filter((l) => l.reached === true).length;
     const uniqueLoggedCustomers = new Set(logs.map((l) => l.customerId)).size;
 
     // Daily breakdown
@@ -259,6 +263,7 @@ export class EngagementService {
         engagedBy: log.engagedBy,
         date: log.date.toISOString().split('T')[0],
         engaged: log.engaged,
+        reached: log.reached,
         engagedAt: log.engagedAt,
         channel: log.channel,
         notes: log.notes,
@@ -272,8 +277,10 @@ export class EngagementService {
         totalNotLogged: Math.max(0, totalCustomers - uniqueLoggedCustomers),
         totalLogged: totalLogs,
         totalEngaged,
+        totalReached,
         totalConverted,
         engagementRate: totalLogs > 0 ? Math.round((totalEngaged / totalLogs) * 100) : 0,
+        reachRate: totalEngaged > 0 ? Math.round((totalReached / totalEngaged) * 100) : 0,
         conversionRate: totalEngaged > 0 ? Math.round((totalConverted / totalEngaged) * 100) : 0,
       },
       dailyTrend,

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
 import { Receipt, TrendingUp, TrendingDown, DollarSign, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
 
 interface FinanceSummary {
   date: string;
@@ -124,9 +125,26 @@ export default function OwnerFinancePage() {
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">Today&apos;s cash, expenses and approvals</p>
         </div>
-        <Button onClick={() => setShowCreateExpense(true)}>
-          <Plus size={16} /> Log Expense
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            filename="finance-expenses"
+            sheets={[{
+              name: 'Expenses',
+              data: expenses,
+              columns: [
+                { header: 'Date', value: (e) => new Date(e.createdAt).toLocaleDateString('en-GH') },
+                { header: 'Description', value: (e) => e.description },
+                { header: 'Category', value: (e) => e.category ?? '' },
+                { header: 'Amount (GHS)', value: (e) => Number(e.amount) },
+                { header: 'Status', value: (e) => e.approved === true ? 'Approved' : e.approved === false ? 'Rejected' : 'Pending' },
+                { header: 'Logged By', value: (e) => e.user?.name ?? '' },
+              ],
+            }]}
+          />
+          <Button onClick={() => setShowCreateExpense(true)}>
+            <Plus size={16} /> Log Expense
+          </Button>
+        </div>
       </div>
 
       {/* Summary tiles */}

@@ -1,4 +1,4 @@
-import { IsDateString, IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsDateString, IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class CreateCustomerDto {
   @IsString() name: string;
@@ -12,6 +12,11 @@ export class UpdateCustomerDto {
   @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsDateString() birthday?: string;
+}
+
+export class SendSmsDto {
+  @IsArray() @IsString({ each: true }) customerIds: string[];
+  @IsString() message: string;
 }
 
 export class CreateSegmentDto {

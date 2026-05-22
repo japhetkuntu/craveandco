@@ -19,6 +19,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
+import { ExportButton } from '@/components/ui/export-button';
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
   CALL:      <Phone size={14} />,
@@ -48,8 +49,10 @@ interface EngagementSummary {
   totalNotLogged: number;
   totalLogged: number;
   totalEngaged: number;
+  totalReached: number;
   totalConverted: number;
   engagementRate: number;
+  reachRate: number;
   conversionRate: number;
 }
 
@@ -78,6 +81,7 @@ interface RecentActivity {
   engagedBy: { id: string; name: string };
   date: string;
   engaged: boolean;
+  reached?: boolean | null;
   engagedAt?: string;
   channel?: string;
   notes?: string;
@@ -186,9 +190,47 @@ export default function OwnerEngagementPage() {
             <p className="text-sm text-text-secondary">Track how the growth team engages customers</p>
           </div>
         </div>
-        {/* Range picker */}
-        <div className="flex gap-2">
-          {RANGE_OPTIONS.map((opt, idx) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportButton
+            filename="engagement"
+            sheets={[
+              {
+                name: 'Recent Activity',
+                data: recentActivity,
+                columns: [
+                  { header: 'Date', value: (r) => new Date(r.date).toLocaleDateString('en-GH') },
+                  { header: 'Customer', value: (r) => r.customer.name },
+                  { header: 'Phone', value: (r) => r.customer.phone ?? '' },
+                  { header: 'Engaged By', value: (r) => r.engagedBy.name },
+                  { header: 'Channel', value: (r) => r.channel ?? '' },
+                  { header: 'Engaged', value: (r) => r.engaged ? 'Yes' : 'No' },
+                  { header: 'Reached', value: (r) => r.reached === true ? 'Yes' : r.reached === false ? 'No' : '' },
+                  { header: 'Ordered Today', value: (r) => r.orderedToday ? 'Yes' : 'No' },
+                  { header: 'Notes', value: (r) => r.notes ?? '' },
+                ],
+              },
+              {
+                name: 'Top Engagers',
+                data: topEngagers,
+                columns: [
+                  { header: 'Staff', value: (e) => e.name },
+                  { header: 'Customers Engaged', value: (e) => e.engaged },
+                  { header: 'Converted', value: (e) => e.converted },
+                ],
+              },
+              {
+                name: 'Channels',
+                data: channelBreakdown,
+                columns: [
+                  { header: 'Channel', value: (c) => c.channel },
+                  { header: 'Count', value: (c) => c.count },
+                ],
+              },
+            ]}
+          />
+          {/* Range picker */}
+          <div className="flex gap-2">
+            {RANGE_OPTIONS.map((opt, idx) => (
             <button
               key={opt.label}
               onClick={() => setRangeIdx(idx)}
@@ -201,6 +243,7 @@ export default function OwnerEngagementPage() {
               {opt.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -302,12 +345,14 @@ export default function OwnerEngagementPage() {
       </div>
 
       {/* Summary KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         {[
           { label: 'Total Logged', value: summary.totalLogged, icon: <Users size={18} />, color: 'text-text-primary' },
           { label: 'Engaged', value: summary.totalEngaged, icon: <HeartHandshake size={18} />, color: 'text-success' },
+          { label: 'Reached', value: summary.totalReached, icon: <CheckCircle2 size={18} />, color: 'text-info' },
           { label: 'Converted', value: summary.totalConverted, icon: <ShoppingBag size={18} />, color: 'text-[var(--color-gold)]' },
-          { label: 'Engagement Rate', value: `${summary.engagementRate}%`, icon: <TrendingUp size={18} />, color: 'text-info' },
+          { label: 'Engagement Rate', value: `${summary.engagementRate}%`, icon: <TrendingUp size={18} />, color: 'text-text-secondary' },
+          { label: 'Reach Rate', value: `${summary.reachRate}%`, icon: <CheckCircle2 size={18} />, color: 'text-info' },
           { label: 'Conversion Rate', value: `${summary.conversionRate}%`, icon: <CheckCircle2 size={18} />, color: 'text-success' },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-surface-raised border border-border-subtle rounded-xl p-4">
@@ -490,6 +535,7 @@ export default function OwnerEngagementPage() {
                       {act.engagedAt
                         ? ` at ${new Date(act.engagedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                         : ''}
+                      {act.reached === true ? ' · Reached' : act.reached === false ? ' · Not reached' : ''}
                     </p>
                     {act.notes && (
                       <p className="text-xs text-text-secondary mt-0.5 italic truncate">"{act.notes}"</p>
@@ -537,6 +583,14 @@ export default function OwnerEngagementPage() {
                   <CheckCircle2 size={12} />
                   {selectedActivity.engaged ? 'Engaged' : 'Not engaged'}
                 </span>
+                {selectedActivity.engaged && selectedActivity.reached !== null && selectedActivity.reached !== undefined && (
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                    selectedActivity.reached ? 'bg-info-muted text-info' : 'bg-error-muted text-error'
+                  }`}>
+                    <CheckCircle2 size={12} />
+                    {selectedActivity.reached ? 'Reached' : 'Not reached'}
+                  </span>
+                )}
                 {selectedActivity.orderedToday && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-warning-muted text-warning">
                     <ShoppingBag size={12} /> Ordered

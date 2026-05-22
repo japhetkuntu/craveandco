@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, SendSmsDto, UpdateCustomerDto } from './dto/customers.dto';
 
 @Controller('api/v1/customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -58,5 +58,11 @@ export class CustomersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customers.update(id, dto);
+  }
+
+  @Post('sms')
+  @Roles('OWNER')
+  sendSms(@Body() dto: SendSmsDto) {
+    return this.customers.sendSms(dto);
   }
 }

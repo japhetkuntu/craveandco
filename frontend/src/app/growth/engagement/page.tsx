@@ -47,6 +47,7 @@ interface CustomerRow {
   log: {
     id: string;
     engaged: boolean;
+    reached?: boolean | null;
     engagedAt?: string;
     channel?: Channel;
     notes?: string;
@@ -66,6 +67,7 @@ interface ListResponse {
 
 interface LocalEdit {
   engaged: boolean;
+  reached: boolean | null;
   engagedAt: string;
   channel: Channel | '';
   notes: string;
@@ -108,6 +110,7 @@ export default function EngagementPage() {
           if (!next[cid]) {
             next[cid] = {
               engaged: row.log?.engaged ?? false,
+              reached: row.log?.reached ?? null,
               engagedAt: row.log?.engagedAt ? row.log.engagedAt.slice(0, 16) : '',
               channel: (row.log?.channel as Channel) ?? '',
               notes: row.log?.notes ?? '',
@@ -158,6 +161,7 @@ export default function EngagementPage() {
       await put(API_PATHS.engagement.upsert(customerId), {
         date,
         engaged: edit.engaged,
+        reached: edit.engaged ? edit.reached : null,
         engagedAt: edit.engaged && edit.engagedAt ? new Date(edit.engagedAt).toISOString() : undefined,
         channel: edit.engaged && edit.channel ? edit.channel : undefined,
         notes: edit.notes || undefined,
@@ -247,7 +251,7 @@ export default function EngagementPage() {
           {listData.data.map((row) => {
             const cid = row.customer.id;
             const edit = edits[cid] ?? {
-              engaged: false, engagedAt: '', channel: '' as const, notes: '',
+              engaged: false, reached: null, engagedAt: '', channel: '' as const, notes: '',
               saving: false, saved: false, error: '', open: false,
             };
 
@@ -287,7 +291,8 @@ export default function EngagementPage() {
                   {row.log ? (
                     row.log.engaged ? (
                       <span className="flex items-center gap-1 text-xs font-medium text-success bg-success-muted px-2 py-1 rounded-full">
-                        <CheckCircle2 size={12} /> Engaged
+                        <CheckCircle2 size={12} />
+                        {row.log.reached === true ? 'Engaged · Reached' : row.log.reached === false ? 'Engaged · Not Reached' : 'Engaged'}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs font-medium text-text-tertiary bg-surface-elevated px-2 py-1 rounded-full">
@@ -319,7 +324,7 @@ export default function EngagementPage() {
                         {[true, false].map((val) => (
                           <button
                             key={String(val)}
-                            onClick={() => patchEdit(cid, { engaged: val, saved: false })}
+                            onClick={() => patchEdit(cid, { engaged: val, reached: val ? edit.reached : null, saved: false })}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
                               edit.engaged === val
                                 ? val
@@ -333,6 +338,30 @@ export default function EngagementPage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Reached toggle — only when engaged */}
+                    {edit.engaged && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-text-primary">Were you able to reach them?</span>
+                        <div className="flex gap-2 ml-auto">
+                          {([true, false] as const).map((val) => (
+                            <button
+                              key={String(val)}
+                              onClick={() => patchEdit(cid, { reached: edit.reached === val ? null : val, saved: false })}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                                edit.reached === val
+                                  ? val
+                                    ? 'bg-success text-white border-success'
+                                    : 'bg-error text-white border-error'
+                                  : 'bg-surface-elevated text-text-secondary border-border-subtle hover:border-text-tertiary'
+                              }`}
+                            >
+                              {val ? 'Yes' : 'No'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {edit.engaged && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

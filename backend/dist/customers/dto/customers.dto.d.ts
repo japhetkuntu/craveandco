@@ -10,6 +10,10 @@ export declare class UpdateCustomerDto {
     email?: string;
     birthday?: string;
 }
+export declare class SendSmsDto {
+    customerIds: string[];
+    message: string;
+}
 export declare class CreateSegmentDto {
     name: string;
     lastSeenBefore?: string;

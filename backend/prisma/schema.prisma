@@ -784,6 +784,7 @@ model CustomerEngagementLog {
   engagedBy   User              @relation(fields: [engagedById], references: [id])
   date        DateTime          @db.Date
   engaged     Boolean           @default(false)
+  reached     Boolean?
   engagedAt   DateTime?
   channel     EngagementChannel?
   notes       String?

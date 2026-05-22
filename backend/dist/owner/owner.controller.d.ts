@@ -82,8 +82,8 @@ export declare class OwnerController {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }[]>;
     listStaff(branchId: string, showInactive?: string, page?: string, limit?: string): Promise<{
         email: string;

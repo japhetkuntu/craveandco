@@ -109,8 +109,8 @@ export declare class OwnerService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }[]>;
     listPaymentTypes(branchId: string, page?: number, limit?: number): Promise<{
         name: string;

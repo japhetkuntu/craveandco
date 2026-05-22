@@ -8,6 +8,7 @@ import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserPlus, Building2, TrendingUp, Target, Trophy } from 'lucide-react';
+import { ExportButton } from '@/components/ui/export-button';
 
 const RANGE_OPTIONS = [
   { label: 'Today', fromBack: 0, toBack: 0 },
@@ -124,9 +125,40 @@ export default function OwnerSalesPage() {
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-text-primary">Sales Analytics</h1>
-        <p className="text-sm text-text-secondary mt-0.5">Customer acquisition performance across your team</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-text-primary">Sales Analytics</h1>
+          <p className="text-sm text-text-secondary mt-0.5">Customer acquisition performance across your team</p>
+        </div>
+        <ExportButton
+          filename="sales-analytics"
+          sheets={[
+            {
+              name: 'By Executive',
+              data: analytics.byExecutive,
+              columns: [
+                { header: 'Executive', value: (e) => e.name },
+                { header: 'Acquisitions', value: (e) => e.count },
+              ],
+            },
+            {
+              name: 'By Source',
+              data: analytics.bySource,
+              columns: [
+                { header: 'Source', value: (s) => SOURCE_LABELS[s.source] ?? s.source },
+                { header: 'Count', value: (s) => s.count },
+              ],
+            },
+            {
+              name: 'By Business Status',
+              data: analytics.businessByStatus,
+              columns: [
+                { header: 'Status', value: (b) => b.status },
+                { header: 'Count', value: (b) => b.count },
+              ],
+            },
+          ]}
+        />
       </div>
 
       {/* Range selector */}

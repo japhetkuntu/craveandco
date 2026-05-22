@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Bell, CheckCircle } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
 
 interface Alert {
   id: string;
@@ -118,7 +119,22 @@ export default function OwnerAlertsPage() {
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">Monitor and respond to system alerts</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => fetchAlerts()}>Refresh</Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            filename="alerts"
+            sheets={[{
+              name: 'Alerts',
+              data: alerts,
+              columns: [
+                { header: 'Date', value: (a) => new Date(a.createdAt).toLocaleString('en-GH') },
+                { header: 'Severity', value: (a) => a.severity },
+                { header: 'Status', value: (a) => a.status },
+                { header: 'Message', value: (a) => a.message },
+              ],
+            }]}
+          />
+          <Button variant="secondary" size="sm" onClick={() => fetchAlerts()}>Refresh</Button>
+        </div>
       </div>
 
       {/* Summary tiles */}

@@ -1,11 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, SendSmsDto, UpdateCustomerDto } from './dto/customers.dto';
 import { LoyaltyTxType, OrderStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private config: ConfigService) {}
 
   private parseBirthday(birthday?: string | null) {
     if (birthday === undefined) return undefined;
@@ -266,5 +267,82 @@ export class CustomersService {
       totalVisits,
       averageVisits: total > 0 ? Math.round(totalVisits / total) : 0,
     };
+  }
+
+  async sendSms(dto: SendSmsDto) {
+    const { customerIds, message } = dto;
+    if (!message.trim()) throw new BadRequestException('Message cannot be empty');
+    if (!customerIds.length) throw new BadRequestException('No customers selected');
+
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: customerIds } },
+      select: { id: true, name: true, phone: true },
+    });
+
+    const withPhone = customers.filter((c) => c.phone);
+    const noPhone = customers.filter((c) => !c.phone).map((c) => c.name);
+
+    if (withPhone.length === 0) {
+      return { sent: 0, failed: 0, noPhone };
+    }
+
+    const normalizePhone = (phone: string) => {
+      const cleaned = phone.replace(/\s+/g, '').replace(/^\+/, '');
+      if (cleaned.startsWith('0')) return '233' + cleaned.slice(1);
+      if (cleaned.startsWith('233')) return cleaned;
+      return cleaned;
+    };
+
+    const apiKey = this.config.get<string>('ARKESEL_API_KEY');
+    const senderId = this.config.get<string>('ARKESEL_SENDER_ID') ?? 'Crave&Co';
+    if (!apiKey || apiKey === 'your_arkesel_api_key_here') {
+      throw new InternalServerErrorException('SMS service is not configured. Set ARKESEL_API_KEY in the server environment.');
+    }
+
+    const callArkesel = async (to: string, text: string): Promise<void> => {
+      const url = new URL('https://sms.arkesel.com/sms/api');
+      url.searchParams.set('action', 'send-sms');
+      url.searchParams.set('api_key', apiKey!);
+      url.searchParams.set('to', to);
+      url.searchParams.set('from', senderId);
+      url.searchParams.set('sms', text.trim());
+
+      let raw: string;
+      try {
+        const res = await fetch(url.toString());
+        raw = await res.text();
+      } catch {
+        throw new BadRequestException('Could not reach SMS gateway. Check server network connectivity.');
+      }
+
+      let data: { code: string; message?: string };
+      try {
+        data = JSON.parse(raw) as { code: string; message?: string };
+      } catch {
+        throw new BadRequestException(`Unexpected SMS gateway response: ${raw.slice(0, 120)}`);
+      }
+
+      if (data.code !== 'ok') {
+        throw new BadRequestException(data.message ?? `SMS gateway error (code: ${data.code})`);
+      }
+    };
+
+    if (message.includes('{name}')) {
+      // Personalised: individual request per customer with {name} substituted
+      let sent = 0;
+      for (const c of withPhone) {
+        await callArkesel(normalizePhone(c.phone!), message.replace(/\{name\}/g, c.name));
+        sent++;
+      }
+      return { sent, failed: 0, noPhone };
+    }
+
+    // Bulk: all numbers in one call
+    await callArkesel(
+      withPhone.map((c) => normalizePhone(c.phone!)).join(','),
+      message,
+    );
+
+    return { sent: withPhone.length, failed: 0, noPhone };
   }
 }

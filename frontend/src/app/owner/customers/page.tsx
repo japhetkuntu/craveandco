@@ -8,8 +8,10 @@ import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
-import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, Download } from 'lucide-react';
+import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, MessageSquare, CheckSquare } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
+import { SortableHeader, useSortable } from '@/components/ui/sortable-header';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,25 @@ function getCustomerStatus(c: Customer): CustomerStatus {
   if (daysSince <= 90) return 'at-risk';
   return 'inactive';
 }
+
+const STATUS_RANK: Record<CustomerStatus, number> = {
+  loyal: 0, active: 1, new: 2, fading: 3, 'at-risk': 4, inactive: 5, never: 6,
+};
+
+const CUSTOMER_ACCESSORS = {
+  name:         (c: Customer) => c.name,
+  status:       (c: Customer) => STATUS_RANK[getCustomerStatus(c)],
+  phone:        (c: Customer) => c.phone ?? '',
+  birthday:     (c: Customer) => {
+    const d = parseBirthday(c.birthday);
+    return d ? d.getMonth() * 100 + d.getDate() : null;
+  },
+  visitCount:   (c: Customer) => c.visitCount,
+  loyaltyPoints:(c: Customer) => c.loyaltyPoints ?? 0,
+  totalDiscount:(c: Customer) => Number(c.totalDiscount ?? 0),
+  totalSpend:   (c: Customer) => Number(c.totalSpend),
+  lastSeenAt:   (c: Customer) => c.lastSeenAt ?? '',
+};
 
 const STATUS_META: Record<CustomerStatus, { label: string; bg: string; text: string; dot: string; desc: string }> = {
   new:       { label: 'New',       bg: 'bg-info-muted',       text: 'text-info',    dot: 'bg-info',    desc: 'Visited in last 30 days, 1–2 visits total' },
@@ -135,6 +156,13 @@ export default function OwnerCustomersPage() {
   const [error, setError] = useState('');
   const [showLegend, setShowLegend] = useState(false);
 
+  // SMS blast
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showSms, setShowSms] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsResult, setSmsResult] = useState<{ sent: number; failed: number; noPhone: string[]; error?: string } | null>(null);
+
   // Create modal
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -168,6 +196,9 @@ export default function OwnerCustomersPage() {
   };
 
   useEffect(() => { setLoading(true); fetchData(); }, [token, page, limit, search]);
+
+  // Clear selection when page/search/limit changes
+  useEffect(() => { setSelectedIds(new Set()); }, [page, limit, search]);
 
   const openEdit = (c: Customer) => {
     setEditCustomer(c);
@@ -239,6 +270,39 @@ export default function OwnerCustomersPage() {
   };
 
   const filtered = customers;
+  const { sorted, sort: custSort, toggle } = useSortable(filtered, CUSTOMER_ACCESSORS);
+
+  // Selection helpers
+  const allOnPageSelected = sorted.length > 0 && sorted.every(c => selectedIds.has(c.id));
+  const someOnPageSelected = sorted.some(c => selectedIds.has(c.id));
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      setSelectedIds(prev => { const next = new Set(prev); sorted.forEach(c => next.delete(c.id)); return next; });
+    } else {
+      setSelectedIds(prev => { const next = new Set(prev); sorted.forEach(c => next.add(c.id)); return next; });
+    }
+  };
+
+  const handleSendSms = async () => {
+    if (!token || !smsMessage.trim() || smsSending) return;
+    setSmsSending(true);
+    try {
+      const result = await post('/api/v1/customers/sms', {
+        customerIds: Array.from(selectedIds),
+        message: smsMessage.trim(),
+      }, token) as { sent: number; failed: number; noPhone: string[] };
+      setSmsResult(result);
+    } catch (err: any) {
+      setSmsResult({ sent: 0, failed: selectedIds.size, noPhone: [], error: err.message });
+    } finally {
+      setSmsSending(false);
+    }
+  };
 
   if (loading) return <PageSkeleton />;
 
@@ -250,27 +314,31 @@ export default function OwnerCustomersPage() {
         <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
           <Users className="text-[var(--color-gold)]" /> Customers
         </h1>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => {
-            const rows = [['Name', 'Phone', 'Email', 'Visits', 'Total Spend', 'Loyalty Points', 'Last Seen', 'Joined'].join(','),
-              ...customers.map(c => [
-                c.name,
-                c.phone ?? '',
-                c.email ?? '',
-                c.visitCount,
-                c.totalSpend,
-                c.loyaltyPoints ?? 0,
-                new Date(c.lastSeenAt).toLocaleDateString('en-GH'),
-                new Date(c.createdAt).toLocaleDateString('en-GH'),
-              ].join(','))
-            ].join('\n');
-            const a = document.createElement('a');
-            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows);
-            a.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-          }}>
-            <Download size={14} /> Export
-          </Button>
+        <div className="flex gap-2 flex-wrap">
+          {selectedIds.size > 0 && (
+            <Button onClick={() => { setSmsResult(null); setShowSms(true); }}>
+              <MessageSquare size={16} /> SMS ({selectedIds.size})
+            </Button>
+          )}
+          <ExportButton
+            filename="customers"
+            sheets={[{
+              name: 'Customers',
+              data: customers,
+              columns: [
+                { header: 'Name', value: (c) => c.name },
+                { header: 'Phone', value: (c) => c.phone ?? '' },
+                { header: 'Email', value: (c) => c.email ?? '' },
+                { header: 'Birthday', value: (c) => c.birthday ? new Date(c.birthday).toLocaleDateString('en-GH') : '' },
+                { header: 'Visits', value: (c) => c.visitCount },
+                { header: 'Total Spend (GHS)', value: (c) => Number(c.totalSpend) },
+                { header: 'Loyalty Points', value: (c) => c.loyaltyPoints ?? 0 },
+                { header: 'Total Discount (GHS)', value: (c) => Number(c.totalDiscount ?? 0) },
+                { header: 'Last Seen', value: (c) => new Date(c.lastSeenAt).toLocaleDateString('en-GH') },
+                { header: 'Joined', value: (c) => new Date(c.createdAt).toLocaleDateString('en-GH') },
+              ],
+            }]}
+          />
           <Button onClick={() => setShowNew(true)}>
             <Plus size={16} /> Add Customer
           </Button>
@@ -344,21 +412,40 @@ export default function OwnerCustomersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-text-secondary">
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Phone</th>
-                    <th className="px-4 py-3 font-medium">Birthday</th>
-                    <th className="px-4 py-3 font-medium">Visits</th>
-                    <th className="px-4 py-3 font-medium">Points</th>
-                    <th className="px-4 py-3 font-medium">Discounts</th>
-                    <th className="px-4 py-3 font-medium">Total Spent</th>
-                    <th className="px-4 py-3 font-medium">Last Visit</th>
-                    <th className="px-4 py-3 font-medium" />
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allOnPageSelected}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 rounded border-border-default accent-[var(--color-gold)] cursor-pointer"
+                        aria-label="Select all"
+                        ref={el => { if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected; }}
+                      />
+                    </th>
+                    <SortableHeader col="name" sort={custSort} onToggle={toggle}>Name</SortableHeader>
+                    <SortableHeader col="status" sort={custSort} onToggle={toggle}>Status</SortableHeader>
+                    <SortableHeader col="phone" sort={custSort} onToggle={toggle}>Phone</SortableHeader>
+                    <SortableHeader col="birthday" sort={custSort} onToggle={toggle}>Birthday</SortableHeader>
+                    <SortableHeader col="visitCount" sort={custSort} onToggle={toggle} align="right">Visits</SortableHeader>
+                    <SortableHeader col="loyaltyPoints" sort={custSort} onToggle={toggle} align="right">Points</SortableHeader>
+                    <SortableHeader col="totalDiscount" sort={custSort} onToggle={toggle} align="right">Discounts</SortableHeader>
+                    <SortableHeader col="totalSpend" sort={custSort} onToggle={toggle} align="right">Total Spent</SortableHeader>
+                    <SortableHeader col="lastSeenAt" sort={custSort} onToggle={toggle}>Last Visit</SortableHeader>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((c) => (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-surface-elevated/50 transition-colors">
+                  {sorted.map((c) => (
+                    <tr key={c.id} className={`border-b last:border-0 hover:bg-surface-elevated/50 transition-colors ${selectedIds.has(c.id) ? 'bg-warning-muted/30' : ''}`}>
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(c.id)}
+                          onChange={() => toggleSelect(c.id)}
+                          className="h-4 w-4 rounded border-border-default accent-[var(--color-gold)] cursor-pointer"
+                          aria-label={`Select ${c.name}`}
+                        />
+                      </td>
                       <td className="px-4 py-3 font-semibold text-text-primary">{c.name}</td>
                       <td className="px-4 py-3"><CustomerStatusBadge status={getCustomerStatus(c)} /></td>
                       <td className="px-4 py-3 text-text-secondary">{c.phone || '—'}</td>
@@ -389,9 +476,9 @@ export default function OwnerCustomersPage() {
                       </td>
                     </tr>
                   ))}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={10} className="px-4 py-12 text-center text-sm text-text-tertiary">No customers found</td></tr>
-                  )}
+                  {sorted.length === 0 && (
+            <tr><td colSpan={11} className="px-4 py-12 text-center text-sm text-text-tertiary">No customers found</td></tr>
+          )}
                 </tbody>
               </table>
             </div>
@@ -400,12 +487,21 @@ export default function OwnerCustomersPage() {
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-2">
-        {filtered.map((c) => (
-          <div key={c.id} className="bg-surface-raised rounded-2xl border border-border-subtle p-4 shadow-sm">
+        {sorted.map((c) => (
+          <div key={c.id} className={`rounded-2xl border border-border-subtle p-4 shadow-sm transition-colors ${selectedIds.has(c.id) ? 'bg-warning-muted/30' : 'bg-surface-raised'}`}>
             <div className="flex items-start justify-between gap-2 mb-2">
-              <div>
-                <p className="font-semibold text-text-primary">{c.name}</p>
-                <div className="mt-1"><CustomerStatusBadge status={getCustomerStatus(c)} /></div>
+              <div className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(c.id)}
+                  onChange={() => toggleSelect(c.id)}
+                  className="mt-1 h-4 w-4 rounded border-border-default accent-[var(--color-gold)] cursor-pointer shrink-0"
+                  aria-label={`Select ${c.name}`}
+                />
+                <div>
+                  <p className="font-semibold text-text-primary">{c.name}</p>
+                  <div className="mt-1"><CustomerStatusBadge status={getCustomerStatus(c)} /></div>
+                </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-sm font-bold text-[var(--color-gold)]">{formatCurrency(Number(c.totalSpend))}</span>
@@ -435,7 +531,7 @@ export default function OwnerCustomersPage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div className="text-center py-12 text-text-tertiary text-sm">No customers found</div>
         )}
       </div>
@@ -500,6 +596,123 @@ export default function OwnerCustomersPage() {
               <Button variant="secondary" className="flex-1" onClick={closeEdit}>Cancel</Button>
               <Button variant="primary" className="flex-1" type="submit" form="edit-customer-form" loading={saving}>Save Changes</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SMS Modal ── */}
+      {showSms && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-end sm:items-center justify-center overflow-hidden bg-black/40 sm:p-4">
+          <div className="w-full sm:max-w-lg rounded-t-[32px] sm:rounded-[32px] bg-white shadow-2xl max-h-[88dvh] sm:max-h-[calc(var(--viewport-height,100dvh)-4rem)] overflow-hidden flex flex-col">
+            <div className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border-subtle bg-white px-6 py-5">
+              <div>
+                <h2 className="text-xl font-semibold text-text-primary flex items-center gap-2">
+                  <MessageSquare size={20} className="text-[var(--color-gold)]" /> Send SMS
+                </h2>
+                <p className="text-sm text-text-secondary mt-1">
+                  {selectedIds.size} customer{selectedIds.size !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+              <Button variant="secondary" onClick={() => { setShowSms(false); setSmsResult(null); }}>Close</Button>
+            </div>
+
+            {smsResult ? (
+              /* Result view */
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+                {smsResult.sent > 0 ? (
+                  <div className="w-14 h-14 rounded-full bg-success-muted flex items-center justify-center">
+                    <CheckSquare size={28} className="text-success" />
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-error-muted flex items-center justify-center">
+                    <MessageSquare size={28} className="text-error" />
+                  </div>
+                )}
+                <div>
+                  <p className="text-lg font-bold text-text-primary">
+                    {smsResult.sent > 0 ? `${smsResult.sent} SMS sent!` : 'Could not send SMS'}
+                  </p>
+                  {smsResult.noPhone.length > 0 && (
+                    <p className="text-sm text-text-secondary mt-1">
+                      {smsResult.noPhone.length} customer{smsResult.noPhone.length !== 1 ? 's' : ''} skipped — no phone number
+                    </p>
+                  )}
+                  {smsResult.failed > 0 && (
+                    <p className="text-sm text-error mt-1">{smsResult.error ?? 'Delivery failed — please try again.'}</p>
+                  )}
+                </div>
+                <div className="flex gap-3 mt-2">
+                  <Button variant="secondary" onClick={() => { setSmsResult(null); setSmsMessage(''); setShowSms(false); setSelectedIds(new Set()); }}>
+                    Done
+                  </Button>
+                  <Button onClick={() => { setSmsResult(null); setSmsMessage(''); }}>
+                    Send Another
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Compose view */
+              <>
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                  {/* Recipients summary */}
+                  <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4">
+                    <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">Recipients</p>
+                    <div className="flex flex-wrap gap-2">
+                      {sorted.filter(c => selectedIds.has(c.id)).map(c => (
+                        <span key={c.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ${c.phone ? 'bg-success-muted border-success/20 text-success' : 'bg-error-muted border-error/20 text-error'}`}>
+                          {c.phone ? <Phone size={10} /> : null}
+                          {c.name}
+                          {!c.phone && <span className="opacity-70">· no phone</span>}
+                        </span>
+                      ))}
+                      {(() => {
+                        const offPage = selectedIds.size - sorted.filter(c => selectedIds.has(c.id)).length;
+                        return offPage > 0 ? (
+                          <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-surface-raised border border-border-subtle text-text-tertiary">
+                            +{offPage} more
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                    {sorted.some(c => selectedIds.has(c.id) && !c.phone) && (
+                      <p className="text-xs text-warning mt-2">⚠ Customers without a phone number will be skipped.</p>
+                    )}
+                  </div>
+
+                  {/* Message */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-semibold text-text-secondary">Message</label>
+                      <span className={`text-xs ${smsMessage.length > 160 ? 'text-warning font-semibold' : 'text-text-tertiary'}`}>
+                        {smsMessage.length} / 160{smsMessage.length > 160 ? ' (multiple SMS)' : ''}
+                      </span>
+                    </div>
+                    <textarea
+                      rows={5}
+                      value={smsMessage}
+                      onChange={e => setSmsMessage(e.target.value)}
+                      placeholder={`Hi {name}, thanks for visiting Crave & Co! 🍽️`}
+                      className="w-full rounded-xl border border-border-default bg-surface-input px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] resize-none"
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Use <button type="button" onClick={() => setSmsMessage(m => m + '{name}')} className="font-mono text-[var(--color-gold)] hover:underline">{'{name}'}</button> to personalise — it will be replaced with each customer&apos;s name.
+                    </p>
+                  </div>
+                </div>
+                <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
+                  <Button variant="secondary" className="flex-1" onClick={() => setShowSms(false)}>Cancel</Button>
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleSendSms}
+                    loading={smsSending}
+                    disabled={!smsMessage.trim() || selectedIds.size === 0}
+                  >
+                    Send SMS
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

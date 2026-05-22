@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Package, AlertTriangle, Plus, Trash2, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
+import { SortableHeader, useSortable } from '@/components/ui/sortable-header';
 
 interface StockItem {
   id: string;
@@ -37,6 +39,22 @@ interface MovementEntry {
   quantity: number;
   reason?: string;
 }
+
+const STOCK_ACCESSORS = {
+  name:         (r: StockItem) => r.name,
+  onHand:       (r: StockItem) => r.onHand,
+  unit:         (r: StockItem) => r.unit,
+  currentCost:  (r: StockItem) => r.currentCost,
+  reorderLevel: (r: StockItem) => r.reorderLevel,
+  totalValue:   (r: StockItem) => r.onHand * r.currentCost,
+};
+
+const MOVEMENT_ACCESSORS = {
+  createdAt:      (r: MovementEntry) => r.createdAt,
+  ingredientName: (r: MovementEntry) => r.ingredient?.name ?? '',
+  type:           (r: MovementEntry) => r.type,
+  quantity:       (r: MovementEntry) => r.quantity,
+};
 
 export default function OwnerInventoryPage() {
   const { token } = useAuth();
@@ -175,6 +193,10 @@ export default function OwnerInventoryPage() {
     void loadStock();
   }, [loadStock]);
 
+  // Client-side sorting (current page)
+  const { sorted: sortedStock, sort: stockSort, toggle: toggleStock } = useSortable(stock, STOCK_ACCESSORS);
+  const { sorted: sortedMovements, sort: movSort, toggle: toggleMov } = useSortable(movements, MOVEMENT_ACCESSORS);
+
   if (loading) return <PageSkeleton />;
 
   return (
@@ -188,9 +210,40 @@ export default function OwnerInventoryPage() {
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">Track stock levels and manage ingredients</p>
         </div>
-        <Button onClick={() => { resetInventoryForm(); setShowItemModal(true); }}>
-          <Plus size={16} /> Add Item
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            filename="inventory"
+            sheets={[
+              {
+                name: 'Stock',
+                data: stock,
+                columns: [
+                  { header: 'Ingredient', value: (r) => r.name },
+                  { header: 'Unit', value: (r) => r.unit },
+                  { header: 'On Hand', value: (r) => Number(r.onHand) },
+                  { header: 'Reorder Level', value: (r) => Number(r.reorderLevel) },
+                  { header: 'Unit Cost (GHS)', value: (r) => Number(r.currentCost) },
+                  { header: 'Total Value (GHS)', value: (r) => Number((r.onHand * r.currentCost).toFixed(2)) },
+                  { header: 'Status', value: (r) => r.belowReorder ? 'Low Stock' : 'OK' },
+                ],
+              } ,
+              {
+                name: 'Movements',
+                data: movements,
+                columns: [
+                  { header: 'Date', value: (r) => new Date(r.createdAt).toLocaleString('en-GH') },
+                  { header: 'Ingredient', value: (r) => r.ingredient?.name ?? '' },
+                  { header: 'Type', value: (r) => r.type },
+                  { header: 'Quantity', value: (r) => Number(r.quantity) },
+                  { header: 'Reason', value: (r) => r.reason ?? '' },
+                ],
+              } ,
+            ]}
+          />
+          <Button onClick={() => { resetInventoryForm(); setShowItemModal(true); }}>
+            <Plus size={16} /> Add Item
+          </Button>
+        </div>
       </div>
 
       {/* Stat tiles */}
@@ -288,16 +341,16 @@ export default function OwnerInventoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-subtle text-left text-text-tertiary text-xs">
-                <th className="px-4 py-3 font-medium">Ingredient</th>
-                <th className="px-4 py-3 font-medium text-right">On Hand</th>
-                <th className="px-4 py-3 font-medium">Unit</th>
-                <th className="px-4 py-3 font-medium text-right hidden sm:table-cell">Cost</th>
-                <th className="px-4 py-3 font-medium text-right hidden sm:table-cell">Reorder At</th>
-                <th className="px-4 py-3 font-medium" />
+                <SortableHeader col="name" sort={stockSort} onToggle={toggleStock}>Ingredient</SortableHeader>
+                <SortableHeader col="onHand" sort={stockSort} onToggle={toggleStock} align="right">On Hand</SortableHeader>
+                <SortableHeader col="unit" sort={stockSort} onToggle={toggleStock}>Unit</SortableHeader>
+                <SortableHeader col="currentCost" sort={stockSort} onToggle={toggleStock} align="right" className="hidden sm:table-cell">Cost</SortableHeader>
+                <SortableHeader col="reorderLevel" sort={stockSort} onToggle={toggleStock} align="right" className="hidden sm:table-cell">Reorder At</SortableHeader>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {stock.map((item, index) => {
+              {sortedStock.map((item, index) => {
                 const isLow = item.belowReorder ?? item.onHand < item.reorderLevel;
                 return (
                   <tr key={`${item.id}-${index}`} className={`border-b border-border-subtle last:border-0 ${isLow ? 'bg-error-muted/40' : ''}`}>
@@ -348,15 +401,15 @@ export default function OwnerInventoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-subtle text-left text-text-tertiary text-xs">
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Ingredient</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium text-right">Qty</th>
+                <SortableHeader col="createdAt" sort={movSort} onToggle={toggleMov}>Date</SortableHeader>
+                <SortableHeader col="ingredientName" sort={movSort} onToggle={toggleMov}>Ingredient</SortableHeader>
+                <SortableHeader col="type" sort={movSort} onToggle={toggleMov}>Type</SortableHeader>
+                <SortableHeader col="quantity" sort={movSort} onToggle={toggleMov} align="right">Qty</SortableHeader>
                 <th className="px-4 py-3 font-medium hidden sm:table-cell">Reason</th>
               </tr>
             </thead>
             <tbody>
-              {movements.map((movement) => (
+              {sortedMovements.map((movement) => (
                 <tr key={movement.id} className="border-b border-border-subtle last:border-0">
                   <td className="px-4 py-3 text-text-secondary">{new Date(movement.createdAt).toLocaleDateString('en-GH')}</td>
                   <td className="px-4 py-3 font-medium text-text-primary">{movement.ingredient?.name || '—'}</td>

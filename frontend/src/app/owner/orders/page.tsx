@@ -9,8 +9,9 @@ import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatTime, formatDateTime } from '@/lib/utils';
-import { ShoppingCart, Download } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
 
 interface Order {
   id: string;
@@ -165,25 +166,25 @@ export default function OwnerOrdersPage() {
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">View and filter all customer orders</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => {
-          const rows = [['ID', 'Date', 'Status', 'Channel', 'Payment', 'Total', 'Food Cost'].join(','),
-            ...orders.map(o => [
-              o.id,
-              new Date(o.createdAt).toLocaleDateString('en-GH'),
-              o.status,
-              o.channel,
-              o.paymentMethod,
-              o.total,
-              o.foodCost ?? '',
-            ].join(','))
-          ].join('\n');
-          const a = document.createElement('a');
-          a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows);
-          a.download = `orders-${new Date().toISOString().split('T')[0]}.csv`;
-          a.click();
-        }}>
-          <Download size={14} /> Export CSV
-        </Button>
+        <ExportButton
+          filename="orders"
+          sheets={[{
+            name: 'Orders',
+            data: orders,
+            columns: [
+              { header: 'Date', value: (o) => new Date(o.createdAt).toLocaleString('en-GH') },
+              { header: 'Order ID', value: (o) => o.id.slice(-8).toUpperCase() },
+              { header: 'Status', value: (o) => o.status },
+              { header: 'Channel', value: (o) => o.channel },
+              { header: 'Payment', value: (o) => o.paymentMethod },
+              { header: 'Total (GHS)', value: (o) => Number(o.total) },
+              { header: 'Food Cost (GHS)', value: (o) => Number(o.foodCost ?? 0) },
+              { header: 'Margin (GHS)', value: (o) => Number((o.total - (o.foodCost ?? 0)).toFixed(2)) },
+              { header: 'Staff', value: (o) => o.initiatedBy?.name ?? '' },
+              { header: 'Items', value: (o) => o.items.map((i: { quantity: number; menuItem: { name: string } }) => `${i.quantity}x ${i.menuItem.name}`).join('; ') },
+            ],
+          }]}
+        />
       </div>
 
       {/* Stat tiles — from backend aggregate, not current page */}

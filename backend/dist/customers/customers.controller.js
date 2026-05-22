@@ -53,6 +53,9 @@ let CustomersController = class CustomersController {
     update(id, dto) {
         return this.customers.update(id, dto);
     }
+    sendSms(dto) {
+        return this.customers.sendSms(dto);
+    }
 };
 exports.CustomersController = CustomersController;
 __decorate([
@@ -103,6 +106,14 @@ __decorate([
     __metadata("design:paramtypes", [String, customers_dto_1.UpdateCustomerDto]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)('sms'),
+    (0, roles_decorator_1.Roles)('OWNER'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [customers_dto_1.SendSmsDto]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "sendSms", null);
 exports.CustomersController = CustomersController = __decorate([
     (0, common_1.Controller)('api/v1/customers'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

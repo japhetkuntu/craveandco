@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, Clock, UserCheck, UserX, Plus, UserMinus, Trash2, Pencil } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
 
 interface Shift {
   id: string;
@@ -162,9 +163,26 @@ export default function OwnerStaffPage() {
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">Create and manage your team</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus size={16} /> Add Staff
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            filename="staff"
+            sheets={[{
+              name: 'Staff',
+              data: staff,
+              columns: [
+                { header: 'Name', value: (m) => m.name },
+                { header: 'Email', value: (m) => m.email },
+                { header: 'Phone', value: (m) => m.phone ?? '' },
+                { header: 'Role', value: (m) => m.role },
+                { header: 'Status', value: (m) => m.active ? 'Active' : 'Inactive' },
+                { header: 'Date Joined', value: (m) => new Date(m.createdAt).toLocaleDateString('en-GH') },
+              ],
+            }]}
+          />
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} /> Add Staff
+          </Button>
+        </div>
       </div>
 
       {/* Stat tiles */}

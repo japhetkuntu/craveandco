@@ -1,9 +1,11 @@
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
+import { CreateCustomerDto, SendSmsDto, UpdateCustomerDto } from './dto/customers.dto';
 import { Prisma } from '@prisma/client';
 export declare class CustomersService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private config;
+    constructor(prisma: PrismaService, config: ConfigService);
     private parseBirthday;
     create(dto: CreateCustomerDto): Promise<{
         email: string | null;
@@ -149,5 +151,10 @@ export declare class CustomersService {
         averageSpend: number;
         totalVisits: number;
         averageVisits: number;
+    }>;
+    sendSms(dto: SendSmsDto): Promise<{
+        sent: number;
+        failed: number;
+        noPhone: string[];
     }>;
 }

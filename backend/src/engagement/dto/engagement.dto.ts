@@ -26,4 +26,8 @@ export class UpsertEngagementDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  reached?: boolean;
 }

@@ -11,12 +11,15 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomersService = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 let CustomersService = class CustomersService {
     prisma;
-    constructor(prisma) {
+    config;
+    constructor(prisma, config) {
         this.prisma = prisma;
+        this.config = config;
     }
     parseBirthday(birthday) {
         if (birthday === undefined)
@@ -238,10 +241,75 @@ let CustomersService = class CustomersService {
             averageVisits: total > 0 ? Math.round(totalVisits / total) : 0,
         };
     }
+    async sendSms(dto) {
+        const { customerIds, message } = dto;
+        if (!message.trim())
+            throw new common_1.BadRequestException('Message cannot be empty');
+        if (!customerIds.length)
+            throw new common_1.BadRequestException('No customers selected');
+        const customers = await this.prisma.customer.findMany({
+            where: { id: { in: customerIds } },
+            select: { id: true, name: true, phone: true },
+        });
+        const withPhone = customers.filter((c) => c.phone);
+        const noPhone = customers.filter((c) => !c.phone).map((c) => c.name);
+        if (withPhone.length === 0) {
+            return { sent: 0, failed: 0, noPhone };
+        }
+        const normalizePhone = (phone) => {
+            const cleaned = phone.replace(/\s+/g, '').replace(/^\+/, '');
+            if (cleaned.startsWith('0'))
+                return '233' + cleaned.slice(1);
+            if (cleaned.startsWith('233'))
+                return cleaned;
+            return cleaned;
+        };
+        const apiKey = this.config.get('ARKESEL_API_KEY');
+        const senderId = this.config.get('ARKESEL_SENDER_ID') ?? 'Crave&Co';
+        if (!apiKey || apiKey === 'your_arkesel_api_key_here') {
+            throw new common_1.InternalServerErrorException('SMS service is not configured. Set ARKESEL_API_KEY in the server environment.');
+        }
+        const callArkesel = async (to, text) => {
+            const url = new URL('https://sms.arkesel.com/sms/api');
+            url.searchParams.set('action', 'send-sms');
+            url.searchParams.set('api_key', apiKey);
+            url.searchParams.set('to', to);
+            url.searchParams.set('from', senderId);
+            url.searchParams.set('sms', text.trim());
+            let raw;
+            try {
+                const res = await fetch(url.toString());
+                raw = await res.text();
+            }
+            catch {
+                throw new common_1.BadRequestException('Could not reach SMS gateway. Check server network connectivity.');
+            }
+            let data;
+            try {
+                data = JSON.parse(raw);
+            }
+            catch {
+                throw new common_1.BadRequestException(`Unexpected SMS gateway response: ${raw.slice(0, 120)}`);
+            }
+            if (data.code !== 'ok') {
+                throw new common_1.BadRequestException(data.message ?? `SMS gateway error (code: ${data.code})`);
+            }
+        };
+        if (message.includes('{name}')) {
+            let sent = 0;
+            for (const c of withPhone) {
+                await callArkesel(normalizePhone(c.phone), message.replace(/\{name\}/g, c.name));
+                sent++;
+            }
+            return { sent, failed: 0, noPhone };
+        }
+        await callArkesel(withPhone.map((c) => normalizePhone(c.phone)).join(','), message);
+        return { sent: withPhone.length, failed: 0, noPhone };
+    }
 };
 exports.CustomersService = CustomersService;
 exports.CustomersService = CustomersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, config_1.ConfigService])
 ], CustomersService);
 //# sourceMappingURL=customers.service.js.map

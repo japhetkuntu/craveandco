@@ -37,8 +37,8 @@ export declare class AlertsService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }[]>;
     acknowledgeAlert(id: string): Promise<{
         branchId: string;
@@ -47,8 +47,8 @@ export declare class AlertsService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }>;
     resolveAlert(id: string): Promise<{
         branchId: string;
@@ -57,8 +57,8 @@ export declare class AlertsService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }>;
     getSummary(branchId: string): Promise<any>;
     createAlert(branchId: string, type: string, severity: string, message: string): Promise<{
@@ -68,7 +68,7 @@ export declare class AlertsService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AlertStatus;
         type: string;
-        severity: import("@prisma/client").$Enums.AlertSeverity;
         message: string;
+        severity: import("@prisma/client").$Enums.AlertSeverity;
     }>;
 }

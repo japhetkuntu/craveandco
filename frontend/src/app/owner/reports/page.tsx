@@ -7,6 +7,7 @@ import { API_PATHS } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import { BarChart3, TrendingUp, TrendingDown, ShoppingCart, Receipt, Utensils, DollarSign } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import { ExportButton } from '@/components/ui/export-button';
 import {
   BarChart,
   Bar,
@@ -195,6 +196,32 @@ export default function OwnerReportsPage() {
           <p className="text-sm text-text-secondary mt-0.5">Sales and performance analytics</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ExportButton
+            filename="reports"
+            sheets={[
+              {
+                name: 'Daily Breakdown',
+                data: summary?.days ?? [],
+                columns: [
+                  { header: 'Date', value: (d) => d.date },
+                  { header: 'Sales (GHS)', value: (d) => Number(d.totalSales) },
+                  { header: 'Orders', value: (d) => d.orderCount },
+                  { header: 'Expenses (GHS)', value: (d) => Number(d.totalExpenses) },
+                  { header: 'Food Cost (GHS)', value: (d) => Number(d.totalFoodCost) },
+                  { header: 'Gross Profit (GHS)', value: (d) => Number(d.grossProfit) },
+                  { header: 'Net Profit (GHS)', value: (d) => Number(d.netProfit) },
+                ],
+              },
+              {
+                name: 'Top Items',
+                data: dashboard?.topItems ?? [],
+                columns: [
+                  { header: 'Item', value: (i) => i.menuItem?.name ?? '' },
+                  { header: 'Qty Sold', value: (i) => i.totalQuantity },
+                ],
+              },
+            ]}
+          />
           {(['day', 'yesterday', 'week', 'month', 'year', 'custom'] as const).map((v) => (
             <button
               key={v}
