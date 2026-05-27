@@ -22,16 +22,20 @@ const REWARDS: RaffleReward[] = [
   { type: 'FIVE_PERCENT',            label: '5% discount',        description: 'Enjoy 5% off your next order. Valid at the point of sale within 24 hours.',               weight: 45 },
   { type: 'FREE_WATER',              label: 'Free water',          description: 'Receive a complimentary water with your next order. Valid within 24 hours.',               weight: 25 },
   { type: 'TEN_PERCENT',             label: '10% discount',        description: 'Save 10% on your next order. Valid at the point of sale within 24 hours.',                 weight: 20 },
-  { type: 'FREE_DELIVERY',           label: 'Free delivery',       description: 'Get free delivery on your next order. Valid within 24 hours.',                            weight:  8 },
+  { type: 'FREE_DELIVERY',           label: '12% discount',        description: 'Save 12% on your next order. Valid at the point of sale within 24 hours.',                 weight:  8 },
   { type: 'FIFTY_PERCENT_FIRST_MEAL',label: '50% off one meal',    description: 'Half price on one meal item (max GHS 25). Valid at the point of sale within 24 hours.',   weight:  2 },
 ];
+
+const NON_JACKPOT_REWARDS = REWARDS.filter((r) => r.type !== 'FIFTY_PERCENT_FIRST_MEAL');
 
 const TOTAL_WEIGHT = REWARDS.reduce((s, r) => s + r.weight, 0); // must be 100
 
 const DAILY_SPIN_LIMIT          = 3;
 const REWARD_EXPIRY_HOURS       = 24;
 const MAX_VERIFY_ATTEMPTS       = 3;
-const OTP_RESEND_COOLDOWN_SECS  = 60;
+const CODE_REFRESH_INTERVAL_DAYS = 7;
+const DAILY_FIFTY_MIN_SPIN      = 3501; // must be > 3500
+const DAILY_FIFTY_SLOT_TOTAL_SPINS = 5000;
 
 @Injectable()
 export class PublicRaffleService {
@@ -45,6 +49,7 @@ export class PublicRaffleService {
     const phone    = dto.phone?.trim();
     const name     = dto.name?.trim() || 'Crave friend';
     const deviceId = dto.deviceId?.trim();
+    const wantsRefresh = dto.refreshCode === true;
 
     if (!phone)    throw new BadRequestException('Phone number is required.');
     if (!deviceId) throw new BadRequestException('Device ID is required.');
@@ -61,52 +66,68 @@ export class PublicRaffleService {
       );
     }
 
-    // Resend cooldown: 60s per phone
     const existing = await this.prisma.customerRaffleEntry.findUnique({ where: { phone } });
-    if (existing?.lastOtpSentAt) {
-      const secsSinceLast = (Date.now() - existing.lastOtpSentAt.getTime()) / 1000;
-      if (secsSinceLast < OTP_RESEND_COOLDOWN_SECS) {
-        const wait = Math.ceil(OTP_RESEND_COOLDOWN_SECS - secsSinceLast);
-        throw new HttpException(
-          `Please wait ${wait} second${wait !== 1 ? 's' : ''} before requesting another code.`,
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-    }
+    const now = new Date();
 
     let entry: { accessCode: string };
-    try {
-      entry = await this.prisma.customerRaffleEntry.upsert({
-        where: { phone },
-        update: {
+    if (existing) {
+      if (!wantsRefresh) {
+        throw new BadRequestException(
+          'This number already has a Spin & Win code. Use it to sign in. If you lost it, refresh is allowed once every 7 days.',
+        );
+      }
+
+      if (existing.lastCodeRefreshAt) {
+        const nextAllowed = new Date(existing.lastCodeRefreshAt);
+        nextAllowed.setUTCDate(nextAllowed.getUTCDate() + CODE_REFRESH_INTERVAL_DAYS);
+        if (now < nextAllowed) {
+          throw new HttpException(
+            `Code refresh is allowed once every ${CODE_REFRESH_INTERVAL_DAYS} days. Try again ${this.relativeTimeFromNow(nextAllowed)}.`,
+            HttpStatus.TOO_MANY_REQUESTS,
+          );
+        }
+      }
+
+      entry = await this.prisma.customerRaffleEntry.update({
+        where: { id: existing.id },
+        data: {
           name,
-          lastOtpSentAt: new Date(),
-          accessCode:    this.generateAccessCode(),
-          verified:      false,
+          accessCode: this.generateAccessCode(),
+          verified: false,
           verifyAttempts: 0,
           verifyLockedAt: null,
-        },
-        create: {
-          phone,
-          name,
-          accessCode:   this.generateAccessCode(),
-          lastOtpSentAt: new Date(),
+          lastOtpSentAt: now,
+          lastCodeRefreshAt: now,
         },
         select: { accessCode: true },
       });
-    } catch (err: any) {
-      if (err?.code === 'P2002') return this.requestOtp(dto);
-      throw err;
+    } else {
+      try {
+        entry = await this.prisma.customerRaffleEntry.create({
+          data: {
+            phone,
+            name,
+            accessCode: this.generateAccessCode(),
+            lastOtpSentAt: now,
+          },
+          select: { accessCode: true },
+        });
+      } catch (err: any) {
+        if (err?.code === 'P2002') return this.requestOtp(dto);
+        throw err;
+      }
     }
 
     await this.sendSms(
       phone,
-      `Your Crave & Co. raffle code is: ${entry.accessCode}\n\nEnter it on the Spin & Win page to start. Valid today only. Do not share.`,
+      `Your Crave & Co. Spin & Win code is: ${entry.accessCode}\n\nKeep this code safe. Enter it on the Spin & Win page to continue.`,
     );
 
     const masked = phone.replace(/.(?=.{4})/g, '•');
     return {
-      message: `Your access code has been sent to ${masked}. Enter it below to start spinning.`,
+      message: wantsRefresh
+        ? `Your new code has been sent to ${masked}. Keep it safe and use it to sign in.`
+        : `Your code has been sent to ${masked}. Keep it safe and enter it below to start spinning.`,
       phone: masked,
     };
   }
@@ -214,9 +235,49 @@ export class PublicRaffleService {
       };
     }
 
-    const reward = this.pickReward();
-    const spin   = await this.prisma.customerRaffleSpin.create({
-      data: { raffleEntryId: entry.id, rewardType: reward.type as any, rewardLabel: reward.label },
+    // Pick reward with strict daily jackpot control:
+    // exactly one randomly selected spin slot in [3501..5000] gets 50% reward.
+    const today = this.todayUtc();
+    let reward = this.pickNonJackpotReward();
+    let spinId = '';
+
+    await this.prisma.$transaction(async (tx) => {
+      const control = await tx.raffleDailyControl.upsert({
+        where: { date: today },
+        update: {},
+        create: {
+          date: today,
+          fiftyRewardSpinSlot: this.randomInt(DAILY_FIFTY_MIN_SPIN, DAILY_FIFTY_SLOT_TOTAL_SPINS),
+        },
+      });
+
+      const updatedControl = await tx.raffleDailyControl.update({
+        where: { id: control.id },
+        data: { spinCount: { increment: 1 } },
+      });
+
+      const shouldAwardFifty =
+        !updatedControl.fiftyRewardAwarded &&
+        updatedControl.spinCount >= DAILY_FIFTY_MIN_SPIN &&
+        updatedControl.spinCount === updatedControl.fiftyRewardSpinSlot;
+
+      if (shouldAwardFifty) {
+        reward = REWARDS.find((r) => r.type === 'FIFTY_PERCENT_FIRST_MEAL')!;
+        await tx.raffleDailyControl.update({
+          where: { id: updatedControl.id },
+          data: { fiftyRewardAwarded: true },
+        });
+      }
+
+      const createdSpin = await tx.customerRaffleSpin.create({
+        data: {
+          raffleEntryId: entry.id,
+          rewardType: reward.type as any,
+          rewardLabel: reward.label,
+        },
+        select: { id: true },
+      });
+      spinId = createdSpin.id;
     });
 
     const updated = await this.prisma.customerRaffleEntry.update({
@@ -239,7 +300,7 @@ export class PublicRaffleService {
         description: reward.description,
         expiresAt: this.getRewardExpiry(now).toISOString(),
       },
-      spinId:         spin.id,
+      spinId,
       nextEligibleAt: this.getNextDayStart(now).toISOString(),
     };
   }
@@ -255,6 +316,17 @@ export class PublicRaffleService {
       if (roll < cumulative) return reward;
     }
     return REWARDS[REWARDS.length - 1];
+  }
+
+  private pickNonJackpotReward(): RaffleReward {
+    const total = NON_JACKPOT_REWARDS.reduce((sum, reward) => sum + reward.weight, 0);
+    const roll = Math.floor(Math.random() * total);
+    let cumulative = 0;
+    for (const reward of NON_JACKPOT_REWARDS) {
+      cumulative += reward.weight;
+      if (roll < cumulative) return reward;
+    }
+    return NON_JACKPOT_REWARDS[NON_JACKPOT_REWARDS.length - 1];
   }
 
   // ─── SMS helper ────────────────────────────────────────────────────────────
@@ -334,5 +406,21 @@ export class PublicRaffleService {
     const d = new Date(ref);
     d.setHours(d.getHours() + REWARD_EXPIRY_HOURS);
     return d;
+  }
+
+  private relativeTimeFromNow(target: Date): string {
+    const ms = target.getTime() - Date.now();
+    if (ms <= 0) return 'now';
+
+    const hours = Math.ceil(ms / (1000 * 60 * 60));
+    if (hours >= 24) {
+      const days = Math.ceil(hours / 24);
+      return `in ${days} day${days !== 1 ? 's' : ''}`;
+    }
+    return `in ${hours} hour${hours !== 1 ? 's' : ''}`;
+  }
+
+  private randomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 }

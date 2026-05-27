@@ -640,6 +640,7 @@ model CustomerRaffleEntry {
   verifyAttempts  Int                  @default(0)
   verifyLockedAt  DateTime?            // set when attempts hit 3
   lastOtpSentAt   DateTime?            // guards resend spam
+  lastCodeRefreshAt DateTime?          // allows only one code refresh every 7 days
 
   lastSpinAt      DateTime?
   spinCount       Int                  @default(0)
@@ -662,6 +663,19 @@ model RaffleDeviceLog {
 
   @@unique([deviceId, date])
   @@map("raffle_device_logs")
+}
+
+// Daily control to guarantee exactly one 50% reward slot between spins 3501 and 5000.
+model RaffleDailyControl {
+  id                   String   @id @default(cuid())
+  date                 String   @unique // YYYY-MM-DD UTC
+  spinCount            Int      @default(0)
+  fiftyRewardSpinSlot  Int      // random slot between 3501 and 5000 (inclusive)
+  fiftyRewardAwarded   Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("raffle_daily_controls")
 }
 
 model CustomerRaffleSpin {

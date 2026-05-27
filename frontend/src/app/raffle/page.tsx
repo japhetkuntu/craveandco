@@ -20,7 +20,7 @@ const SEGMENTS: WheelSegment[] = [
   { type: 'FIVE_PERCENT',             short: '5% OFF',        emoji: '✦',  fill: '#c07d1a', textColor: '#fff8e1' },
   { type: 'FREE_WATER',               short: 'Free Water',    emoji: '◆',  fill: '#1e3a8a', textColor: '#e0eaff' },
   { type: 'TEN_PERCENT',              short: '10% OFF',       emoji: '★',  fill: '#9a2a0a', textColor: '#ffe4d6' },
-  { type: 'FREE_DELIVERY',            short: 'Free Delivery', emoji: '▲',  fill: '#14532d', textColor: '#d1fae5' },
+  { type: 'FREE_DELIVERY',            short: '12% OFF',       emoji: '▲',  fill: '#14532d', textColor: '#d1fae5' },
   { type: 'FIFTY_PERCENT_FIRST_MEAL', short: '50% OFF',       emoji: '♛',  fill: '#6b1212', textColor: '#ffd6d6' },
 ];
 
@@ -93,13 +93,22 @@ export default function SpinWinPage() {
   useEffect(() => { if (accessCode) writeStored({ accessCode, phone, remainingSpins, reward: reward ?? undefined }); }, [accessCode, phone, remainingSpins, reward]);
   useEffect(() => { if (!reward) return; const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, [reward]);
 
-  const handleRequestOtp = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setErrorMsg(null);
-    if (!phone.trim()) { setErrorMsg('Enter your phone number.'); return; }
+  const requestOtp = async (inputPhone: string, inputName: string, refreshCode = false) => {
+    setErrorMsg(null);
+    const cleanPhone = inputPhone.trim();
+    if (!cleanPhone) { setErrorMsg('Enter your phone number.'); return; }
+
     setSubmitting(true);
     try {
-      const r = await postPublic<OtpResponse>(API_PATHS.raffle.requestOtp, { phone: phone.trim(), name: name.trim()||undefined, deviceId: getDeviceId() });
-      setMaskedPhone(r.phone); setStep('verify');
+      const r = await postPublic<OtpResponse>(API_PATHS.raffle.requestOtp, {
+        phone: cleanPhone,
+        name: inputName.trim() || undefined,
+        deviceId: getDeviceId(),
+        ...(refreshCode ? { refreshCode: true } : {}),
+      });
+      setPhone(cleanPhone);
+      setMaskedPhone(r.phone);
+      setStep('verify');
     } catch (e) { setErrorMsg(e instanceof Error ? e.message : 'Could not send code.'); }
     finally { setSubmitting(false); }
   };
@@ -234,7 +243,7 @@ export default function SpinWinPage() {
           </div>
         )}
 
-        {step === 'phone'  && <PhoneStep  phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} onSubmit={handleRequestOtp} onReturnLogin={handleReturnLogin} submitting={submitting} errorMsg={errorMsg} onClearError={() => setErrorMsg(null)} />}
+        {step === 'phone'  && <PhoneStep  phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} onRequestCode={requestOtp} onReturnLogin={handleReturnLogin} submitting={submitting} errorMsg={errorMsg} onClearError={() => setErrorMsg(null)} />}
         {step === 'verify' && <VerifyStep maskedPhone={maskedPhone} otp={otp} onOtpChange={setOtp} onVerify={handleVerify} onResend={() => { setStep('phone'); setOtp(''); setErrorMsg(null); }} submitting={submitting} errorMsg={errorMsg} onClearError={() => setErrorMsg(null)} />}
         {step === 'spin'   && <SpinStep   rotation={rotation} spinning={spinning} onSpin={handleSpin} remainingSpins={remainingSpins} reward={reward} expiryMs={expiryMs} errorMsg={errorMsg} phone={phone} accessCode={accessCode} />}
         </div>
@@ -251,22 +260,38 @@ export default function SpinWinPage() {
 
 // ─── Phone Step ────────────────────────────────────────────────────────────────
 function PhoneStep({
-  phone, name, onPhoneChange, onNameChange, onSubmit, onReturnLogin, submitting, errorMsg, onClearError,
+  phone, name, onPhoneChange, onNameChange, onRequestCode, onReturnLogin, submitting, errorMsg, onClearError,
 }: {
   phone: string; name: string; onPhoneChange:(v:string)=>void; onNameChange:(v:string)=>void;
-  onSubmit:(e:FormEvent<HTMLFormElement>)=>void; onReturnLogin:(ph:string,code:string)=>Promise<void>;
+  onRequestCode:(phone:string, name:string, refreshCode?:boolean)=>Promise<void>; onReturnLogin:(ph:string,code:string)=>Promise<void>;
   submitting:boolean; errorMsg:string|null; onClearError:()=>void;
 }) {
-  const [mode,       setMode]       = useState<'new'|'return'>('new');
+  const [mode,       setMode]       = useState<'new'|'return'|'refresh'>('new');
   const [returnCode, setReturnCode] = useState('');
   const [localError, setLocalError] = useState<string|null>(null);
   const error = errorMsg || localError;
+
+  const handleRequest = async (e: FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    onClearError();
+    if (!phone.trim()) { setLocalError('Enter your phone number.'); return; }
+    await onRequestCode(phone, name, false);
+  };
 
   const handleReturn = async (e: FormEvent) => {
     e.preventDefault(); setLocalError(null); onClearError();
     if (!phone.trim()) { setLocalError('Enter your phone number.'); return; }
     if (returnCode.trim().length !== 8) { setLocalError('Enter your 8-character Spin & Win code.'); return; }
     await onReturnLogin(phone.trim(), returnCode.trim());
+  };
+
+  const handleRefresh = async (e: FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    onClearError();
+    if (!phone.trim()) { setLocalError('Enter your phone number.'); return; }
+    await onRequestCode(phone, name, true);
   };
 
   return (
@@ -298,15 +323,15 @@ function PhoneStep({
 
       {/* Mode toggle */}
       <div style={{ display:'flex', background:'rgba(255,255,255,0.04)', borderRadius:16, padding:4, marginBottom:20, border:'1px solid rgba(255,255,255,0.07)' }}>
-        {(['new','return'] as const).map(m => (
+        {(['new','return','refresh'] as const).map(m => (
           <button key={m} onClick={() => { setMode(m); onClearError(); setLocalError(null); }} style={{ flex:1, padding:'10px 0', borderRadius:13, fontSize:'13px', fontWeight:700, border:'none', cursor:'pointer', transition:'all 0.2s', background: mode===m ? 'rgba(181,69,27,0.9)' : 'transparent', color: mode===m ? '#fff' : 'rgba(255,255,255,0.45)' }}>
-            {m === 'new' ? "First time? Get a code" : "I have a code"}
+            {m === 'new' ? 'First time? Get code' : m === 'return' ? 'I have my code' : 'I lost my code'}
           </button>
         ))}
       </div>
 
       {mode === 'new' ? (
-        <form onSubmit={onSubmit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <form onSubmit={handleRequest} style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div>
             <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>Phone number</label>
             <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => onPhoneChange(e.target.value)} placeholder="+233 20 123 4567" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
@@ -319,9 +344,9 @@ function PhoneStep({
           <button type="submit" disabled={submitting} className="spin-btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background: submitting ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #b5451b 0%, #e8803a 100%)', border:'none', color:'#fff', fontSize:'15px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', animation: submitting ? 'none' : 'glow-pulse 2.5s ease-in-out infinite', marginTop:4 }}>
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Sending code…</> : <>Send my code <ArrowRight size={17} /></>}
           </button>
-          <p style={{ textAlign:'center', fontSize:'11px', color:'rgba(255,255,255,0.25)', marginTop:4 }}>A free one-time SMS will be sent to your number.</p>
+          <p style={{ textAlign:'center', fontSize:'11px', color:'rgba(255,255,255,0.25)', marginTop:4 }}>You receive one personal code. Keep it safe and reuse it to sign in.</p>
         </form>
-      ) : (
+      ) : mode === 'return' ? (
         <form onSubmit={handleReturn} style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div>
             <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>Phone number</label>
@@ -335,6 +360,22 @@ function PhoneStep({
           <button type="submit" disabled={submitting} className="spin-btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background: submitting ? 'rgba(255,255,255,0.1)' : 'rgba(181,69,27,0.85)', border:'1px solid rgba(181,69,27,0.4)', color:'#fff', fontSize:'15px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', marginTop:4 }}>
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Signing in…</> : <>Sign back in <ArrowRight size={17} /></>}
           </button>
+        </form>
+      ) : (
+        <form onSubmit={handleRefresh} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div>
+            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>Phone number</label>
+            <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => onPhoneChange(e.target.value)} placeholder="+233 20 123 4567" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>First name <span style={{ color:'rgba(255,255,255,0.2)', fontWeight:400 }}>(optional)</span></label>
+            <input value={name} onChange={e => onNameChange(e.target.value)} placeholder="e.g. Ama" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
+          </div>
+          {error && <ErrorBox msg={error} />}
+          <button type="submit" disabled={submitting} className="spin-btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background: submitting ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.75)', border:'1px solid rgba(59,130,246,0.4)', color:'#fff', fontSize:'15px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', marginTop:4 }}>
+            {submitting ? <><Loader2 size={18} className="animate-spin" /> Refreshing code…</> : <>Refresh my code <ArrowRight size={17} /></>}
+          </button>
+          <p style={{ textAlign:'center', fontSize:'11px', color:'rgba(255,255,255,0.25)', marginTop:4 }}>Code refresh is limited to once every 7 days.</p>
         </form>
       )}
 
@@ -441,6 +482,10 @@ function SpinStep({ rotation, spinning, onSpin, remainingSpins, reward, expiryMs
         </div>
       </div>
 
+      <div style={{ marginBottom:10, padding:'10px 12px', borderRadius:12, background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', fontSize:'12px', color:'rgba(255,255,255,0.62)', lineHeight:1.5 }}>
+        Your latest reward is the one used at checkout. You can spin up to 3 times, but you do not need to use all 3.
+      </div>
+
       <SpinWheel rotation={rotation} spinning={spinning} />
 
       {reward && <ActiveTicket reward={reward} expiryMs={expiryMs} />}
@@ -514,13 +559,7 @@ function SpinWheel({ rotation, spinning }: { rotation: number; spinning: boolean
 
 // ─── Desktop Showcase ─────────────────────────────────────────────────────────
 function DesktopShowcase() {
-  const desktopRewards = [
-    { label: '5% Discount', chance: '45%' },
-    { label: 'Free Water', chance: '25%' },
-    { label: '10% Discount', chance: '20%' },
-    { label: 'Free Delivery', chance: '8%' },
-    { label: '50% Discount', chance: '2%' },
-  ];
+  const desktopRewards = ['5% Discount', 'Free Water', '10% Discount', '12% Discount', '50% Discount'];
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
@@ -535,12 +574,11 @@ function DesktopShowcase() {
       </div>
 
       <div style={{ borderRadius:22, padding:'18px 18px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-        <p style={{ margin:'0 0 12px', fontSize:'10px', letterSpacing:'0.26em', textTransform:'uppercase', color:'rgba(255,255,255,0.35)', fontWeight:700 }}>Prize Probabilities</p>
+        <p style={{ margin:'0 0 12px', fontSize:'10px', letterSpacing:'0.26em', textTransform:'uppercase', color:'rgba(255,255,255,0.35)', fontWeight:700 }}>Possible Rewards</p>
         <div style={{ display:'grid', gap:8 }}>
           {desktopRewards.map((item) => (
-            <div key={item.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 10px', borderRadius:12, background:'rgba(255,255,255,0.03)' }}>
-              <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.78)', fontWeight:600 }}>{item.label}</span>
-              <span style={{ fontSize:'12px', color:'#f59e0b', fontWeight:800 }}>{item.chance}</span>
+            <div key={item} style={{ display:'flex', alignItems:'center', padding:'9px 10px', borderRadius:12, background:'rgba(255,255,255,0.03)' }}>
+              <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.78)', fontWeight:600 }}>{item}</span>
             </div>
           ))}
         </div>
@@ -605,7 +643,7 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
             <span style={{ fontFamily:'monospace', fontSize:'18px', fontWeight:900, color: expiryMs < 3600000 ? '#ef4444' : '#f59e0b' }}>{fmt(expiryMs)}</span>
           </div>
           <div style={{ padding:'12px 16px', borderRadius:14, background:'rgba(232,164,90,0.06)', border:'1px solid rgba(232,164,90,0.12)', fontSize:'12px', color:'rgba(255,255,255,0.5)', textAlign:'center', lineHeight:1.6 }}>
-            Show this screen to the cashier, or quote your Spin &amp; Win code when you order.
+            Show this screen to the cashier, or quote your Spin &amp; Win code when you order. Only your latest reward is applied to the order.
           </div>
           <Link href={accessCode ? `/menu?raffle=${accessCode}` : '/menu'} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background:'linear-gradient(135deg, #b5451b, #e8803a)', textDecoration:'none', color:'#fff', fontSize:'15px', fontWeight:800, boxShadow:'0 12px 32px rgba(181,69,27,0.4)' }}>
             Order now &amp; use reward <ArrowRight size={18} />
@@ -623,11 +661,11 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
 // ─── Possible Prizes ──────────────────────────────────────────────────────────
 function PossiblePrizes() {
   const items = [
-    { emoji:'🎁', label:'5% OFF',        prob:'45%', color:'#c07d1a' },
-    { emoji:'🥤', label:'Free Water',    prob:'25%', color:'#1e3a8a' },
-    { emoji:'🔥', label:'10% OFF',       prob:'20%', color:'#9a2a0a' },
-    { emoji:'🚀', label:'Free Delivery', prob:'8%',  color:'#14532d' },
-    { emoji:'👑', label:'50% OFF',       prob:'2%',  color:'#6b1212' },
+    { emoji:'🎁', label:'5% OFF',        color:'#c07d1a' },
+    { emoji:'🥤', label:'Free Water',    color:'#1e3a8a' },
+    { emoji:'🔥', label:'10% OFF',       color:'#9a2a0a' },
+    { emoji:'🚀', label:'12% OFF',       color:'#14532d' },
+    { emoji:'👑', label:'50% OFF',       color:'#6b1212' },
   ];
   return (
     <div style={{ marginTop:24, padding:'16px 18px', borderRadius:20, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
@@ -638,7 +676,6 @@ function PossiblePrizes() {
             <span style={{ fontSize:18 }}>{it.emoji}</span>
             <div>
               <p style={{ margin:0, fontSize:'13px', fontWeight:700, color:'rgba(255,255,255,0.8)' }}>{it.label}</p>
-              <p style={{ margin:0, fontSize:'10px', color:'rgba(255,255,255,0.3)' }}>{it.prob} chance</p>
             </div>
           </div>
         ))}
@@ -652,9 +689,9 @@ function HowItWorksCollapsed() {
   const [open, setOpen] = useState(false);
   const steps = [
     { n:'01', t:'Enter your number', b:'No app or account needed.' },
-    { n:'02', t:'Receive your code', b:'We send an 8-char code via SMS.' },
-    { n:'03', t:'Spin up to 3× a day', b:'Each spin reveals a real reward.' },
-    { n:'04', t:'Redeem at the counter', b:'Quote your code to the cashier.' },
+    { n:'02', t:'Receive and keep your code', b:'One Spin & Win code is linked to your number.' },
+    { n:'03', t:'Spin up to 3× a day', b:'Each spin reveals a real reward. The latest reward is the one used for your order.' },
+    { n:'04', t:'Redeem at the counter', b:'Quote your code to the cashier. You do not have to use all 3 spins.' },
   ];
   return (
     <div style={{ marginTop:16, borderRadius:20, overflow:'hidden', border:'1px solid rgba(255,255,255,0.07)' }}>
@@ -681,7 +718,7 @@ function HowItWorksCollapsed() {
 // ─── Terms (collapsed) ────────────────────────────────────────────────────────
 function TermsCollapsed() {
   const [open, setOpen] = useState(false);
-  const rules = ['3 spins per number per day. Resets at midnight.','Rewards expire 24 hours after winning.','Redeemed in-store only — quote your code to the cashier.','One reward per order. Not combinable with other promotions.','Non-transferable. No cash equivalent.','1 device registration per day.','3 attempts to enter your code. Wrong entries lock the code for the day.','Crave & Co. may modify or end Spin & Win at any time.'];
+  const rules = ['3 spins per number per day. Resets at midnight.','Each customer keeps one Spin & Win code. Keep it safe.','Code refresh is limited to once every 7 days.','Reward probabilities are not publicly displayed.','Only the latest unredeemed reward is applied to an order.','Rewards expire 24 hours after winning.','Redeemed in-store only — quote your code to the cashier.','One reward per order. Not combinable with other promotions.','Non-transferable. No cash equivalent.','1 device registration per day.','3 attempts to enter your code. Wrong entries lock the code for the day.','Crave & Co. may modify or end Spin & Win at any time.'];
   return (
     <div style={{ marginTop:8, marginBottom:8, borderRadius:20, overflow:'hidden', border:'1px solid rgba(255,255,255,0.06)' }}>
       <button onClick={() => setOpen(o => !o)} style={{ width:'100%', padding:'15px 18px', background:'rgba(255,255,255,0.02)', border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}>

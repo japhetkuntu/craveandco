@@ -96,7 +96,7 @@ const REWARD_META: Record<string, { label: string; emoji: string; tone: string }
   TEN_PERCENT: { label: '10% off', emoji: '🔥', tone: 'bg-[#fde8d0] text-[#9a4d18]' },
   FIVE_PERCENT: { label: '5% off', emoji: '😊', tone: 'bg-[#fef5e6] text-[#82624a]' },
   FREE_WATER: { label: 'Free water', emoji: '🥤', tone: 'bg-[#e8eff6] text-[#3a4f63]' },
-  FREE_DELIVERY: { label: 'Free delivery', emoji: '🚚', tone: 'bg-[#26130f] text-[#ffd9a8]' },
+  FREE_DELIVERY: { label: '12% discount', emoji: '🚚', tone: 'bg-[#26130f] text-[#ffd9a8]' },
 };
 
 function rewardChip(type: string, opts?: { redeemed?: boolean }) {
@@ -224,6 +224,9 @@ export function RaffleAdminPanel() {
           <p className="mt-1 text-sm text-text-secondary">
             Track WhatsApp raffle entries, spins, and conversions in real time.
           </p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Redemption rule: apply the latest unredeemed reward for each code.
+          </p>
         </div>
         <Button
           variant="ghost"
@@ -322,7 +325,7 @@ export function RaffleAdminPanel() {
           <div>
             <h2 className="text-base font-bold text-text-primary">Recent raffle requests</h2>
             <p className="text-xs text-text-secondary">
-              Sorted by latest activity · {pagination.total} total
+              Sorted by latest activity · {pagination.total} total · latest reward is used per order
             </p>
           </div>
           <form onSubmit={handleSearch} className="flex w-full max-w-sm items-center gap-2">
@@ -561,6 +564,9 @@ function EntryHistoryModal({
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-secondary">
               Rewards & redemption
+            </p>
+            <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+              For checkout, use the most recent unredeemed reward tied to this code.
             </p>
             {entry.recentSpins.length === 0 ? (
               <p className="text-sm text-text-secondary">No spins yet.</p>

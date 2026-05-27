@@ -30,7 +30,7 @@ const RAFFLE_REWARD_OPTIONS = [
   { value: 'TEN_PERCENT', label: '10% Off Order' },
   { value: 'FIVE_PERCENT', label: '5% Off Order' },
   { value: 'FREE_WATER', label: 'Free Water' },
-  { value: 'FREE_DELIVERY', label: 'Free Delivery' },
+  { value: 'FREE_DELIVERY', label: '12% Discount' },
 ] as const;
 
 type RaffleRewardType = '' | 'FIFTY_PERCENT_FIRST_MEAL' | 'TEN_PERCENT' | 'FIVE_PERCENT' | 'FREE_WATER' | 'FREE_DELIVERY';
@@ -40,7 +40,7 @@ const RAFFLE_REWARD_LABELS: Record<string, string> = {
   TEN_PERCENT: '10% Off',
   FIVE_PERCENT: '5% Off',
   FREE_WATER: 'Free Water',
-  FREE_DELIVERY: 'Free Delivery',
+  FREE_DELIVERY: '12% Discount',
 };
 
 interface Promotion {

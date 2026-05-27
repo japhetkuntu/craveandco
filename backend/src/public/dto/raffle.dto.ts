@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class RaffleRequestOtpDto {
   @IsString()
@@ -12,6 +12,10 @@ export class RaffleRequestOtpDto {
   @IsString()
   @IsNotEmpty()
   deviceId!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  refreshCode?: boolean;
 }
 
 export class RaffleVerifyDto {

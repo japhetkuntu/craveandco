@@ -1252,6 +1252,7 @@ export default function GrowthPOSPage() {
               {/* Raffle Code input */}
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-text-secondary">Raffle Code</p>
+                <p className="text-xs text-text-secondary">Only the latest unredeemed Spin &amp; Win reward is eligible for this order.</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -1274,7 +1275,7 @@ export default function GrowthPOSPage() {
                   raffleResolved.spin ? (
                     <div className={`rounded-2xl p-3 text-sm space-y-1 ${raffleResolved.promotion ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
                       <p className="font-semibold text-text-primary">
-                        🎉 {raffleResolved.entry.customer?.name ?? raffleResolved.entry.name} — {raffleResolved.spin.rewardLabel}
+                        🎉 {raffleResolved.entry.customer?.name ?? raffleResolved.entry.name} — latest reward: {raffleResolved.spin.rewardLabel}
                       </p>
                       {raffleResolved.promotion ? (
                         <p className="text-green-700 font-medium">
@@ -1289,7 +1290,7 @@ export default function GrowthPOSPage() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-amber-600 font-medium">No unredeemed reward found for this code.</p>
+                    <p className="text-sm text-amber-600 font-medium">No eligible latest reward found for this code.</p>
                   )
                 )}
               </div>
