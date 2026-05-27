@@ -23,12 +23,14 @@ export function friendlyError(status: number, message: unknown): string {
   if (status === 404) return 'The requested item could not be found.';
 
   if (Array.isArray(message)) {
-    // class-validator array — check if all look technical
     const msgs = (message as unknown[]).map(String);
     if (msgs.every((m) => TECH_PATTERNS.some((p) => p.test(m)))) {
+      if (msgs.some((m) => /property phone should not exist/i.test(m)) || msgs.some((m) => /property name should not exist/i.test(m))) {
+        return 'Please submit a valid phone number and optional name.';
+      }
       return 'Please check your details and try again.';
     }
-    return msgs[0]; // first entry is usually most relevant
+    return msgs[0];
   }
 
   const msg = typeof message === 'string' ? message : String(message || '');

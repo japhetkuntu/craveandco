@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck, Users, Calendar } from 'lucide-react';
+import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck, Users, Calendar, Gift } from 'lucide-react';
 import Link from 'next/link';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
@@ -262,6 +262,17 @@ export default function Home() {
           }}>
             Find Us
           </button>
+          <Link href="/raffle" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            background: 'linear-gradient(135deg, #b5451b 0%, #e8a45a 100%)',
+            color: '#fff', textDecoration: 'none',
+            padding: '0.4rem 1rem', borderRadius: 999,
+            transition: 'opacity 0.2s',
+          }}>
+            <Gift size={14} /> Spin &amp; Win
+          </Link>
           {ECOMMERCE_ENABLED ? (
             <Link href="/dashboard" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -336,6 +347,14 @@ export default function Home() {
         }}>
           Find Us
         </button>
+        <Link href="/raffle" onClick={() => setNavOpen(false)} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '1.1rem',
+          color: '#b5451b', textDecoration: 'none',
+          padding: '0.75rem 0', borderBottom: '1px solid rgba(124,92,46,0.12)',
+        }}>
+          <Gift size={18} /> Spin &amp; Win 🎉
+        </Link>
         <a href="tel:0540951665" style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           marginTop: '2rem', background: 'var(--terracotta)', color: '#fff',

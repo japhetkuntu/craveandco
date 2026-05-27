@@ -101,6 +101,7 @@ export declare class OrdersService {
         channel: import("@prisma/client").$Enums.OrderChannel;
         paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
         guestName: string | null;
+        raffleAccessCode: string | null;
         status: import("@prisma/client").$Enums.OrderStatus;
         paymentLabel: string | null;
         receiptUrl: string | null;

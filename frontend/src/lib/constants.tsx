@@ -22,6 +22,7 @@ import {
   Briefcase,
   UserPlus,
   Building2,
+  Sparkles,
 } from 'lucide-react';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -84,6 +85,22 @@ export const API_PATHS = {
     recipeItem: (itemId: string, recipeId: string) => `/api/v1/menu/items/${itemId}/recipe-items/${recipeId}`,
     recipeImportSources: (itemId: string) => `/api/v1/menu/items/${itemId}/recipe-items/import-sources`,
     importRecipeItems: (itemId: string) => `/api/v1/menu/items/${itemId}/recipe-items/import`,
+  },
+  raffle: {
+    requestOtp: '/api/v1/public/raffle/request-otp',
+    verify: '/api/v1/public/raffle/verify',
+    spin: '/api/v1/public/raffle/spin',
+  },
+  raffleAdmin: {
+    entries: (page: number, limit: number, search?: string) => {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (search) params.set('search', search);
+      return `/api/v1/raffle/entries?${params.toString()}`;
+    },
+    stats: '/api/v1/raffle/stats',
+    redeem: (spinId: string) => `/api/v1/raffle/spins/${spinId}/redeem`,
+    unredeem: (spinId: string) => `/api/v1/raffle/spins/${spinId}/unredeem`,
+    resolve: (code: string) => `/api/v1/raffle/resolve/${encodeURIComponent(code)}`,
   },
   inventory: {
     stock: '/api/v1/inventory/stock',
@@ -177,6 +194,7 @@ export const API_PATHS = {
     active: '/api/v1/promotions/active',
     analytics: (from: string, to: string) => `/api/v1/promotions/analytics?from=${from}&to=${to}`,
     create: '/api/v1/promotions',
+    update: (id: string) => `/api/v1/promotions/${id}`,
     activate: (id: string) => `/api/v1/promotions/${id}/activate`,
     pause: (id: string) => `/api/v1/promotions/${id}/pause`,
     deactivate: (id: string) => `/api/v1/promotions/${id}/deactivate`,
@@ -224,6 +242,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Promotions', href: '/owner/promotions', icon: <Tag size={20} /> },
     { label: 'Engagement', href: '/owner/engagement', icon: <HeartHandshake size={20} /> },
     { label: 'Sales', href: '/owner/sales', icon: <Briefcase size={20} /> },
+    { label: 'Raffle', href: '/owner/raffle', icon: <Sparkles size={20} /> },
     { label: 'Settings', href: '/owner/settings', icon: <Settings size={20} /> },
   ],
   KITCHEN_STAFF: [
@@ -257,6 +276,7 @@ export const ROLE_NAV_ITEMS: Record<string, { label: string; href: string; icon:
     { label: 'Promotions', href: '/growth/promotions', icon: <Tag size={20} /> },
     { label: 'Feedback', href: '/growth/feedback', icon: <MessageSquare size={20} /> },
     { label: 'Churn Risk', href: '/growth/churn', icon: <Bell size={20} /> },
+    { label: 'Raffle', href: '/growth/raffle', icon: <Sparkles size={20} /> },
     { label: 'Checklists', href: '/ops/checklists', icon: <ClipboardList size={20} /> },
   ],
   SALES_EXECUTIVE: [

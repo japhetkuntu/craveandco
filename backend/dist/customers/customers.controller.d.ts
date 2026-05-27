@@ -16,7 +16,7 @@ export declare class CustomersController {
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
     }>;
-    findAll(segment?: string, search?: string, sortBy?: string, sortDir?: 'asc' | 'desc', lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, page?: string, limit?: string): Promise<{
+    findAll(segment?: string, status?: string, hasPhone?: string, hasEmail?: string, hasBirthday?: string, search?: string, sortBy?: string, sortDir?: 'asc' | 'desc', lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, page?: string, limit?: string): Promise<{
         email: string | null;
         name: string;
         phone: string | null;
@@ -101,6 +101,7 @@ export declare class CustomersController {
             channel: import("@prisma/client").$Enums.OrderChannel;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
             guestName: string | null;
+            raffleAccessCode: string | null;
             status: import("@prisma/client").$Enums.OrderStatus;
             paymentLabel: string | null;
             receiptUrl: string | null;

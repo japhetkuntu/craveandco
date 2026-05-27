@@ -63,16 +63,16 @@ export declare class KitchenService {
         id: string;
         createdAt: Date;
         userId: string;
-        content: string;
         date: Date;
+        content: string;
     })[]>;
     createHandoverNote(userId: string, dto: CreateHandoverNoteDto): Promise<{
         shift: import("@prisma/client").$Enums.ShiftSlot;
         id: string;
         createdAt: Date;
         userId: string;
-        content: string;
         date: Date;
+        content: string;
     }>;
     getStationLoad(branchId: string, page?: number, limit?: number): Promise<{
         station: string;

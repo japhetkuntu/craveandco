@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, del, patch } from '@/lib/api';
+import { API_PATHS } from '@/lib/constants';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import {
   ShoppingCart, Plus, Minus, Trash2, CreditCard, Search,
@@ -113,8 +114,15 @@ export default function GrowthPOSPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
   const [useLoyaltyDiscount, setUseLoyaltyDiscount] = useState(false);
-  const [activePromos, setActivePromos] = useState<{ id: string; name: string; type: string; value: number }[]>([]);
+  const [activePromos, setActivePromos] = useState<{ id: string; name: string; type: string; value: number; discountScope?: string }[]>([]);
   const [selectedPromoId, setSelectedPromoId] = useState<string>('');
+  const [raffleCode, setRaffleCode] = useState('');
+  const [raffleResolved, setRaffleResolved] = useState<{
+    entry: { name: string; phone: string; customer?: { name: string } | null };
+    spin: { rewardType: string; rewardLabel: string } | null;
+    promotion: { id: string; name: string; type: string; value: number; discountScope: string } | null;
+  } | null>(null);
+  const [raffleResolving, setRaffleResolving] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
   const [receiptReference, setReceiptReference] = useState('');
@@ -348,11 +356,17 @@ export default function GrowthPOSPage() {
   const cartTotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
   const discountRate = useLoyaltyDiscount ? 0.05 : 0;
-  const selectedPromo = activePromos.find(p => p.id === selectedPromoId);
+  const selectedPromo = activePromos.find(p => p.id === selectedPromoId) ?? raffleResolved?.promotion ?? null;
   const promoDiscount = selectedPromo
-    ? selectedPromo.type === 'PERCENTAGE'
-      ? Number((cartTotal * selectedPromo.value / 100).toFixed(2))
-      : Math.min(Number(selectedPromo.value), cartTotal)
+    ? (() => {
+        const scope = (selectedPromo as any).discountScope ?? 'ALL_ITEMS';
+        const base = scope === 'FIRST_ITEM' && cart.length > 0
+          ? Math.max(...cart.map(c => c.price))
+          : cartTotal;
+        return selectedPromo.type === 'PERCENTAGE'
+          ? Number((base * selectedPromo.value / 100).toFixed(2))
+          : Math.min(Number(selectedPromo.value), base);
+      })()
     : 0;
   const afterPromoTotal = Number((cartTotal - promoDiscount).toFixed(2));
   const discountAmount = Number((afterPromoTotal * discountRate).toFixed(2));
@@ -373,6 +387,8 @@ export default function GrowthPOSPage() {
     setReceiptReference('');
     setPrintReceipt(true);
     setSelectedPromoId('');
+    setRaffleCode('');
+    setRaffleResolved(null);
     setConfirmAction(null);
   };
 
@@ -606,7 +622,8 @@ export default function GrowthPOSPage() {
         receiptUrl: receiptReference.trim() || undefined,
         customerId: selectedCustomer?.id,
         redeemPoints: useLoyaltyDiscount ? 100 : undefined,
-        promotionId: selectedPromoId || undefined,
+        promotionId: !raffleResolved ? (selectedPromoId || undefined) : undefined,
+        raffleAccessCode: raffleResolved ? raffleCode.toUpperCase() : undefined,
       }, token);
       setShowPayment(false);
       setActiveOrderId(null);
@@ -614,6 +631,8 @@ export default function GrowthPOSPage() {
       setReceiptReference('');
       setUseLoyaltyDiscount(false);
       setSelectedPromoId('');
+      setRaffleCode('');
+      setRaffleResolved(null);
       await fetchData();
       showAlert('success', 'Payment recorded. Order complete.');
       if (printReceipt) {
@@ -639,6 +658,23 @@ export default function GrowthPOSPage() {
       showAlert('error', 'Unable to cancel order.');
     } finally {
       setConfirmAction(null);
+    }
+  };
+
+  const handleRaffleLookup = async () => {
+    if (!token || !raffleCode.trim()) return;
+    setRaffleResolving(true);
+    setRaffleResolved(null);
+    try {
+      const result = await get(API_PATHS.raffleAdmin.resolve(raffleCode.trim().toUpperCase()), token);
+      setRaffleResolved(result);
+      if (result.promotion) {
+        setSelectedPromoId(result.promotion.id);
+      }
+    } catch (err: any) {
+      showAlert('error', err.message || 'Raffle code not found.');
+    } finally {
+      setRaffleResolving(false);
     }
   };
 
@@ -1186,7 +1222,7 @@ export default function GrowthPOSPage() {
                 <h2 className="text-xl font-semibold text-text-primary">Take Payment</h2>
                 <p className="text-sm text-text-secondary mt-1">Choose a payment method to complete the order.</p>
               </div>
-              <button onClick={() => { setShowPayment(false); setSelectedPromoId(''); }} className="shrink-0 rounded-2xl border border-border-subtle px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-raised transition-colors">Close</button>
+              <button onClick={() => { setShowPayment(false); setSelectedPromoId(''); setRaffleCode(''); setRaffleResolved(null); }} className="shrink-0 rounded-2xl border border-border-subtle px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-raised transition-colors">Close</button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               {/* Order total summary */}
@@ -1213,13 +1249,58 @@ export default function GrowthPOSPage() {
                 </div>
               </div>
 
+              {/* Raffle Code input */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-text-secondary">Raffle Code</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={raffleCode}
+                    onChange={e => { setRaffleCode(e.target.value.toUpperCase()); setRaffleResolved(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRaffleLookup(); } }}
+                    placeholder="Enter code (e.g. AB12CD)"
+                    className="flex-1 h-12 rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary font-mono tracking-widest uppercase outline-none focus:border-[var(--color-gold)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRaffleLookup}
+                    disabled={!raffleCode.trim() || raffleResolving}
+                    className="h-12 px-4 rounded-2xl bg-[var(--color-gold)] text-black text-sm font-semibold disabled:opacity-50 hover:brightness-105 transition-all shrink-0"
+                  >
+                    {raffleResolving ? '...' : 'Look up'}
+                  </button>
+                </div>
+                {raffleResolved && (
+                  raffleResolved.spin ? (
+                    <div className={`rounded-2xl p-3 text-sm space-y-1 ${raffleResolved.promotion ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <p className="font-semibold text-text-primary">
+                        🎉 {raffleResolved.entry.customer?.name ?? raffleResolved.entry.name} — {raffleResolved.spin.rewardLabel}
+                      </p>
+                      {raffleResolved.promotion ? (
+                        <p className="text-green-700 font-medium">
+                          Auto-applied: {raffleResolved.promotion.name}{' '}
+                          ({raffleResolved.promotion.type === 'PERCENTAGE'
+                            ? `${raffleResolved.promotion.value}%`
+                            : formatCurrency(raffleResolved.promotion.value)}{' '}
+                          {(raffleResolved.promotion.discountScope ?? 'ALL_ITEMS') === 'FIRST_ITEM' ? 'off highest-priced item' : 'off order'})
+                        </p>
+                      ) : (
+                        <p className="text-amber-700">No active promotion linked to this reward type.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-600 font-medium">No unredeemed reward found for this code.</p>
+                  )
+                )}
+              </div>
+
               {/* Promotion selector */}
               {activePromos.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-text-secondary">Apply Promotion</p>
                   <select
                     value={selectedPromoId}
-                    onChange={e => setSelectedPromoId(e.target.value)}
+                    onChange={e => { setSelectedPromoId(e.target.value); if (raffleResolved) setRaffleResolved(null); }}
                     className="h-12 w-full rounded-2xl border border-border-default bg-surface-input px-4 text-sm text-text-primary outline-none focus:border-[var(--color-gold)]"
                   >
                     <option value="">No promotion</option>

@@ -248,6 +248,10 @@ export default function OwnerCustomersPage() {
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | CustomerStatus>('all');
+  const [phoneFilter, setPhoneFilter] = useState<'all' | 'yes' | 'no'>('all');
+  const [emailFilter, setEmailFilter] = useState<'all' | 'yes' | 'no'>('all');
+  const [birthdayFilter, setBirthdayFilter] = useState<'all' | 'yes' | 'no'>('all');
   const [sort, setSort] = useState<SortState | null>(null);
   const [insights, setInsights] = useState<CustomerInsights | null>(null);
   const [insightsCustomerId, setInsightsCustomerId] = useState<string | null>(null);
@@ -306,7 +310,17 @@ export default function OwnerCustomersPage() {
     const requestLimit = limit + 1;
     try {
       const [c, d] = await Promise.all([
-        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit: requestLimit, search, sortBy: sort?.key, sortDir: sort?.dir })}`, token),
+        get(`${API_PATHS.customers.list}${buildQueryString({
+          page,
+          limit: requestLimit,
+          search,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          hasPhone: phoneFilter === 'all' ? undefined : phoneFilter === 'yes' ? 'true' : 'false',
+          hasEmail: emailFilter === 'all' ? undefined : emailFilter === 'yes' ? 'true' : 'false',
+          hasBirthday: birthdayFilter === 'all' ? undefined : birthdayFilter === 'yes' ? 'true' : 'false',
+          sortBy: sort?.key,
+          sortDir: sort?.dir,
+        })}`, token),
         get(API_PATHS.customers.dashboard, token),
       ]);
       const customerItems = Array.isArray(c) ? c : [];
@@ -318,7 +332,7 @@ export default function OwnerCustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, limit, search, sort]);
+  }, [token, page, limit, search, statusFilter, phoneFilter, emailFilter, birthdayFilter, sort]);
 
   const loadCustomerInsights = async (customerId: string) => {
     if (!token) return;
@@ -344,8 +358,10 @@ export default function OwnerCustomersPage() {
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
-  // Clear selection when page/search/limit/sort changes
-  useEffect(() => { setSelectedIds(new Set()); }, [page, limit, search, sort]);
+  // Clear selection when list query changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, limit, search, statusFilter, phoneFilter, emailFilter, birthdayFilter, sort]);
 
   const openEdit = (c: Customer) => {
     setEditCustomer(c);
@@ -666,6 +682,69 @@ export default function OwnerCustomersPage() {
         >
           Clear
         </Button>
+      </div>
+
+      {/* Backend Filters */}
+      <div className="rounded-2xl border border-border-subtle bg-surface-raised p-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <select
+            value={statusFilter}
+            onChange={(e) => { setPage(0); setStatusFilter(e.target.value as 'all' | CustomerStatus); }}
+            className="h-10 rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="all">All Statuses</option>
+            <option value="new">New</option>
+            <option value="loyal">Loyal</option>
+            <option value="active">Active</option>
+            <option value="fading">Fading</option>
+            <option value="at-risk">At Risk</option>
+            <option value="inactive">Inactive</option>
+            <option value="never">No Visits</option>
+          </select>
+
+          <select
+            value={phoneFilter}
+            onChange={(e) => { setPage(0); setPhoneFilter(e.target.value as 'all' | 'yes' | 'no'); }}
+            className="h-10 rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="all">Phone: All</option>
+            <option value="yes">Has Phone</option>
+            <option value="no">No Phone</option>
+          </select>
+
+          <select
+            value={emailFilter}
+            onChange={(e) => { setPage(0); setEmailFilter(e.target.value as 'all' | 'yes' | 'no'); }}
+            className="h-10 rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="all">Email: All</option>
+            <option value="yes">Has Email</option>
+            <option value="no">No Email</option>
+          </select>
+
+          <select
+            value={birthdayFilter}
+            onChange={(e) => { setPage(0); setBirthdayFilter(e.target.value as 'all' | 'yes' | 'no'); }}
+            className="h-10 rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+          >
+            <option value="all">Birthday: All</option>
+            <option value="yes">Has Birthday</option>
+            <option value="no">No Birthday</option>
+          </select>
+
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setPage(0);
+              setStatusFilter('all');
+              setPhoneFilter('all');
+              setEmailFilter('all');
+              setBirthdayFilter('all');
+            }}
+          >
+            Clear Filters
+          </Button>
+        </div>
       </div>
 
       {/* Desktop Table */}

@@ -27,11 +27,15 @@ let CustomersController = class CustomersController {
     create(dto) {
         return this.customers.create(dto);
     }
-    findAll(segment, search, sortBy, sortDir, lastSeenBefore, addedAfter, addedBefore, page = '0', limit = '50') {
+    findAll(segment, status, hasPhone, hasEmail, hasBirthday, search, sortBy, sortDir, lastSeenBefore, addedAfter, addedBefore, page = '0', limit = '50') {
         const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
         const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
         return this.customers.findAll({
             segment,
+            status,
+            hasPhone,
+            hasEmail,
+            hasBirthday,
             search,
             sortBy,
             sortDir,
@@ -73,16 +77,20 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('segment')),
-    __param(1, (0, common_1.Query)('search')),
-    __param(2, (0, common_1.Query)('sortBy')),
-    __param(3, (0, common_1.Query)('sortDir')),
-    __param(4, (0, common_1.Query)('lastSeenBefore')),
-    __param(5, (0, common_1.Query)('addedAfter')),
-    __param(6, (0, common_1.Query)('addedBefore')),
-    __param(7, (0, common_1.Query)('page')),
-    __param(8, (0, common_1.Query)('limit')),
+    __param(1, (0, common_1.Query)('status')),
+    __param(2, (0, common_1.Query)('hasPhone')),
+    __param(3, (0, common_1.Query)('hasEmail')),
+    __param(4, (0, common_1.Query)('hasBirthday')),
+    __param(5, (0, common_1.Query)('search')),
+    __param(6, (0, common_1.Query)('sortBy')),
+    __param(7, (0, common_1.Query)('sortDir')),
+    __param(8, (0, common_1.Query)('lastSeenBefore')),
+    __param(9, (0, common_1.Query)('addedAfter')),
+    __param(10, (0, common_1.Query)('addedBefore')),
+    __param(11, (0, common_1.Query)('page')),
+    __param(12, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String, Object, Object]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, String, String, String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAll", null);
 __decorate([

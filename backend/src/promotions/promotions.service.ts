@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePromotionDto } from './dto/promotions.dto';
+import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotions.dto';
 import { PromotionStatus, OrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -13,6 +13,7 @@ export class PromotionsService {
     }
     const menuScope = dto.menuScope ?? 'ALL';
     const menuItemIds = menuScope === 'SPECIFIC' ? (dto.menuItemIds ?? []) : [];
+    const discountScope = dto.discountScope ?? 'ALL_ITEMS';
     return this.prisma.promotion.create({
       data: {
         branchId,
@@ -26,6 +27,8 @@ export class PromotionsService {
         endDate: dto.endDate ? new Date(dto.endDate) : undefined,
         menuScope,
         menuItemIds,
+        discountScope,
+        raffleRewardType: dto.raffleRewardType ?? null,
       },
     });
   }
@@ -34,6 +37,38 @@ export class PromotionsService {
     return this.prisma.promotion.findMany({
       where: { branchId },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async update(id: string, dto: UpdatePromotionDto, branchId: string) {
+    const promotion = await this.prisma.promotion.findFirst({ where: { id, branchId } });
+    if (!promotion) throw new NotFoundException('Promotion not found');
+    if (dto.type === 'PERCENTAGE' && dto.value !== undefined && dto.value > 100) {
+      throw new BadRequestException('Percentage discount cannot exceed 100%');
+    }
+    const menuScope = dto.menuScope ?? (promotion as any).menuScope;
+    const menuItemIds =
+      dto.menuItemIds !== undefined
+        ? menuScope === 'SPECIFIC'
+          ? dto.menuItemIds
+          : []
+        : undefined;
+    return this.prisma.promotion.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.type !== undefined && { type: dto.type as any }),
+        ...(dto.value !== undefined && { value: dto.value }),
+        ...(dto.minOrderAmount !== undefined && { minOrderAmount: dto.minOrderAmount }),
+        ...(dto.maxDiscount !== undefined && { maxDiscount: dto.maxDiscount }),
+        ...(dto.startDate !== undefined && { startDate: dto.startDate ? new Date(dto.startDate) : null }),
+        ...(dto.endDate !== undefined && { endDate: dto.endDate ? new Date(dto.endDate) : null }),
+        ...(dto.menuScope !== undefined && { menuScope }),
+        ...(menuItemIds !== undefined && { menuItemIds }),
+        ...(dto.discountScope !== undefined && { discountScope: dto.discountScope }),
+        ...(dto.raffleRewardType !== undefined && { raffleRewardType: dto.raffleRewardType || null }),
+      },
     });
   }
 
@@ -150,20 +185,44 @@ export class PromotionsService {
   }
 
   /**
-   * Calculate the discount amount for an order total given a promotion.
-   * Returns { discountAmount, finalTotal }
+   * Calculate the discount amount for an order.
+   *
+   * @param subtotal - full order subtotal (sum of all item prices × qty)
+   * @param promotion - the Promotion record
+   * @param orderItems - optional array of { unitPrice, quantity } used when
+   *                     discountScope === 'FIRST_ITEM' (applies to the most
+   *                     expensive item only)
+   * @returns { discountAmount, finalTotal }
    */
-  calculateDiscount(promotionId: string, subtotal: number, promotion: any) {
+  calculateDiscount(
+    promotionId: string,
+    subtotal: number,
+    promotion: any,
+    orderItems?: Array<{ unitPrice: number | string; quantity: number }>,
+  ) {
+    const scope: string = (promotion as any).discountScope ?? 'ALL_ITEMS';
+
+    let base = subtotal;
+    if (scope === 'FIRST_ITEM' && orderItems && orderItems.length > 0) {
+      // Find the item with the highest individual unit price
+      const mostExpensive = orderItems.reduce(
+        (best, item) => (Number(item.unitPrice) > Number(best.unitPrice) ? item : best),
+        orderItems[0],
+      );
+      base = Number(mostExpensive.unitPrice); // discount off the unit price of that item
+    }
+
     let discountAmount = 0;
     if (promotion.type === 'PERCENTAGE') {
-      discountAmount = (subtotal * Number(promotion.value)) / 100;
+      discountAmount = (base * Number(promotion.value)) / 100;
       if (promotion.maxDiscount) {
         discountAmount = Math.min(discountAmount, Number(promotion.maxDiscount));
       }
     } else {
-      discountAmount = Number(promotion.value);
+      discountAmount = Math.min(Number(promotion.value), base);
     }
-    discountAmount = Math.min(discountAmount, subtotal);
+
+    discountAmount = Math.min(discountAmount, subtotal); // never exceed full order value
     const finalTotal = Number((subtotal - discountAmount).toFixed(2));
     return { discountAmount: Number(discountAmount.toFixed(2)), finalTotal };
   }

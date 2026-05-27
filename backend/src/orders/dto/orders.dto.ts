@@ -52,6 +52,10 @@ export class CreateOrderDto {
   @IsString()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  raffleAccessCode?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
@@ -94,6 +98,10 @@ export class PayOrderDto {
   @IsOptional()
   @IsString()
   promotionId?: string;
+
+  @IsOptional()
+  @IsString()
+  raffleAccessCode?: string;
 }
 
 export class AddOrderItemDto {

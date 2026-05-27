@@ -144,3 +144,44 @@ select,
 textarea {
   font-size: max(1rem, 16px);
 }
+
+/*
+ * Tablet landscape modal fix:
+ * keep sheets near the top, reduce panel height against the live visual viewport,
+ * and give scrollable bodies extra room so focused fields don't disappear behind
+ * the soft keyboard.
+ */
+@media (pointer: coarse) and (orientation: landscape) {
+  html[data-keyboard-open='true'] [data-modal-shell],
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black/40'],
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black\/40'] {
+    align-items: flex-start;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  html[data-keyboard-open='true'] [data-modal-panel],
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black/40'] > div,
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black\/40'] > div {
+    max-height: calc(var(--viewport-height, 100dvh) - var(--keyboard-offset, 0px) - 1rem) !important;
+  }
+
+  html[data-keyboard-open='true'] [data-modal-content],
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black/40'] > div > div,
+  html[data-keyboard-open='true'] .fixed.inset-0[class*='justify-center'][class*='bg-black\/40'] > div > div {
+    padding-bottom: calc(1.25rem + var(--keyboard-offset, 0px));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: landscape) {
+  html[data-keyboard-open='true'] [data-modal-shell] {
+    align-items: flex-start;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  html[data-keyboard-open='true'] [data-modal-panel] {
+    max-height: calc(var(--viewport-height, 100dvh) - var(--keyboard-offset, 0px) - 1.25rem) !important;
+    width: min(92vw, 56rem);
+  }
+}

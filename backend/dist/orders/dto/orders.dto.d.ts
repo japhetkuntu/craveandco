@@ -16,6 +16,7 @@ export declare class CreateOrderDto {
     customerId?: string;
     guestName?: string;
     notes?: string;
+    raffleAccessCode?: string;
     items: CreateOrderItemDto[];
 }
 export declare class UpdateOrderStatusDto {
@@ -31,6 +32,7 @@ export declare class PayOrderDto {
     customerId?: string;
     redeemPoints?: number;
     promotionId?: string;
+    raffleAccessCode?: string;
 }
 export declare class AddOrderItemDto {
     menuItemId: string;

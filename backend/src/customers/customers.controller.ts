@@ -19,6 +19,10 @@ export class CustomersController {
   @Get()
   findAll(
     @Query('segment') segment?: string,
+    @Query('status') status?: string,
+    @Query('hasPhone') hasPhone?: string,
+    @Query('hasEmail') hasEmail?: string,
+    @Query('hasBirthday') hasBirthday?: string,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortDir') sortDir?: 'asc' | 'desc',
@@ -32,6 +36,10 @@ export class CustomersController {
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
     return this.customers.findAll({
       segment,
+      status,
+      hasPhone,
+      hasEmail,
+      hasBirthday,
       search,
       sortBy,
       sortDir,

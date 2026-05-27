@@ -14,7 +14,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PromotionsService } from './promotions.service';
-import { CreatePromotionDto } from './dto/promotions.dto';
+import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotions.dto';
 
 @Controller('api/v1/promotions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -53,12 +53,21 @@ export class PromotionsController {
     return this.promotions.getAnalytics(branchId, from || today, to || today);
   }
 
+  @Patch(':id')
+  @Roles('OWNER')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePromotionDto,
+    @CurrentUser('branchId') branchId: string,
+  ) {
+    return this.promotions.update(id, dto, branchId);
+  }
+
   @Patch(':id/activate')
   @Roles('OWNER')
   activate(@Param('id') id: string, @CurrentUser('branchId') branchId: string) {
     return this.promotions.activate(id, branchId);
   }
-
   @Patch(':id/pause')
   @Roles('OWNER')
   pause(@Param('id') id: string, @CurrentUser('branchId') branchId: string) {

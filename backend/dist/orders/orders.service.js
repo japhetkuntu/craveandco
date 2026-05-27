@@ -193,6 +193,7 @@ let OrdersService = class OrdersService {
     async create(dto, initiatedById) {
         const { menuItemsMap, ingredientCostsMap, costMap } = await this.loadMenuItemsWithCosts(dto.items.map((i) => i.menuItemId));
         const { total, foodCost } = this.calculateTotals(dto.items, menuItemsMap, costMap);
+        const raffleAccessCode = dto.raffleAccessCode?.trim().toUpperCase() || undefined;
         const createdOrder = await this.prisma.order.create({
             data: {
                 branchId: dto.branchId,
@@ -201,6 +202,7 @@ let OrdersService = class OrdersService {
                 customerId: dto.customerId,
                 guestName: dto.guestName,
                 notes: dto.notes,
+                raffleAccessCode,
                 ...(initiatedById ? { initiatedById } : {}),
                 total,
                 foodCost,
@@ -465,8 +467,46 @@ let OrdersService = class OrdersService {
         let paidTotal = Number(order.total);
         const loyaltyTransactions = [];
         let appliedPromotionId;
-        if (dto.promotionId) {
-            const promotion = await this.promotions.findById(dto.promotionId);
+        let raffleSpinToRedeem;
+        const resolvePromotionId = async () => {
+            if (dto.promotionId)
+                return dto.promotionId;
+            if (!dto.raffleAccessCode)
+                return undefined;
+            const code = dto.raffleAccessCode.trim().toUpperCase();
+            const raffleEntry = await this.prisma.customerRaffleEntry.findUnique({
+                where: { accessCode: code },
+                include: {
+                    spins: {
+                        where: { redeemedAt: null },
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                    },
+                },
+            });
+            if (!raffleEntry)
+                throw new common_1.BadRequestException('No raffle entry found for this access code.');
+            const spin = raffleEntry.spins[0];
+            if (!spin)
+                throw new common_1.BadRequestException('No unredeemed reward found for this raffle code.');
+            const now = new Date();
+            const promotion = await this.prisma.promotion.findFirst({
+                where: {
+                    branchId: order.branchId,
+                    raffleRewardType: spin.rewardType,
+                    status: 'ACTIVE',
+                    OR: [{ startDate: null }, { startDate: { lte: now } }],
+                    AND: [{ OR: [{ endDate: null }, { endDate: { gte: now } }] }],
+                },
+            });
+            if (!promotion)
+                throw new common_1.BadRequestException(`No active promotion is linked to the "${spin.rewardLabel}" raffle reward.`);
+            raffleSpinToRedeem = { id: spin.id };
+            return promotion.id;
+        };
+        const resolvedPromotionId = await resolvePromotionId();
+        if (resolvedPromotionId) {
+            const promotion = await this.promotions.findById(resolvedPromotionId);
             if (!promotion)
                 throw new common_1.BadRequestException('Promotion not found');
             if (promotion.status !== 'ACTIVE')
@@ -492,9 +532,16 @@ let OrdersService = class OrdersService {
                     throw new common_1.BadRequestException('This promotion does not apply to any items in the order');
                 }
             }
-            const { discountAmount, finalTotal } = this.promotions.calculateDiscount(dto.promotionId, paidTotal, promotion);
+            const itemsForDiscount = await this.prisma.orderItem.findMany({
+                where: { orderId: id },
+                select: { unitPrice: true, quantity: true },
+            });
+            const { discountAmount: _unused, finalTotal } = this.promotions.calculateDiscount(resolvedPromotionId, paidTotal, promotion, itemsForDiscount.map((i) => ({
+                unitPrice: Number(i.unitPrice),
+                quantity: i.quantity,
+            })));
             paidTotal = finalTotal;
-            appliedPromotionId = dto.promotionId;
+            appliedPromotionId = resolvedPromotionId;
         }
         const redeemPoints = dto.redeemPoints === 100 ? 100 : 0;
         if (dto.redeemPoints && dto.redeemPoints !== 100) {
@@ -558,13 +605,20 @@ let OrdersService = class OrdersService {
         });
         const postPayTasks = [...loyaltyTransactions];
         if (appliedPromotionId) {
-            const origTotal = Number(order.total);
-            const promoDiscount = Number((origTotal - paidTotal).toFixed(2));
-            const prePayTotal = redeemPoints > 0
-                ? Number((origTotal * 0.95).toFixed(2))
-                : origTotal;
             const totalDiscountGiven = Number((Number(order.total) - paidTotal).toFixed(2));
             postPayTasks.push(this.promotions.recordUsage(appliedPromotionId, Math.max(totalDiscountGiven, 0)));
+        }
+        if (raffleSpinToRedeem) {
+            const spinId = raffleSpinToRedeem.id;
+            const orderId = updatedOrder.id;
+            postPayTasks.push(this.prisma.customerRaffleSpin.update({
+                where: { id: spinId },
+                data: {
+                    redeemedAt: new Date(),
+                    redeemedOrderId: orderId,
+                    redemptionNote: `Auto-redeemed via POS payment`,
+                },
+            }));
         }
         if (postPayTasks.length) {
             await Promise.all(postPayTasks);

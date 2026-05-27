@@ -115,6 +115,7 @@ export function Modal({
 
   return (
     <div
+      data-modal-shell="true"
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
       style={{ height: 'var(--viewport-height, 100dvh)' }}
       role="dialog"
@@ -129,17 +130,21 @@ export function Modal({
       />
       <div
         ref={panelRef}
+        data-modal-panel="true"
         tabIndex={-1}
         className={cn(
           'relative w-full bg-surface-raised border border-border-default shadow-[var(--shadow-modal)]',
           // Mobile: bottom sheet, full-bleed, rounded top. Desktop: centered card.
           'rounded-t-2xl sm:rounded-2xl',
           // Use dynamic viewport so the panel doesn't resize when the soft keyboard opens.
-          'flex flex-col max-h-[92dvh] sm:max-h-[85dvh] min-h-0 overflow-hidden',
+          'flex flex-col min-h-0 overflow-hidden',
           'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 sm:motion-safe:slide-in-from-bottom-2 motion-safe:duration-250',
           SIZES[size],
         )}
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          maxHeight: 'calc(var(--viewport-height, 100dvh) - var(--keyboard-offset, 0px) - 1rem)',
+        }}
       >
         {/* Mobile drag-handle affordance */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true">
@@ -175,15 +180,21 @@ export function Modal({
 
         {/* Content (scrolls) */}
         <div
+          data-modal-content="true"
           className="flex-1 overflow-y-auto px-5 sm:px-6 pb-4"
-          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
+            overscrollBehavior: 'contain',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+          }}
         >
           {children}
         </div>
 
         {/* Footer — sticky at panel bottom on every viewport */}
         {footer && (
-          <div className="shrink-0 border-t border-border-subtle bg-surface-raised/95 backdrop-blur-sm px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 rounded-b-2xl">
+          <div data-modal-footer="true" className="shrink-0 border-t border-border-subtle bg-surface-raised/95 backdrop-blur-sm px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 rounded-b-2xl">
             {footer}
           </div>
         )}

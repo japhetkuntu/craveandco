@@ -74,6 +74,65 @@ let CustomersService = class CustomersService {
         const take = Math.min(Math.max(params?.limit ?? 50, 1), 100);
         const skip = Math.max(params?.page ?? 0, 0) * take;
         const where = {};
+        const parseBool = (value) => {
+            if (value === undefined)
+                return undefined;
+            if (value === 'true' || value === '1')
+                return true;
+            if (value === 'false' || value === '0')
+                return false;
+            return undefined;
+        };
+        const hasPhone = parseBool(params?.hasPhone);
+        if (hasPhone === true)
+            where.phone = { not: null };
+        if (hasPhone === false)
+            where.phone = null;
+        const hasEmail = parseBool(params?.hasEmail);
+        if (hasEmail === true)
+            where.email = { not: null };
+        if (hasEmail === false)
+            where.email = null;
+        const hasBirthday = parseBool(params?.hasBirthday);
+        if (hasBirthday === true)
+            where.birthday = { not: null };
+        if (hasBirthday === false)
+            where.birthday = null;
+        if (params?.status) {
+            const now = new Date();
+            const daysAgo = (n) => {
+                const d = new Date(now);
+                d.setDate(d.getDate() - n);
+                return d;
+            };
+            const status = params.status.toLowerCase();
+            switch (status) {
+                case 'never':
+                    where.lastSeenAt = null;
+                    break;
+                case 'inactive':
+                    where.lastSeenAt = { lt: daysAgo(21) };
+                    break;
+                case 'at-risk':
+                    where.lastSeenAt = { gte: daysAgo(21), lt: daysAgo(14) };
+                    break;
+                case 'fading':
+                    where.lastSeenAt = { gte: daysAgo(14), lt: daysAgo(7) };
+                    break;
+                case 'new':
+                    where.lastSeenAt = { gte: daysAgo(7) };
+                    where.visitCount = { lte: 2 };
+                    break;
+                case 'loyal':
+                    where.lastSeenAt = { gte: daysAgo(7) };
+                    where.visitCount = { gte: 4 };
+                    break;
+                case 'active':
+                    where.lastSeenAt = { gte: daysAgo(7) };
+                    where.visitCount = { gte: 3, lte: 3 };
+                    break;
+            }
+        }
         if (params?.lastSeenBefore) {
             where.lastSeenAt = { lt: new Date(params.lastSeenBefore) };
         }
@@ -151,15 +210,15 @@ let CustomersService = class CustomersService {
             if (!customer.lastSeenAt)
                 return 6;
             const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
-            if (daysSince <= 30 && customer.visitCount <= 2)
-                return 2;
-            if (daysSince <= 30 && customer.visitCount >= 10)
+            if (daysSince <= 7 && customer.visitCount >= 4)
                 return 0;
-            if (daysSince <= 30)
+            if (daysSince <= 7 && customer.visitCount === 3)
                 return 1;
-            if (daysSince <= 60)
+            if (daysSince <= 7 && customer.visitCount <= 2)
+                return 2;
+            if (daysSince <= 14)
                 return 3;
-            if (daysSince <= 90)
+            if (daysSince <= 21)
                 return 4;
             return 5;
         };
@@ -225,15 +284,15 @@ let CustomersService = class CustomersService {
         if (!customer.lastSeenAt)
             return 'never';
         const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
-        if (daysSince <= 30 && customer.visitCount <= 2)
+        if (daysSince <= 7 && customer.visitCount <= 2)
             return 'new';
-        if (daysSince <= 30 && customer.visitCount >= 10)
+        if (daysSince <= 7 && customer.visitCount >= 4)
             return 'loyal';
-        if (daysSince <= 30)
+        if (daysSince <= 7)
             return 'active';
-        if (daysSince <= 60)
+        if (daysSince <= 14)
             return 'fading';
-        if (daysSince <= 90)
+        if (daysSince <= 21)
             return 'at-risk';
         return 'inactive';
     }

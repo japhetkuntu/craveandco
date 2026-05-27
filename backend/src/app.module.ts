@@ -26,6 +26,7 @@ import { PromotionsModule } from './promotions/promotions.module';
 import { SpecialOrdersModule } from './special-orders/special-orders.module';
 import { EngagementModule } from './engagement/engagement.module';
 import { SalesModule } from './sales/sales.module';
+import { RaffleAdminModule } from './raffle-admin/raffle-admin.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { SalesModule } from './sales/sales.module';
     SpecialOrdersModule,
     EngagementModule,
     SalesModule,
+    RaffleAdminModule,
   ],
 })
 export class AppModule {}

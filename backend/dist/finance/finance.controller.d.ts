@@ -49,8 +49,8 @@ export declare class FinanceController {
         id: string;
         createdAt: Date;
         notes: string | null;
-        variance: import("@prisma/client/runtime/library").Decimal;
         date: Date;
+        variance: import("@prisma/client/runtime/library").Decimal;
         expectedCash: import("@prisma/client/runtime/library").Decimal;
         actualCash: import("@prisma/client/runtime/library").Decimal;
         closedBy: string | null;
@@ -66,8 +66,8 @@ export declare class FinanceController {
             id: string;
             createdAt: Date;
             notes: string | null;
-            variance: import("@prisma/client/runtime/library").Decimal;
             date: Date;
+            variance: import("@prisma/client/runtime/library").Decimal;
             expectedCash: import("@prisma/client/runtime/library").Decimal;
             actualCash: import("@prisma/client/runtime/library").Decimal;
             closedBy: string | null;

@@ -35,6 +35,10 @@ export declare class CustomersService {
     }>;
     findAll(params?: {
         segment?: string;
+        status?: string;
+        hasPhone?: string;
+        hasEmail?: string;
+        hasBirthday?: string;
         search?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
@@ -88,6 +92,7 @@ export declare class CustomersService {
             channel: import("@prisma/client").$Enums.OrderChannel;
             paymentMethod: import("@prisma/client").$Enums.PaymentMethod | null;
             guestName: string | null;
+            raffleAccessCode: string | null;
             status: import("@prisma/client").$Enums.OrderStatus;
             paymentLabel: string | null;
             receiptUrl: string | null;

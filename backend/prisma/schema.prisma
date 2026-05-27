@@ -216,6 +216,7 @@ model User {
   businessLeads        BusinessLead[]           @relation("ExecutiveLeads")
   businessInteractions BusinessInteraction[]    @relation("ExecutiveInteractions")
   initiatedOrders      Order[]                  @relation("InitiatedOrders")
+  redeemedRaffleSpins  CustomerRaffleSpin[]     @relation("RedeemedRaffleSpins")
 
   @@index([branchId])
   @@map("users")
@@ -468,8 +469,12 @@ model Order {
   promotionId    String?
   promotion      Promotion?    @relation(fields: [promotionId], references: [id])
 
+  raffleAccessCode String?
+  redeemedRaffleSpins CustomerRaffleSpin[] @relation("RedeemedOnOrder")
+
   @@index([branchId, status])
   @@index([branchId, createdAt])
+  @@index([raffleAccessCode])
   @@map("orders")
 }
 
@@ -599,7 +604,7 @@ model Customer {
   totalSpend  Decimal   @default(0) @db.Decimal(10, 2)
   visitCount  Int       @default(0)
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  updatedAt   DateTime @updatedAt
 
   orders              Order[]
   loyaltyTransactions LoyaltyTransaction[]
@@ -608,9 +613,75 @@ model Customer {
   refreshTokens      CustomerRefreshToken[]
   engagementLogs     CustomerEngagementLog[]
   acquisitionLogs    AcquisitionLog[]
+  raffleEntries      CustomerRaffleEntry[]
 
   @@index([lastSeenAt])
   @@map("customers")
+}
+
+enum RaffleRewardType {
+  TEN_PERCENT
+  FIFTY_PERCENT_FIRST_MEAL
+  FIVE_PERCENT
+  FREE_WATER
+  FREE_DELIVERY
+}
+
+model CustomerRaffleEntry {
+  id          String               @id @default(cuid())
+  customerId  String?              @unique
+  customer    Customer?            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  phone           String               @unique
+  name            String
+  accessCode      String               @unique
+
+  // OTP / verification
+  verified        Boolean              @default(false)
+  verifyAttempts  Int                  @default(0)
+  verifyLockedAt  DateTime?            // set when attempts hit 3
+  lastOtpSentAt   DateTime?            // guards resend spam
+
+  lastSpinAt      DateTime?
+  spinCount       Int                  @default(0)
+  dailySpinCount  Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  spins           CustomerRaffleSpin[]
+
+  @@map("customer_raffle_entries")
+}
+
+// One device can start one raffle registration per calendar day (UTC)
+model RaffleDeviceLog {
+  id        String   @id @default(cuid())
+  deviceId  String
+  date      String   // YYYY-MM-DD UTC
+  phone     String
+  createdAt DateTime @default(now())
+
+  @@unique([deviceId, date])
+  @@map("raffle_device_logs")
+}
+
+model CustomerRaffleSpin {
+  id              String           @id @default(cuid())
+  raffleEntryId   String
+  raffleEntry     CustomerRaffleEntry @relation(fields: [raffleEntryId], references: [id], onDelete: Cascade)
+  rewardType      RaffleRewardType
+  rewardLabel     String
+  createdAt       DateTime         @default(now())
+
+  redeemedAt      DateTime?
+  redeemedById    String?
+  redeemedBy      User?            @relation("RedeemedRaffleSpins", fields: [redeemedById], references: [id])
+  redeemedOrderId String?
+  redeemedOrder   Order?           @relation("RedeemedOnOrder", fields: [redeemedOrderId], references: [id])
+  redemptionNote  String?
+
+  @@index([raffleEntryId])
+  @@index([redeemedAt])
+  @@map("customer_raffle_spins")
 }
 
 model CustomerAccount {
@@ -688,6 +759,8 @@ model Promotion {
   totalDiscount  Decimal         @default(0) @db.Decimal(10, 2)
   menuScope      String          @default("ALL")
   menuItemIds    String[]        @default([])
+  discountScope  String          @default("ALL_ITEMS") // ALL_ITEMS | FIRST_ITEM
+  raffleRewardType String?       // optional: links this promo to a RaffleRewardType
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
