@@ -9,6 +9,7 @@ export declare class GrowthService {
         customers: {
             total: number;
             newThisWeek: number;
+            activeThisWeek: number;
             activeThisMonth: number;
             churnRisk: number;
             totalSpend: number;

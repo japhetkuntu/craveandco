@@ -51,9 +51,9 @@ interface CustomerInsights {
   lastOrderAt: string | null;
   daysSinceLastOrder: number | null;
   totalOrders: number;
-  ordersLast30Days: number;
-  ordersLast60Days: number;
-  ordersLast90Days: number;
+  ordersLast7Days: number;
+  ordersLast14Days: number;
+  ordersLast21Days: number;
   averageOrderValue: number;
   totalSpend: number;
   averageDaysBetweenOrders: number | null;
@@ -73,21 +73,21 @@ type CustomerStatus = 'new' | 'loyal' | 'active' | 'fading' | 'at-risk' | 'inact
 function getCustomerStatus(c: Customer): CustomerStatus {
   if (!c.lastSeenAt) return 'never';
   const daysSince = Math.floor((Date.now() - new Date(c.lastSeenAt).getTime()) / 86400000);
-  if (daysSince <= 30 && c.visitCount <= 2) return 'new';
-  if (daysSince <= 30 && c.visitCount >= 10) return 'loyal';
-  if (daysSince <= 30) return 'active';
-  if (daysSince <= 60) return 'fading';
-  if (daysSince <= 90) return 'at-risk';
+  if (daysSince <= 7 && c.visitCount <= 2) return 'new';
+  if (daysSince <= 7 && c.visitCount >= 4) return 'loyal';
+  if (daysSince <= 7) return 'active';
+  if (daysSince <= 14) return 'fading';
+  if (daysSince <= 21) return 'at-risk';
   return 'inactive';
 }
 
 const STATUS_META: Record<CustomerStatus, { label: string; bg: string; text: string; dot: string; desc: string }> = {
-  new:       { label: 'New',       bg: 'bg-info-muted',       text: 'text-info',    dot: 'bg-info',    desc: 'Visited in last 30 days, 1–2 visits total' },
-  loyal:     { label: 'Loyal',     bg: 'bg-warning-muted',    text: 'text-[var(--color-gold)]', dot: 'bg-[var(--color-gold)]', desc: 'Visited in last 30 days, 10+ visits' },
-  active:    { label: 'Active',    bg: 'bg-success-muted',    text: 'text-success', dot: 'bg-success', desc: 'Visited within the last 30 days' },
-  fading:    { label: 'Fading',    bg: 'bg-warning-muted',    text: 'text-warning', dot: 'bg-warning', desc: 'Last visit was 31–60 days ago' },
-  'at-risk': { label: 'At Risk',   bg: 'bg-error-muted',      text: 'text-error',   dot: 'bg-error',   desc: 'Last visit was 61–90 days ago' },
-  inactive:  { label: 'Inactive',  bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'No visit in over 90 days' },
+  new:       { label: 'New',       bg: 'bg-info-muted',       text: 'text-info',    dot: 'bg-info',    desc: 'Visited in the last 7 days, 1–2 visits total' },
+  loyal:     { label: 'Loyal',     bg: 'bg-warning-muted',    text: 'text-[var(--color-gold)]', dot: 'bg-[var(--color-gold)]', desc: 'Visited in the last 7 days, 4+ visits' },
+  active:    { label: 'Active',    bg: 'bg-success-muted',    text: 'text-success', dot: 'bg-success', desc: 'Visited within the last 7 days' },
+  fading:    { label: 'Fading',    bg: 'bg-warning-muted',    text: 'text-warning', dot: 'bg-warning', desc: 'Last visit was 8–14 days ago' },
+  'at-risk': { label: 'At Risk',   bg: 'bg-error-muted',      text: 'text-error',   dot: 'bg-error',   desc: 'Last visit was 15–21 days ago' },
+  inactive:  { label: 'Inactive',  bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'No visit in over 21 days' },
   never:     { label: 'No Visits', bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'Has never placed an order' },
 };
 
@@ -166,7 +166,7 @@ function getCustomerSmsTemplates(insights: CustomerInsights) {
     inactive: [
       {
         label: 'Come back',
-        message: `Hi ${nameToken}, we’ve missed you! Enjoy 30% off your next order when you come back this month.`,
+        message: `Hi ${nameToken}, we’ve missed you! Enjoy 30% off your next order if you return this week.`,
         reason: 'A compelling message for dormant customers.',
       },
     ],
@@ -261,7 +261,7 @@ export default function OwnerCustomersPage() {
 
   const customerSummaryData = [
     { label: 'New This Week', value: dashboard?.newThisWeek ?? 0 },
-    { label: 'Active This Month', value: dashboard?.activeThisMonth ?? 0 },
+    { label: 'Active This Week', value: dashboard?.activeThisMonth ?? 0 },
     { label: 'At Risk', value: dashboard?.churnRisk ?? 0 },
   ];
 
@@ -415,9 +415,9 @@ export default function OwnerCustomersPage() {
   const someOnPageSelected = customers.some(c => selectedIds.has(c.id));
 
   const orderMomentumData = insights ? [
-    { label: '30d', orders: insights.ordersLast30Days },
-    { label: '60d', orders: insights.ordersLast60Days },
-    { label: '90d', orders: insights.ordersLast90Days },
+    { label: '7d', orders: insights.ordersLast7Days },
+    { label: '14d', orders: insights.ordersLast14Days },
+    { label: '21d', orders: insights.ordersLast21Days },
   ] : [];
 
   const channelChartColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -927,9 +927,9 @@ export default function OwnerCustomersPage() {
                   <p className="text-sm text-text-secondary">Recent activity breakdown</p>
                 </div>
                 <div className="mt-5 grid gap-3">
-                  <InsightStat label="30-day orders" value={String(insights.ordersLast30Days)} />
-                  <InsightStat label="60-day orders" value={String(insights.ordersLast60Days)} />
-                  <InsightStat label="90-day orders" value={String(insights.ordersLast90Days)} />
+                  <InsightStat label="7-day orders" value={String(insights.ordersLast7Days)} />
+                  <InsightStat label="14-day orders" value={String(insights.ordersLast14Days)} />
+                  <InsightStat label="21-day orders" value={String(insights.ordersLast21Days)} />
                 </div>
                 <div className="mt-5 rounded-3xl border border-border-subtle bg-white p-4">
                   <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Order momentum</p>
@@ -950,7 +950,7 @@ export default function OwnerCustomersPage() {
               <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
                 <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Preferred category</p>
                 <p className="text-lg font-semibold text-text-primary">{insights.favoriteCategory || 'Unknown'}</p>
-                <p className="mt-3 text-sm text-text-secondary">Top ordered items in the last 90 days.</p>
+                <p className="mt-3 text-sm text-text-secondary">Top ordered items in the last 21 days.</p>
                 <div className="mt-4 space-y-3">
                   {insights.topItems.map((item) => (
                     <div key={item.name} className="rounded-3xl border border-border-subtle bg-white p-3">

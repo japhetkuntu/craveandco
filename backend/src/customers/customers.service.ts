@@ -300,9 +300,9 @@ export class CustomersService {
       return cutoff;
     };
 
-    const ordersLast30Days = orders.filter((order) => order.createdAt >= daysAgo(30)).length;
-    const ordersLast60Days = orders.filter((order) => order.createdAt >= daysAgo(60)).length;
-    const ordersLast90Days = orders.filter((order) => order.createdAt >= daysAgo(90)).length;
+    const ordersLast7Days = orders.filter((order) => order.createdAt >= daysAgo(7)).length;
+    const ordersLast14Days = orders.filter((order) => order.createdAt >= daysAgo(14)).length;
+    const ordersLast21Days = orders.filter((order) => order.createdAt >= daysAgo(21)).length;
 
     const orderIntervals = orders
       .map((order) => order.createdAt.getTime())
@@ -377,9 +377,9 @@ export class CustomersService {
       lastOrderAt,
       daysSinceLastOrder,
       totalOrders,
-      ordersLast30Days,
-      ordersLast60Days,
-      ordersLast90Days,
+      ordersLast7Days,
+      ordersLast14Days,
+      ordersLast21Days,
       averageOrderValue,
       totalSpend,
       averageDaysBetweenOrders,
@@ -394,12 +394,14 @@ export class CustomersService {
   }
 
   async getChurnRisk() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     return this.prisma.customer.findMany({
       where: {
-        visitCount: { gte: 3 },
-        lastSeenAt: { lt: thirtyDaysAgo },
+        visitCount: { gte: 1 },
+        lastSeenAt: { lt: sevenDaysAgo },
       },
       orderBy: { lastSeenAt: 'asc' },
     });
@@ -430,17 +432,15 @@ export class CustomersService {
 
   async getDashboard() {
     const now = new Date();
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const [total, newThisWeek, activeThisMonth, churnRisk, orderTotals] = await Promise.all([
+    const [total, newThisWeek, activeThisWeek, churnRisk, orderTotals] = await Promise.all([
       this.prisma.customer.count(),
       this.prisma.customer.count({ where: { firstSeenAt: { gte: sevenDaysAgo } } }),
-      this.prisma.customer.count({ where: { lastSeenAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.customer.count({ where: { lastSeenAt: { gte: sevenDaysAgo } } }),
       this.prisma.customer.count({
-        where: { visitCount: { gte: 3 }, lastSeenAt: { lt: thirtyDaysAgo } },
+        where: { visitCount: { gte: 1 }, lastSeenAt: { lt: sevenDaysAgo } },
       }),
       this.prisma.order.aggregate({
         where: { customerId: { not: null }, status: { not: OrderStatus.CANCELLED } },
@@ -454,7 +454,8 @@ export class CustomersService {
     return {
       total,
       newThisWeek,
-      activeThisMonth,
+      activeThisWeek,
+      activeThisMonth: activeThisWeek,
       churnRisk,
       totalSpend,
       averageSpend: total > 0 ? Math.round((totalSpend / total) * 100) / 100 : 0,

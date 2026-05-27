@@ -40,21 +40,21 @@ type CustomerStatus = 'new' | 'loyal' | 'active' | 'fading' | 'at-risk' | 'inact
 function getCustomerStatus(c: Customer): CustomerStatus {
   if (!c.lastSeenAt) return 'never';
   const daysSince = Math.floor((Date.now() - new Date(c.lastSeenAt).getTime()) / 86400000);
-  if (daysSince <= 30 && c.visitCount <= 2) return 'new';
-  if (daysSince <= 30 && c.visitCount >= 10) return 'loyal';
-  if (daysSince <= 30) return 'active';
-  if (daysSince <= 60) return 'fading';
-  if (daysSince <= 90) return 'at-risk';
+  if (daysSince <= 7 && c.visitCount <= 2) return 'new';
+  if (daysSince <= 7 && c.visitCount >= 4) return 'loyal';
+  if (daysSince <= 7) return 'active';
+  if (daysSince <= 14) return 'fading';
+  if (daysSince <= 21) return 'at-risk';
   return 'inactive';
 }
 
 const STATUS_META: Record<CustomerStatus, { label: string; bg: string; text: string; dot: string; desc: string }> = {
-  new:      { label: 'New',      bg: 'bg-info-muted',    text: 'text-info',    dot: 'bg-info',    desc: 'Visited in last 30 days, 1–2 visits total' },
-  loyal:    { label: 'Loyal',    bg: 'bg-warning-muted', text: 'text-[var(--color-gold)]', dot: 'bg-[var(--color-gold)]', desc: 'Visited in last 30 days, 10+ visits' },
-  active:   { label: 'Active',   bg: 'bg-success-muted', text: 'text-success', dot: 'bg-success', desc: 'Visited within the last 30 days' },
-  fading:   { label: 'Fading',   bg: 'bg-warning-muted', text: 'text-warning', dot: 'bg-warning', desc: 'Last visit was 31–60 days ago' },
-  'at-risk':{ label: 'At Risk',  bg: 'bg-error-muted',   text: 'text-error',   dot: 'bg-error',   desc: 'Last visit was 61–90 days ago' },
-  inactive: { label: 'Inactive', bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'No visit in over 90 days' },
+  new:      { label: 'New',      bg: 'bg-info-muted',    text: 'text-info',    dot: 'bg-info',    desc: 'Visited in the last 7 days, 1–2 visits total' },
+  loyal:    { label: 'Loyal',    bg: 'bg-warning-muted', text: 'text-[var(--color-gold)]', dot: 'bg-[var(--color-gold)]', desc: 'Visited in the last 7 days, 4+ visits' },
+  active:   { label: 'Active',   bg: 'bg-success-muted', text: 'text-success', dot: 'bg-success', desc: 'Visited within the last 7 days' },
+  fading:   { label: 'Fading',   bg: 'bg-warning-muted', text: 'text-warning', dot: 'bg-warning', desc: 'Last visit was 8–14 days ago' },
+  'at-risk':{ label: 'At Risk',  bg: 'bg-error-muted',   text: 'text-error',   dot: 'bg-error',   desc: 'Last visit was 15–21 days ago' },
+  inactive: { label: 'Inactive', bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'No visit in over 21 days' },
   never:    { label: 'No Visits', bg: 'bg-surface-elevated', text: 'text-text-tertiary', dot: 'bg-text-tertiary', desc: 'Has never placed an order' },
 };
 
@@ -214,7 +214,7 @@ export default function GrowthCustomersPage() {
         {[
           { label: 'Total', value: dashboard?.total || 0, icon: <Users size={16} /> },
           { label: 'New This Week', value: dashboard?.newThisWeek || 0, icon: <UserPlus size={16} />, tone: 'green' as const },
-          { label: 'Active', value: dashboard?.activeThisMonth || 0, icon: <Users size={16} />, tone: 'green' as const },
+          { label: 'Active This Week', value: dashboard?.activeThisMonth || 0, icon: <Users size={16} />, tone: 'green' as const },
           { label: 'At Risk', value: dashboard?.churnRisk || 0, icon: <Users size={16} />, tone: (dashboard?.churnRisk ?? 0) > 0 ? 'red' as const : undefined },
           { label: 'Total Spend', value: formatCurrency(dashboard?.totalSpend || 0), icon: <DollarSign size={16} /> },
           { label: 'Total Visits', value: dashboard?.totalVisits || 0, icon: <TrendingUp size={16} /> },

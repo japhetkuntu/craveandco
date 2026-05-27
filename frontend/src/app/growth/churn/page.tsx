@@ -77,7 +77,7 @@ export default function GrowthChurnPage() {
             <Bell className="text-[var(--color-gold)]" /> Churn Risk
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">
-            {customers.length} customer{customers.length !== 1 ? 's' : ''} with 3+ visits who haven&apos;t returned in 30+ days
+            {customers.length} customer{customers.length !== 1 ? 's' : ''} who haven&apos;t returned in over a week
           </p>
         </div>
         {/* Sort controls */}

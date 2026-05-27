@@ -302,7 +302,7 @@ export default function GrowthDashboardPage() {
           />
           <StatTile
             icon={<Users size={16} />}
-            label="Active (30 days)"
+            label="Active (7 days)"
             value={data?.customers.activeThisMonth || 0}
             tone="green"
           />

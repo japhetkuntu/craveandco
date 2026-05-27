@@ -47,6 +47,7 @@ export declare class CustomersController {
     getDashboard(): Promise<{
         total: number;
         newThisWeek: number;
+        activeThisWeek: number;
         activeThisMonth: number;
         churnRisk: number;
         totalSpend: number;
@@ -60,9 +61,9 @@ export declare class CustomersController {
         lastOrderAt: string | null;
         daysSinceLastOrder: number | null;
         totalOrders: number;
-        ordersLast30Days: number;
-        ordersLast60Days: number;
-        ordersLast90Days: number;
+        ordersLast7Days: number;
+        ordersLast14Days: number;
+        ordersLast21Days: number;
         averageOrderValue: number;
         totalSpend: number;
         averageDaysBetweenOrders: number | null;

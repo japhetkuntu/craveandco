@@ -6,6 +6,7 @@ export declare class GrowthController {
         customers: {
             total: number;
             newThisWeek: number;
+            activeThisWeek: number;
             activeThisMonth: number;
             churnRisk: number;
             totalSpend: number;
