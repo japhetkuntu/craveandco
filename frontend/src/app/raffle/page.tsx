@@ -451,9 +451,32 @@ function OtpBoxes({ value, onChange }: { value: string; onChange: (v: string) =>
   };
 
   return (
-    <div style={{ display:'flex', gap:7 }}>
+    <div
+      style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(8, minmax(0, 1fr))',
+        gap:'clamp(3px, 1.4vw, 7px)',
+        width:'100%',
+      }}
+    >
       {Array.from({ length: 8 }, (_, i) => (
-        <input key={i} ref={el => { refs.current[i] = el; }} value={value[i]??''} onChange={e => handleChange(i,e)} onKeyDown={e => handleKeyDown(i,e)} onPaste={handlePaste} maxLength={2} className={`otp-box${value[i] ? ' filled' : ''}`} style={{ flex:1, aspectRatio:'1', maxWidth:52, padding:0, boxSizing:'border-box' }} />
+        <input
+          key={i}
+          ref={el => { refs.current[i] = el; }}
+          value={value[i]??''}
+          onChange={e => handleChange(i,e)}
+          onKeyDown={e => handleKeyDown(i,e)}
+          onPaste={handlePaste}
+          maxLength={2}
+          className={`otp-box${value[i] ? ' filled' : ''}`}
+          style={{
+            width:'100%',
+            minWidth:0,
+            height:'clamp(42px, 11vw, 52px)',
+            padding:0,
+            boxSizing:'border-box',
+          }}
+        />
       ))}
     </div>
   );
