@@ -36,6 +36,8 @@ export declare class CustomersService {
     findAll(params?: {
         segment?: string;
         search?: string;
+        sortBy?: string;
+        sortDir?: 'asc' | 'desc';
         lastSeenBefore?: string;
         addedAfter?: string;
         addedBefore?: string;
@@ -128,6 +130,35 @@ export declare class CustomersService {
         totalSpend: Prisma.Decimal;
         visitCount: number;
     } | null>;
+    private getCustomerStatus;
+    getInsights(customerId: string): Promise<{
+        customerId: string;
+        customerName: string;
+        lastOrderAt: string | null;
+        daysSinceLastOrder: number | null;
+        totalOrders: number;
+        ordersLast30Days: number;
+        ordersLast60Days: number;
+        ordersLast90Days: number;
+        averageOrderValue: number;
+        totalSpend: number;
+        averageDaysBetweenOrders: number | null;
+        favoriteCategory: string;
+        topItems: {
+            name: string;
+            quantity: number;
+            spend: number;
+        }[];
+        channelBreakdown: {
+            channel: string;
+            count: number;
+            sharePercent: number;
+        }[];
+        customerStatus: string;
+        preferredContact: string;
+        recommendedMessage: string;
+        birthday: string | null;
+    }>;
     getChurnRisk(): Promise<{
         email: string | null;
         name: string;

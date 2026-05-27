@@ -21,6 +21,25 @@ import {
   Tag,
   Percent,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
+
+interface GrowthTrendPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+  visits: number;
+}
 
 interface GrowthDashboard {
   customers: {
@@ -45,6 +64,7 @@ interface GrowthDashboard {
     sentCount: number;
     openCount: number;
   }[];
+  orderSeries?: GrowthTrendPoint[];
 }
 
 interface ChurnCustomer {
@@ -128,6 +148,7 @@ export default function GrowthDashboardPage() {
   const [data, setData] = useState<GrowthDashboard | null>(null);
   const [churn, setChurn] = useState<ChurnCustomer[]>([]);
   const [birthdays, setBirthdays] = useState<BirthdayCustomer[]>([]);
+  const [now] = useState(() => Date.now());
   const [activePromos, setActivePromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [rangePreset, setRangePreset] = useState<'day' | 'yesterday' | 'week' | 'month' | 'year' | 'custom'>('month');
@@ -174,21 +195,28 @@ export default function GrowthDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    Promise.all([
-      get(`${API_PATHS.growth.dashboard}?from=${fromDate}&to=${toDate}`, token),
-      get(API_PATHS.growth.churnRisk, token),
-      get(API_PATHS.customers.upcomingBirthdays, token),
-      get(API_PATHS.promotions.active, token),
-    ])
-      .then(([d, c, b, p]) => {
+
+    const fetchGrowthData = async () => {
+      setLoading(true);
+      try {
+        const [d, c, b, p] = await Promise.all([
+          get(`${API_PATHS.growth.dashboard}?from=${fromDate}&to=${toDate}`, token),
+          get(API_PATHS.growth.churnRisk, token),
+          get(API_PATHS.customers.upcomingBirthdays, token),
+          get(API_PATHS.promotions.active, token),
+        ]);
         setData(d);
         setChurn(c);
         setBirthdays(b);
         setActivePromos(p);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchGrowthData();
   }, [token, fromDate, toDate]);
 
   if (loading) return <PageSkeleton />;
@@ -196,6 +224,18 @@ export default function GrowthDashboardPage() {
   const redemptionRate = data?.loyalty?.totalPointsIssued
     ? ((data.loyalty.totalPointsRedeemed / data.loyalty.totalPointsIssued) * 100).toFixed(1)
     : '0';
+
+  const series = data?.orderSeries || [];
+  const firstSeries = series[0] || null;
+  const lastSeries = series[series.length - 1] || null;
+  const change = (from: number, to: number) => {
+    if (!from || !to) return 0;
+    return Math.round(((to - from) / Math.max(1, from)) * 100);
+  };
+
+  const orderChange = firstSeries && lastSeries ? change(firstSeries.orders, lastSeries.orders) : 0;
+  const revenueChange = firstSeries && lastSeries ? change(firstSeries.revenue, lastSeries.revenue) : 0;
+  const visitChange = firstSeries && lastSeries ? change(firstSeries.visits, lastSeries.visits) : 0;
 
   return (
     <div className="p-4 md:p-6 space-y-8 max-w-5xl mx-auto">
@@ -300,6 +340,54 @@ export default function GrowthDashboardPage() {
           />
         </div>
       </section>
+
+      {/* Growth Trend Graphs */}
+      {series.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <SectionTitle>Trend Insights</SectionTitle>
+              <h2 className="text-xl font-semibold text-text-primary">Growth & decline by day</h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Orders', value: orderChange, tone: orderChange >= 0 ? 'green' : 'red' },
+                { label: 'Revenue', value: revenueChange, tone: revenueChange >= 0 ? 'green' : 'red' },
+                { label: 'Visits', value: visitChange, tone: visitChange >= 0 ? 'green' : 'red' },
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className={`rounded-2xl border p-3 ${metric.tone === 'green' ? 'border-success/30 bg-success-muted' : 'border-error/30 bg-error-muted'}`}
+                >
+                  <p className="text-xs text-text-secondary uppercase tracking-[0.28em]">{metric.label}</p>
+                  <p className={`text-lg font-semibold ${metric.tone === 'green' ? 'text-success' : 'text-error'}`}>
+                    {metric.value >= 0 ? '+' : ''}{metric.value}%
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border-subtle bg-surface-raised p-4">
+            <ResponsiveContainer width="100%" height={340}>
+              <ComposedChart data={series} margin={{ top: 10, right: 24, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.16)" />
+                <XAxis dataKey="date" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <YAxis yAxisId="left" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <Tooltip formatter={(value: any, name: any) => [
+                  name === 'Revenue' ? formatCurrency(value as number) : String(value),
+                  name,
+                ]} />
+                <Legend verticalAlign="top" height={36} wrapperStyle={{ paddingBottom: 8 }} />
+                <Area yAxisId="right" type="monotone" dataKey="revenue" name="Revenue" stroke="#c17f1b" fill="#f9d57b33" fillOpacity={0.6} />
+                <Line yAxisId="left" type="monotone" dataKey="visits" name="Visits" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
+                <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1f2937" barSize={18} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
 
       {/* Upcoming Birthdays */}
       {birthdays.length > 0 && (
@@ -440,7 +528,7 @@ export default function GrowthDashboardPage() {
             {churn.slice(0, 8).map((c) => {
               const lastVisit = c.lastSeenAt || c.lastVisitAt || '';
               const daysSince = lastVisit
-                ? Math.floor((Date.now() - new Date(lastVisit).getTime()) / 86400000)
+                ? Math.floor((now - new Date(lastVisit).getTime()) / 86400000)
                 : null;
               return (
                 <div key={c.id} className="flex items-center justify-between rounded-2xl border border-border-subtle bg-surface-raised p-3 gap-3">

@@ -40,6 +40,12 @@ export declare class GrowthService {
         customerSpend: number;
         customerVisits: number;
         ordersProcessed: number;
+        orderSeries: {
+            date: string;
+            orders: number;
+            revenue: number;
+            visits: number;
+        }[];
     }>;
     getChurnRisk(): Promise<{
         email: string | null;

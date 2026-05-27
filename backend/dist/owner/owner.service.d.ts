@@ -36,6 +36,12 @@ export declare class OwnerService {
         inventoryItemCount: number;
         openAlerts: number;
         pendingApprovals: number;
+        orderSeries: {
+            date: string;
+            orders: number;
+            revenue: number;
+            visits: number;
+        }[];
     }>;
     getPendingApprovals(branchId: string, page?: number, limit?: number): Promise<({
         user: {

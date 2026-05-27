@@ -124,6 +124,7 @@ export const API_PATHS = {
     list: '/api/v1/customers',
     dashboard: '/api/v1/customers/dashboard',
     upcomingBirthdays: '/api/v1/customers/upcoming-birthdays',
+    insights: (id: string) => `/api/v1/customers/${encodeURIComponent(id)}/insights`,
   },
   loyalty: {
     summary: '/api/v1/loyalty/summary',

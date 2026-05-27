@@ -27,12 +27,14 @@ let CustomersController = class CustomersController {
     create(dto) {
         return this.customers.create(dto);
     }
-    findAll(segment, search, lastSeenBefore, addedAfter, addedBefore, page = '0', limit = '50') {
+    findAll(segment, search, sortBy, sortDir, lastSeenBefore, addedAfter, addedBefore, page = '0', limit = '50') {
         const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
         const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
         return this.customers.findAll({
             segment,
             search,
+            sortBy,
+            sortDir,
             lastSeenBefore,
             addedAfter,
             addedBefore,
@@ -46,6 +48,9 @@ let CustomersController = class CustomersController {
     }
     getDashboard() {
         return this.customers.getDashboard();
+    }
+    getInsights(id) {
+        return this.customers.getInsights(id);
     }
     findById(id) {
         return this.customers.findById(id);
@@ -69,13 +74,15 @@ __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('segment')),
     __param(1, (0, common_1.Query)('search')),
-    __param(2, (0, common_1.Query)('lastSeenBefore')),
-    __param(3, (0, common_1.Query)('addedAfter')),
-    __param(4, (0, common_1.Query)('addedBefore')),
-    __param(5, (0, common_1.Query)('page')),
-    __param(6, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('sortBy')),
+    __param(3, (0, common_1.Query)('sortDir')),
+    __param(4, (0, common_1.Query)('lastSeenBefore')),
+    __param(5, (0, common_1.Query)('addedAfter')),
+    __param(6, (0, common_1.Query)('addedBefore')),
+    __param(7, (0, common_1.Query)('page')),
+    __param(8, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, Object, Object]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAll", null);
 __decorate([
@@ -91,6 +98,13 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "getDashboard", null);
+__decorate([
+    (0, common_1.Get)(':id/insights'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getInsights", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

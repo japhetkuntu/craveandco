@@ -1,6 +1,6 @@
 const CACHE_NAME = 'crave-co-portal-v1';
 const OFFLINE_URL = '/';
-const PRECACHE_URLS = [OFFLINE_URL, '/favicon.svg', '/manifest.webmanifest'];
+const PRECACHE_URLS = [OFFLINE_URL, '/favicon.svg', '/favicon.png', '/favicon.ico', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

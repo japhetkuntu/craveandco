@@ -33,6 +33,12 @@ export declare class OwnerController {
         inventoryItemCount: number;
         openAlerts: number;
         pendingApprovals: number;
+        orderSeries: {
+            date: string;
+            orders: number;
+            revenue: number;
+            visits: number;
+        }[];
     }>;
     getPendingApprovals(branchId: string, page?: string, limit?: string): Promise<({
         user: {

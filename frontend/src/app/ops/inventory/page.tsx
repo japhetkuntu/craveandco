@@ -62,6 +62,7 @@ export default function OpsInventoryPage() {
   const [loading, setLoading] = useState(true);
   const [stockPage, setStockPage] = useState(0);
   const [stockLimit] = useState(15);
+  const [stockSearchInput, setStockSearchInput] = useState('');
   const [stockSearch, setStockSearch] = useState('');
   const [lowStockPage, setLowStockPage] = useState(0);
   const [lowStockLimit] = useState(10);
@@ -114,8 +115,6 @@ export default function OpsInventoryPage() {
       .catch(() => setIngredients([]))
       .finally(() => setIngredientsLoading(false));
   }, [token, showMovementForm, ingredientSearch]);
-
-  const handleAddIngredient = async (_e: React.FormEvent) => { /* removed — ops cannot add items */ };
 
   const startEdit = (item: StockItem) => {
     setEditingItem(item);
@@ -312,13 +311,38 @@ export default function OpsInventoryPage() {
         <div className="px-4 pb-3 border-b border-border-subtle">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
-            <input
-              type="search"
-              placeholder="Search ingredients…"
-              value={stockSearch}
-              onChange={(e) => { setStockSearch(e.target.value); setStockPage(0); }}
-              className="w-full h-10 pl-9 pr-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
-            />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setStockPage(0);
+                setStockSearch(stockSearchInput.trim());
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
+                <input
+                  type="search"
+                  placeholder="Search ingredients…"
+                  value={stockSearchInput}
+                  onChange={(e) => setStockSearchInput(e.target.value)}
+                  className="w-full h-10 pl-9 pr-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
+                />
+              </div>
+              <Button type="submit" size="sm">Search</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setStockSearchInput('');
+                  setStockSearch('');
+                  setStockPage(0);
+                }}
+              >
+                Clear
+              </Button>
+            </form>
           </div>
         </div>
         <div className="space-y-4">

@@ -93,16 +93,15 @@ let CustomersService = class CustomersService {
         const customers = await this.prisma.customer.findMany({
             where,
             orderBy: { createdAt: 'desc' },
-            take,
-            skip,
         });
         if (customers.length === 0) {
             return customers;
         }
+        const customerIds = customers.map((customer) => customer.id);
         const customerStats = await this.prisma.order.groupBy({
             by: ['customerId'],
             where: {
-                customerId: { in: customers.map((customer) => customer.id) },
+                customerId: { in: customerIds },
                 status: { not: client_1.OrderStatus.CANCELLED },
             },
             _sum: { total: true },
@@ -110,7 +109,7 @@ let CustomersService = class CustomersService {
         });
         const customerOrders = await this.prisma.order.findMany({
             where: {
-                customerId: { in: customers.map((customer) => customer.id) },
+                customerId: { in: customerIds },
                 status: { not: client_1.OrderStatus.CANCELLED },
             },
             select: {
@@ -120,7 +119,7 @@ let CustomersService = class CustomersService {
             },
         });
         const loyaltyTransactions = await this.prisma.loyaltyTransaction.findMany({
-            where: { customerId: { in: customers.map((customer) => customer.id) } },
+            where: { customerId: { in: customerIds } },
             select: { customerId: true, type: true, points: true },
         });
         const statsMap = new Map(customerStats.map((stat) => [
@@ -141,13 +140,59 @@ let CustomersService = class CustomersService {
             const current = loyaltyPointsMap.get(transaction.customerId) ?? 0;
             loyaltyPointsMap.set(transaction.customerId, current + (transaction.type === client_1.LoyaltyTxType.EARN ? transaction.points : -Math.abs(transaction.points)));
         });
-        return customers.map((customer) => ({
+        const customersWithStats = customers.map((customer) => ({
             ...customer,
             totalSpend: statsMap.get(customer.id)?.totalSpend ?? Number(customer.totalSpend),
             visitCount: statsMap.get(customer.id)?.visitCount ?? customer.visitCount,
             loyaltyPoints: Math.max(loyaltyPointsMap.get(customer.id) ?? 0, 0),
             totalDiscount: Number((discountMap.get(customer.id) || 0).toFixed(2)),
         }));
+        const getStatusRank = (customer) => {
+            if (!customer.lastSeenAt)
+                return 6;
+            const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
+            if (daysSince <= 30 && customer.visitCount <= 2)
+                return 2;
+            if (daysSince <= 30 && customer.visitCount >= 10)
+                return 0;
+            if (daysSince <= 30)
+                return 1;
+            if (daysSince <= 60)
+                return 3;
+            if (daysSince <= 90)
+                return 4;
+            return 5;
+        };
+        const sortBy = params?.sortBy;
+        const dir = params?.sortDir === 'asc' ? 1 : -1;
+        const sortedCustomers = sortBy
+            ? [...customersWithStats].sort((a, b) => {
+                const getValue = (customer) => {
+                    switch (sortBy) {
+                        case 'name': return customer.name ?? '';
+                        case 'email': return customer.email ?? '';
+                        case 'phone': return customer.phone ?? '';
+                        case 'birthday': return customer.birthday ? new Date(customer.birthday).getTime() : 0;
+                        case 'visitCount': return customer.visitCount;
+                        case 'loyaltyPoints': return customer.loyaltyPoints ?? 0;
+                        case 'totalDiscount': return customer.totalDiscount ?? 0;
+                        case 'totalSpend': return customer.totalSpend ?? 0;
+                        case 'lastSeenAt': return customer.lastSeenAt ? new Date(customer.lastSeenAt).getTime() : 0;
+                        case 'status': return getStatusRank(customer);
+                        case 'createdAt': return new Date(customer.createdAt).getTime();
+                        default: return customer.createdAt ? new Date(customer.createdAt).getTime() : 0;
+                    }
+                };
+                const av = getValue(a);
+                const bv = getValue(b);
+                if (av === bv)
+                    return 0;
+                if (typeof av === 'number' && typeof bv === 'number')
+                    return (av - bv) * dir;
+                return String(av).localeCompare(String(bv), undefined, { sensitivity: 'base', numeric: true }) * dir;
+            })
+            : customersWithStats;
+        return sortedCustomers.slice(skip, skip + take);
     }
     async findById(id) {
         const customer = await this.prisma.customer.findUnique({
@@ -174,6 +219,146 @@ let CustomersService = class CustomersService {
             ...customer,
             loyaltyPoints: Math.max(balance, 0),
             totalDiscount: Number(totalDiscount.toFixed(2)),
+        };
+    }
+    getCustomerStatus(customer) {
+        if (!customer.lastSeenAt)
+            return 'never';
+        const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
+        if (daysSince <= 30 && customer.visitCount <= 2)
+            return 'new';
+        if (daysSince <= 30 && customer.visitCount >= 10)
+            return 'loyal';
+        if (daysSince <= 30)
+            return 'active';
+        if (daysSince <= 60)
+            return 'fading';
+        if (daysSince <= 90)
+            return 'at-risk';
+        return 'inactive';
+    }
+    async getInsights(customerId) {
+        const customer = await this.prisma.customer.findUnique({
+            where: { id: customerId },
+            select: {
+                id: true,
+                name: true,
+                phone: true,
+                email: true,
+                birthday: true,
+                visitCount: true,
+                lastSeenAt: true,
+            },
+        });
+        if (!customer) {
+            throw new common_1.BadRequestException('Customer not found');
+        }
+        const orders = await this.prisma.order.findMany({
+            where: {
+                customerId,
+                status: { not: client_1.OrderStatus.CANCELLED },
+            },
+            include: {
+                items: {
+                    include: {
+                        menuItem: { include: { category: true } },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+        const totalOrders = orders.length;
+        const totalSpend = Number(orders.reduce((sum, order) => sum + Number(order.total), 0).toFixed(2));
+        const averageOrderValue = totalOrders > 0 ? Number((totalSpend / totalOrders).toFixed(2)) : 0;
+        const lastOrderAt = totalOrders > 0 ? orders[totalOrders - 1].createdAt.toISOString() : null;
+        const daysSinceLastOrder = lastOrderAt
+            ? Math.floor((Date.now() - new Date(lastOrderAt).getTime()) / 86400000)
+            : null;
+        const daysAgo = (days) => {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            return cutoff;
+        };
+        const ordersLast30Days = orders.filter((order) => order.createdAt >= daysAgo(30)).length;
+        const ordersLast60Days = orders.filter((order) => order.createdAt >= daysAgo(60)).length;
+        const ordersLast90Days = orders.filter((order) => order.createdAt >= daysAgo(90)).length;
+        const orderIntervals = orders
+            .map((order) => order.createdAt.getTime())
+            .sort((a, b) => a - b)
+            .map((time, idx, arr) => (idx === 0 ? null : (time - arr[idx - 1]) / 86400000))
+            .filter((value) => value !== null);
+        const averageDaysBetweenOrders = orderIntervals.length > 0
+            ? Number((orderIntervals.reduce((sum, value) => sum + value, 0) / orderIntervals.length).toFixed(1))
+            : null;
+        const categoryCounts = new Map();
+        const itemCounts = new Map();
+        const channelCounts = new Map();
+        for (const order of orders) {
+            channelCounts.set(order.channel, (channelCounts.get(order.channel) || 0) + 1);
+            for (const item of order.items) {
+                const itemName = item.menuItem?.name || 'Unknown item';
+                const quantity = item.quantity || 0;
+                const spend = Number(item.unitPrice) * quantity;
+                itemCounts.set(itemName, {
+                    name: itemName,
+                    quantity: (itemCounts.get(itemName)?.quantity || 0) + quantity,
+                    spend: (itemCounts.get(itemName)?.spend || 0) + spend,
+                });
+                const categoryName = item.menuItem?.category?.name || 'Uncategorized';
+                categoryCounts.set(categoryName, {
+                    name: categoryName,
+                    quantity: (categoryCounts.get(categoryName)?.quantity || 0) + quantity,
+                    spend: (categoryCounts.get(categoryName)?.spend || 0) + spend,
+                });
+            }
+        }
+        const topItems = Array.from(itemCounts.values())
+            .sort((a, b) => b.quantity - a.quantity || b.spend - a.spend)
+            .slice(0, 3);
+        const favoriteCategory = Array.from(categoryCounts.values())
+            .sort((a, b) => b.quantity - a.quantity || b.spend - a.spend)[0]?.name;
+        const channelBreakdown = Array.from(channelCounts.entries())
+            .map(([channel, count]) => ({ channel, count }))
+            .sort((a, b) => b.count - a.count)
+            .map((entry) => ({
+            channel: entry.channel,
+            count: entry.count,
+            sharePercent: totalOrders > 0 ? Number(((entry.count / totalOrders) * 100).toFixed(0)) : 0,
+        }));
+        const status = this.getCustomerStatus(customer);
+        const preferredContact = customer.phone ? 'sms' : customer.email ? 'email' : 'none';
+        const recommendedMessage = totalOrders === 0
+            ? 'Send a welcome offer to encourage the first order.'
+            : status === 'at-risk'
+                ? 'This customer is at risk of churning. Send a strong return offer with a preferred item or category.'
+                : status === 'fading'
+                    ? 'They have slowed down. Offer a special deal to bring them back.'
+                    : status === 'inactive'
+                        ? 'Re-engage them with a win-back promotion and a clear value message.'
+                        : status === 'new'
+                            ? 'Welcome them with a friendly message and a first-order reward.'
+                            : status === 'loyal'
+                                ? 'Thank them for loyalty and offer a VIP reward to keep them engaged.'
+                                : 'Keep them engaged with a personalised offer based on their favourite category.';
+        return {
+            customerId: customer.id,
+            customerName: customer.name,
+            lastOrderAt,
+            daysSinceLastOrder,
+            totalOrders,
+            ordersLast30Days,
+            ordersLast60Days,
+            ordersLast90Days,
+            averageOrderValue,
+            totalSpend,
+            averageDaysBetweenOrders,
+            favoriteCategory,
+            topItems,
+            channelBreakdown,
+            customerStatus: status,
+            preferredContact,
+            recommendedMessage,
+            birthday: customer.birthday ? customer.birthday.toISOString().split('T')[0] : null,
         };
     }
     async getChurnRisk() {

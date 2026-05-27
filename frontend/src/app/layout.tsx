@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   applicationName: "Crave & Co",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.svg",
+    icon: ["/favicon.ico", "/favicon.svg"],
     shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    apple: "/favicon.png",
   },
 };
 

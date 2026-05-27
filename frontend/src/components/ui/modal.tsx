@@ -11,7 +11,7 @@ interface ModalProps {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   /** Hide the close button (e.g. for confirmations that require an explicit choice). */
   hideClose?: boolean;
 }
@@ -21,6 +21,7 @@ const SIZES = {
   md: 'sm:max-w-md',
   lg: 'sm:max-w-lg',
   xl: 'sm:max-w-xl',
+  '2xl': 'sm:max-w-5xl',
 };
 
 export function Modal({

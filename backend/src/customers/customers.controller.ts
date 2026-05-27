@@ -20,6 +20,8 @@ export class CustomersController {
   findAll(
     @Query('segment') segment?: string,
     @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: 'asc' | 'desc',
     @Query('lastSeenBefore') lastSeenBefore?: string,
     @Query('addedAfter') addedAfter?: string,
     @Query('addedBefore') addedBefore?: string,
@@ -31,6 +33,8 @@ export class CustomersController {
     return this.customers.findAll({
       segment,
       search,
+      sortBy,
+      sortDir,
       lastSeenBefore,
       addedAfter,
       addedBefore,
@@ -48,6 +52,11 @@ export class CustomersController {
   @Get('dashboard')
   getDashboard() {
     return this.customers.getDashboard();
+  }
+
+  @Get(':id/insights')
+  getInsights(@Param('id') id: string) {
+    return this.customers.getInsights(id);
   }
 
   @Get(':id')

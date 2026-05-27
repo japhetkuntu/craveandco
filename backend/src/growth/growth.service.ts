@@ -59,6 +59,24 @@ export class GrowthService {
       return sum + Math.max(subtotal - Number(order.total), 0);
     }, 0);
 
+    const trendMap: Record<string, { orders: number; revenue: number; visits: number }> = {};
+    for (const order of ordersWithItems) {
+      const date = order.createdAt.toISOString().slice(0, 10);
+      if (!trendMap[date]) {
+        trendMap[date] = { orders: 0, revenue: 0, visits: 0 };
+      }
+      trendMap[date].orders += 1;
+      trendMap[date].revenue += Number(order.total);
+      if (order.customerId) trendMap[date].visits += 1;
+    }
+
+    const orderSeries: Array<{ date: string; orders: number; revenue: number; visits: number }> = [];
+    for (const date = new Date(start); date < end; date.setDate(date.getDate() + 1)) {
+      const key = date.toISOString().slice(0, 10);
+      const bucket = trendMap[key] || { orders: 0, revenue: 0, visits: 0 };
+      orderSeries.push({ date: key, ...bucket });
+    }
+
     return {
       customers: customerDashboard,
       loyalty: {
@@ -70,6 +88,7 @@ export class GrowthService {
       customerSpend: Number(customerSpend._sum?.total || 0),
       customerVisits,
       ordersProcessed,
+      orderSeries,
     };
   }
 

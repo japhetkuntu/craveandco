@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
 import { formatCurrency, printPurchaseOrderInvoice } from '@/lib/utils';
@@ -8,6 +8,18 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { PaginationControls } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import {
   DollarSign,
   ShoppingCart,
@@ -33,6 +45,13 @@ interface MenuCategory {
   id: string;
   name: string;
   sortOrder: number;
+}
+
+interface OrderTrendPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+  visits: number;
 }
 
 interface DashboardData {
@@ -64,6 +83,7 @@ interface DashboardData {
   inventoryItemCount: number;
   openAlerts: number;
   pendingApprovals: number;
+  orderSeries?: OrderTrendPoint[];
 }
 
 interface MenuProfitabilityItem {
@@ -82,6 +102,13 @@ interface PurchaseOrderItem {
   quantity: number;
   unitCost: number;
   receivedQty: number;
+}
+
+interface OrderTrendPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+  visits: number;
 }
 
 interface PurchaseOrder {
@@ -215,7 +242,7 @@ export default function OwnerDashboard() {
 
   const formatISO = (date: Date) => date.toISOString().split('T')[0];
 
-  const dateRange = (preset: typeof rangePreset) => {
+  const dateRange = useCallback((preset: typeof rangePreset) => {
     const now = new Date();
     const to = formatISO(now);
     if (preset === 'day') return { from: to, to };
@@ -235,9 +262,9 @@ export default function OwnerDashboard() {
       return { from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, to };
     }
     return { from: `${now.getFullYear()}-01-01`, to };
-  };
+  }, []);
 
-  const fetchAll = async (preset: typeof rangePreset, appPage: number, poPage: number, catIds: string[] = []) => {
+  const fetchAll = useCallback(async (preset: typeof rangePreset, appPage: number, poPage: number, catIds: string[] = []) => {
     if (!token) return;
     setLoading(true);
     const { from, to } = dateRange(preset);
@@ -262,7 +289,7 @@ export default function OwnerDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, dateRange]);
 
   // Fetch categories once
   useEffect(() => {
@@ -272,7 +299,7 @@ export default function OwnerDashboard() {
       .catch(console.error);
   }, [token]);
 
-  useEffect(() => { fetchAll(rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds); }, [token, rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds]);
+  useEffect(() => { fetchAll(rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds); }, [fetchAll, rangePreset, approvalPage, purchaseOrdersPage, selectedCategoryIds]);
 
   const handleApprove = async (id: string) => {
     if (!token) return;
@@ -319,6 +346,16 @@ export default function OwnerDashboard() {
   if (loading) return <PageSkeleton />;
 
   const d = data;
+  const orderTrend = d?.orderSeries ?? [];
+  const orderBase = orderTrend[0];
+  const orderLast = orderTrend[orderTrend.length - 1];
+  const metricChange = (start: number, end: number) => {
+    if (!start) return 0;
+    return Math.round(((end - start) / Math.max(1, start)) * 100);
+  };
+  const orderChange = orderBase && orderLast ? metricChange(orderBase.orders, orderLast.orders) : 0;
+  const revenueChange = orderBase && orderLast ? metricChange(orderBase.revenue, orderLast.revenue) : 0;
+  const visitChange = orderBase && orderLast ? metricChange(orderBase.visits, orderLast.visits) : 0;
   const isFiltered = selectedCategoryIds.length > 0;
   const presets = [
     { key: 'day' as const, label: 'Today' },
@@ -441,6 +478,50 @@ export default function OwnerDashboard() {
           />
         </div>
       </div>
+
+      {/* ── Trend Graphs ── */}
+      {orderTrend.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <SectionTitle title="Trend Analytics" description="See owner-facing sales, visits, and order growth over the selected range." />
+            </div>
+            <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+              {[
+                { label: 'Orders', value: orderChange, tone: orderChange >= 0 ? 'green' : 'red' },
+                { label: 'Revenue', value: revenueChange, tone: revenueChange >= 0 ? 'green' : 'red' },
+                { label: 'Visits', value: visitChange, tone: visitChange >= 0 ? 'green' : 'red' },
+              ].map((metric) => (
+                <div key={metric.label} className={`rounded-2xl border p-3 ${metric.tone === 'green' ? 'bg-success-muted border-success/20' : 'bg-error-muted border-error/20'}`}>
+                  <p className="text-xs text-text-secondary uppercase tracking-[0.24em]">{metric.label}</p>
+                  <p className={`text-xl font-semibold ${metric.tone === 'green' ? 'text-success' : 'text-error'}`}>
+                    {metric.value >= 0 ? '+' : ''}{metric.value}%
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border-subtle bg-surface-raised p-4">
+            <ResponsiveContainer width="100%" height={340}>
+              <ComposedChart data={orderTrend} margin={{ top: 16, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.16)" />
+                <XAxis dataKey="date" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <YAxis yAxisId="left" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: '#7c7c7c', fontSize: 12 }} />
+                <Tooltip formatter={(value: any, name: any) => [
+                  name === 'revenue' ? formatCurrency(value as number) : String(value),
+                  String(name).charAt(0).toUpperCase() + String(name).slice(1),
+                ]} />
+                <Legend verticalAlign="top" height={36} wrapperStyle={{ paddingBottom: 8 }} />
+                <Area yAxisId="right" type="monotone" dataKey="revenue" name="Revenue" stroke="#c17f1b" fill="#f9d57b33" fillOpacity={0.6} />
+                <Line yAxisId="left" type="monotone" dataKey="visits" name="Visits" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1f2937" barSize={18} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* ── Margins ── */}
       <div className="space-y-3">

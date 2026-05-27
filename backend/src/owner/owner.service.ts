@@ -80,6 +80,24 @@ export class OwnerService {
     const inventoryAssetValue = Number(stockResult.totalAssetValue || 0);
     const inventoryItemCount = Number(stockResult.totalCount || 0);
 
+    const trendMap: Record<string, { orders: number; revenue: number; visits: number }> = {};
+    for (const order of ordersWithItems) {
+      const date = order.createdAt.toISOString().slice(0, 10);
+      if (!trendMap[date]) {
+        trendMap[date] = { orders: 0, revenue: 0, visits: 0 };
+      }
+      trendMap[date].orders += 1;
+      trendMap[date].revenue += Number(order.total);
+      if (order.customerId) trendMap[date].visits += 1;
+    }
+
+    const orderSeries: Array<{ date: string; orders: number; revenue: number; visits: number }> = [];
+    for (const date = new Date(targetDate); date < nextDate; date.setDate(date.getDate() + 1)) {
+      const key = date.toISOString().slice(0, 10);
+      const bucket = trendMap[key] || { orders: 0, revenue: 0, visits: 0 };
+      orderSeries.push({ date: key, ...bucket });
+    }
+
     const [customerOrdersToday, customerRevenueToday] = await Promise.all([
       this.prisma.order.count({
         where: {
@@ -151,6 +169,7 @@ export class OwnerService {
       inventoryItemCount,
       openAlerts,
       pendingApprovals,
+      orderSeries,
     };
   }
 

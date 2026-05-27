@@ -16,7 +16,7 @@ export declare class CustomersController {
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
     }>;
-    findAll(segment?: string, search?: string, lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, page?: string, limit?: string): Promise<{
+    findAll(segment?: string, search?: string, sortBy?: string, sortDir?: 'asc' | 'desc', lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, page?: string, limit?: string): Promise<{
         email: string | null;
         name: string;
         phone: string | null;
@@ -53,6 +53,34 @@ export declare class CustomersController {
         averageSpend: number;
         totalVisits: number;
         averageVisits: number;
+    }>;
+    getInsights(id: string): Promise<{
+        customerId: string;
+        customerName: string;
+        lastOrderAt: string | null;
+        daysSinceLastOrder: number | null;
+        totalOrders: number;
+        ordersLast30Days: number;
+        ordersLast60Days: number;
+        ordersLast90Days: number;
+        averageOrderValue: number;
+        totalSpend: number;
+        averageDaysBetweenOrders: number | null;
+        favoriteCategory: string;
+        topItems: {
+            name: string;
+            quantity: number;
+            spend: number;
+        }[];
+        channelBreakdown: {
+            channel: string;
+            count: number;
+            sharePercent: number;
+        }[];
+        customerStatus: string;
+        preferredContact: string;
+        recommendedMessage: string;
+        birthday: string | null;
     }>;
     findById(id: string): Promise<{
         loyaltyPoints: number;

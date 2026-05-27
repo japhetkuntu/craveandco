@@ -7,6 +7,7 @@ import { buildQueryString, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
+import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { Package, AlertTriangle, Plus, Trash2, Search } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { ExportButton } from '@/components/ui/export-button';
@@ -85,6 +86,23 @@ export default function OwnerInventoryPage() {
 
   const lowStockPercent = totalItems > 0 ? Math.round((lowStockCount / totalItems) * 100) : 0;
 
+  const movementCountData = movementAnalytics ? [
+    { name: 'Purchased', value: movementAnalytics.typeCounts.PURCHASE_IN || 0 },
+    { name: 'Used', value: movementAnalytics.typeCounts.USAGE || 0 },
+    { name: 'Wasted', value: movementAnalytics.typeCounts.WASTE || 0 },
+    { name: 'Adjusted', value: movementAnalytics.typeCounts.ADJUSTMENT || 0 },
+    { name: 'Stock Count', value: movementAnalytics.typeCounts.STOCK_COUNT || 0 },
+  ] : [];
+
+  const movementQuantityData = movementAnalytics ? [
+    { name: 'Purchased', value: movementAnalytics.typeQuantities.PURCHASE_IN || 0 },
+    { name: 'Used', value: movementAnalytics.typeQuantities.USAGE || 0 },
+    { name: 'Wasted', value: movementAnalytics.typeQuantities.WASTE || 0 },
+    { name: 'Adjusted', value: movementAnalytics.typeQuantities.ADJUSTMENT || 0 },
+  ] : [];
+
+  const movementColors = ['#2563eb', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'];
+
   const resetInventoryForm = () => {
     setInventoryForm({ id: '', name: '', unit: '', reorderLevel: 0, currentCost: 0 });
     setEditingIngredientId(null);
@@ -138,7 +156,7 @@ export default function OwnerInventoryPage() {
         name: inventoryForm.name.trim(),
         unit: inventoryForm.unit.trim() || 'unit',
         currentCost: Number(inventoryForm.currentCost) || 0,
-        reorderLevel: Number(inventoryForm.reorderLevel) || 0,
+        reorderLevel: Number(inventoryForm.reorderLevel) > 0 ? Number(inventoryForm.reorderLevel) : 5,
       };
 
       if (editingIngredientId) {
@@ -172,7 +190,7 @@ export default function OwnerInventoryPage() {
       const normalizedItems = response.items.map((item) => ({
         ...item,
         currentCost: Number(item.currentCost),
-        reorderLevel: Number(item.reorderLevel),
+        reorderLevel: Number(item.reorderLevel || 5),
       }));
       setStock(normalizedItems);
       setTotalItems(response.totalCount);
@@ -270,6 +288,46 @@ export default function OwnerInventoryPage() {
         <div className="rounded-3xl border border-border-default bg-surface-raised overflow-hidden">
           <div className="px-4 py-3 border-b border-border-subtle">
             <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Movement Analytics</p>
+          </div>
+          <div className="grid gap-4 p-4 lg:grid-cols-[1.5fr_1fr]">
+            <div className="rounded-3xl border border-border-subtle bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Movement counts</p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={movementCountData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <Tooltip formatter={(value: any) => [value, 'Movements']} />
+                    <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-border-subtle bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Quantity breakdown</p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={movementQuantityData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={46}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      stroke="none"
+                    >
+                      {movementQuantityData.map((entry, index) => (
+                        <Cell key={entry.name} fill={movementColors[index % movementColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: any) => [Number(value).toFixed(2), 'Units']} />
+                    <Legend verticalAlign="bottom" height={28} wrapperStyle={{ fontSize: 12, lineHeight: '14px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             {[

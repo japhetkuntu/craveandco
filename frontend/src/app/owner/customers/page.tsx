@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post, patch } from '@/lib/api';
 import { buildQueryString, formatCurrency, formatDate } from '@/lib/utils';
 import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PaginationControls } from '@/components/ui/pagination';
+import { Modal } from '@/components/ui/modal';
+import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, MessageSquare, CheckSquare } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { ExportButton } from '@/components/ui/export-button';
-import { SortableHeader, useSortable } from '@/components/ui/sortable-header';
+import { SortableHeader, type SortState } from '@/components/ui/sortable-header';
+
+function getErrorMessage(err: unknown, fallback = 'An unexpected error occurred') {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return fallback;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +45,27 @@ interface CustomerDashboard {
   totalVisits: number;
 }
 
+interface CustomerInsights {
+  customerId: string;
+  customerName: string;
+  lastOrderAt: string | null;
+  daysSinceLastOrder: number | null;
+  totalOrders: number;
+  ordersLast30Days: number;
+  ordersLast60Days: number;
+  ordersLast90Days: number;
+  averageOrderValue: number;
+  totalSpend: number;
+  averageDaysBetweenOrders: number | null;
+  favoriteCategory?: string;
+  topItems: Array<{ name: string; quantity: number; spend: number }>;
+  channelBreakdown: Array<{ channel: string; count: number; sharePercent: number }>;
+  customerStatus: CustomerStatus;
+  preferredContact: 'sms' | 'email' | 'none';
+  recommendedMessage: string;
+  birthday?: string | null;
+}
+
 // ─── Customer Status ──────────────────────────────────────────────────────────
 
 type CustomerStatus = 'new' | 'loyal' | 'active' | 'fading' | 'at-risk' | 'inactive' | 'never';
@@ -52,25 +80,6 @@ function getCustomerStatus(c: Customer): CustomerStatus {
   if (daysSince <= 90) return 'at-risk';
   return 'inactive';
 }
-
-const STATUS_RANK: Record<CustomerStatus, number> = {
-  loyal: 0, active: 1, new: 2, fading: 3, 'at-risk': 4, inactive: 5, never: 6,
-};
-
-const CUSTOMER_ACCESSORS = {
-  name:         (c: Customer) => c.name,
-  status:       (c: Customer) => STATUS_RANK[getCustomerStatus(c)],
-  phone:        (c: Customer) => c.phone ?? '',
-  birthday:     (c: Customer) => {
-    const d = parseBirthday(c.birthday);
-    return d ? d.getMonth() * 100 + d.getDate() : null;
-  },
-  visitCount:   (c: Customer) => c.visitCount,
-  loyaltyPoints:(c: Customer) => c.loyaltyPoints ?? 0,
-  totalDiscount:(c: Customer) => Number(c.totalDiscount ?? 0),
-  totalSpend:   (c: Customer) => Number(c.totalSpend),
-  lastSeenAt:   (c: Customer) => c.lastSeenAt ?? '',
-};
 
 const STATUS_META: Record<CustomerStatus, { label: string; bg: string; text: string; dot: string; desc: string }> = {
   new:       { label: 'New',       bg: 'bg-info-muted',       text: 'text-info',    dot: 'bg-info',    desc: 'Visited in last 30 days, 1–2 visits total' },
@@ -90,6 +99,94 @@ function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
       {m.label}
     </span>
   );
+}
+
+function InsightStat({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="rounded-3xl border border-border-subtle bg-surface-base p-4">
+      <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">{label}</p>
+      <p className="text-xl font-semibold text-text-primary">{value}</p>
+      {note ? <p className="mt-2 text-sm text-text-secondary">{note}</p> : null}
+    </div>
+  );
+}
+
+function InsightProgress({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm text-text-secondary">
+        <span>{label}</span>
+        <span className="font-semibold text-text-primary">{value}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-surface-subtle overflow-hidden">
+        <div className="h-full rounded-full bg-[var(--color-gold)]" style={{ width: `${Math.max(6, Math.min(value, 100))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function getCustomerSmsTemplates(insights: CustomerInsights) {
+  const nameToken = '{name}';
+  const statusTemplates: Record<CustomerStatus, Array<{ label: string; message: string; reason: string }>> = {
+    new: [
+      {
+        label: 'Welcome offer',
+        message: `Hi ${nameToken}, welcome to Crave & Co! Enjoy 15% off your next meal this week when you order again.`,
+        reason: 'Great for new customers getting comfortable with your menu.',
+      },
+    ],
+    loyal: [
+      {
+        label: 'Thank you',
+        message: `Hi ${nameToken}, thanks for being one of our most-loved customers! Show this message for 20% off your next order.`,
+        reason: 'Rewards loyalty and encourages another visit.',
+      },
+    ],
+    active: [
+      {
+        label: 'Keep them coming',
+        message: `Hi ${nameToken}, we love serving you. Come back soon and enjoy a free drink with your next pickup.`,
+        reason: 'A gentle nudge for active customers to return soon.',
+      },
+    ],
+    fading: [
+      {
+        label: 'We miss you',
+        message: `Hi ${nameToken}, it’s been a little while. Enjoy 20% off your next order and treat yourself this week.`,
+        reason: 'Re-engages customers whose visits are slowing down.',
+      },
+    ],
+    'at-risk': [
+      {
+        label: 'Bring them back',
+        message: `Hi ${nameToken}, we haven’t seen you lately. Here’s 25% off your next Crave & Co meal to make your return extra tasty.`,
+        reason: 'A stronger offer for customers at risk of churn.',
+      },
+    ],
+    inactive: [
+      {
+        label: 'Come back',
+        message: `Hi ${nameToken}, we’ve missed you! Enjoy 30% off your next order when you come back this month.`,
+        reason: 'A compelling message for dormant customers.',
+      },
+    ],
+    never: [
+      {
+        label: 'First order',
+        message: `Hi ${nameToken}, thanks for checking us out! Enjoy 10% off your first order with code WELCOME10.`,
+        reason: 'Perfect for customers who have not ordered yet.',
+      },
+    ],
+  };
+
+  const statusList = statusTemplates[insights.customerStatus] ?? [];
+  const recommended = {
+    label: 'Recommended',
+    message: insights.recommendedMessage || statusList[0]?.message || `Hi ${nameToken}, thanks for visiting Crave & Co!`,
+    reason: 'Best match based on this customer’s recent order behaviour.',
+  };
+
+  return [recommended, ...statusList];
 }
 
 // ─── Birthday Helpers ─────────────────────────────────────────────────────────
@@ -148,13 +245,31 @@ export default function OwnerCustomersPage() {
   const { token } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortState | null>(null);
+  const [insights, setInsights] = useState<CustomerInsights | null>(null);
+  const [insightsCustomerId, setInsightsCustomerId] = useState<string | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [limit, setLimit] = useState(10);
+  const [limit] = useState(10);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showLegend, setShowLegend] = useState(false);
+
+  const customerSummaryData = [
+    { label: 'New This Week', value: dashboard?.newThisWeek ?? 0 },
+    { label: 'Active This Month', value: dashboard?.activeThisMonth ?? 0 },
+    { label: 'At Risk', value: dashboard?.churnRisk ?? 0 },
+  ];
+
+  const customerHealthData = [
+    { label: 'Total Customers', value: dashboard?.total ?? 0 },
+    { label: 'Total Visits', value: dashboard?.totalVisits ?? 0 },
+    { label: 'Total Spend', value: dashboard?.totalSpend ?? 0 },
+  ];
 
   // SMS blast
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -162,6 +277,11 @@ export default function OwnerCustomersPage() {
   const [smsMessage, setSmsMessage] = useState('');
   const [smsSending, setSmsSending] = useState(false);
   const [smsResult, setSmsResult] = useState<{ sent: number; failed: number; noPhone: string[]; error?: string } | null>(null);
+
+  // Insight SMS composer
+  const [insightsSmsMessage, setInsightsSmsMessage] = useState('');
+  const [insightsSmsSending, setInsightsSmsSending] = useState(false);
+  const [insightsSmsResult, setInsightsSmsResult] = useState<{ sent: number; failed: number; noPhone: string[]; error?: string } | null>(null);
 
   // Create modal
   const [showNew, setShowNew] = useState(false);
@@ -179,11 +299,11 @@ export default function OwnerCustomersPage() {
   const [editBirthdayMonth, setEditBirthdayMonth] = useState('');
   const [editBirthdayDay, setEditBirthdayDay] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!token) return;
     try {
       const [c, d] = await Promise.all([
-        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit, search })}`, token),
+        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit, search, sortBy: sort?.key, sortDir: sort?.dir })}`, token),
         get(API_PATHS.customers.dashboard, token),
       ]);
       setCustomers(c);
@@ -193,12 +313,34 @@ export default function OwnerCustomersPage() {
     } finally {
       setLoading(false);
     }
+  }, [token, page, limit, search, sort]);
+
+  const loadCustomerInsights = async (customerId: string) => {
+    if (!token) return;
+    setInsightsCustomerId(customerId);
+    setInsights(null);
+    setInsightsError('');
+    setInsightsLoading(true);
+
+    try {
+      const data = await get(API_PATHS.customers.insights(customerId), token);
+      const insightData = data as CustomerInsights;
+      setInsights(insightData);
+      setInsightsSmsMessage(insightData.recommendedMessage || '');
+      setInsightsSmsResult(null);
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Failed to load customer insights');
+      console.error(err);
+      setInsightsError(message);
+    } finally {
+      setInsightsLoading(false);
+    }
   };
 
-  useEffect(() => { setLoading(true); fetchData(); }, [token, page, limit, search]);
+  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
-  // Clear selection when page/search/limit changes
-  useEffect(() => { setSelectedIds(new Set()); }, [page, limit, search]);
+  // Clear selection when page/search/limit/sort changes
+  useEffect(() => { setSelectedIds(new Set()); }, [page, limit, search, sort]);
 
   const openEdit = (c: Customer) => {
     setEditCustomer(c);
@@ -236,8 +378,8 @@ export default function OwnerCustomersPage() {
       setNewName(''); setNewPhone(''); setNewEmail(''); setNewBirthdayMonth(''); setNewBirthdayDay('');
       setShowNew(false);
       await fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create customer');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to create customer'));
     } finally {
       setSaving(false);
     }
@@ -262,19 +404,63 @@ export default function OwnerCustomersPage() {
       }, token);
       closeEdit();
       await fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to update customer');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to update customer'));
     } finally {
       setSaving(false);
     }
   };
 
-  const filtered = customers;
-  const { sorted, sort: custSort, toggle } = useSortable(filtered, CUSTOMER_ACCESSORS);
+  const allOnPageSelected = customers.length > 0 && customers.every(c => selectedIds.has(c.id));
+  const someOnPageSelected = customers.some(c => selectedIds.has(c.id));
+
+  const orderMomentumData = insights ? [
+    { label: '30d', orders: insights.ordersLast30Days },
+    { label: '60d', orders: insights.ordersLast60Days },
+    { label: '90d', orders: insights.ordersLast90Days },
+  ] : [];
+
+  const channelChartColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const orderChannelData = insights?.channelBreakdown.map((entry) => ({ name: entry.channel, value: entry.count })) || [];
+
+  const toggleSort = (key: string) => {
+    setPage(0);
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' };
+      if (prev.dir === 'asc') return { key, dir: 'desc' };
+      return null;
+    });
+  };
+
+  const closeInsights = () => {
+    setInsightsCustomerId(null);
+    setInsights(null);
+    setInsightsError('');
+    setInsightsLoading(false);
+    setInsightsSmsMessage('');
+    setInsightsSmsResult(null);
+    setInsightsSmsSending(false);
+  };
+
+  const sendInsightSms = async () => {
+    if (!token || !insightsCustomerId || !insightsSmsMessage.trim() || insightsSmsSending) return;
+    setInsightsSmsSending(true);
+    setInsightsSmsResult(null);
+
+    try {
+      const result = await post('/api/v1/customers/sms', {
+        customerIds: [insightsCustomerId],
+        message: insightsSmsMessage.trim(),
+      }, token) as { sent: number; failed: number; noPhone: string[]; error?: string };
+      setInsightsSmsResult(result);
+    } catch (err: unknown) {
+      setInsightsSmsResult({ sent: 0, failed: 1, noPhone: [], error: getErrorMessage(err, 'Failed to send SMS') });
+    } finally {
+      setInsightsSmsSending(false);
+    }
+  };
 
   // Selection helpers
-  const allOnPageSelected = sorted.length > 0 && sorted.every(c => selectedIds.has(c.id));
-  const someOnPageSelected = sorted.some(c => selectedIds.has(c.id));
   const toggleSelect = (id: string) => setSelectedIds(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -282,9 +468,9 @@ export default function OwnerCustomersPage() {
   });
   const toggleSelectAll = () => {
     if (allOnPageSelected) {
-      setSelectedIds(prev => { const next = new Set(prev); sorted.forEach(c => next.delete(c.id)); return next; });
+      setSelectedIds(prev => { const next = new Set(prev); customers.forEach(c => next.delete(c.id)); return next; });
     } else {
-      setSelectedIds(prev => { const next = new Set(prev); sorted.forEach(c => next.add(c.id)); return next; });
+      setSelectedIds(prev => { const next = new Set(prev); customers.forEach(c => next.add(c.id)); return next; });
     }
   };
 
@@ -297,8 +483,8 @@ export default function OwnerCustomersPage() {
         message: smsMessage.trim(),
       }, token) as { sent: number; failed: number; noPhone: string[] };
       setSmsResult(result);
-    } catch (err: any) {
-      setSmsResult({ sent: 0, failed: selectedIds.size, noPhone: [], error: err.message });
+    } catch (err: unknown) {
+      setSmsResult({ sent: 0, failed: selectedIds.size, noPhone: [], error: getErrorMessage(err) });
     } finally {
       setSmsSending(false);
     }
@@ -393,16 +579,88 @@ export default function OwnerCustomersPage() {
         )}
       </div>
 
+      {dashboard && (
+        <div className="rounded-3xl border border-border-subtle bg-surface-raised p-4 space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Customer overview</p>
+              <h2 className="text-lg font-semibold text-text-primary">Whole customer analytics</h2>
+            </div>
+            <div className="text-sm text-text-secondary">
+              Updated from the latest customer dashboard summary.
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
+            <div className="rounded-3xl border border-border-subtle bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Customer momentum</p>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={customerSummaryData} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <Tooltip formatter={(value: any, name: any) => [value, String(name)]} />
+                    <Bar dataKey="value" fill="#2563eb" radius={[8, 8, 0, 0]} barSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border-subtle bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Customer health</p>
+              <div className="grid gap-3">
+                {customerHealthData.map((item) => (
+                  <div key={item.label} className="rounded-3xl border border-border-default bg-surface-base p-4">
+                    <p className="text-xs text-text-secondary uppercase tracking-[0.28em] mb-2">{item.label}</p>
+                    <p className="text-2xl font-semibold text-text-primary">
+                      {item.label === 'Total Spend' ? formatCurrency(item.value) : item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search */}
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-        <input
-          type="text"
-          placeholder="Search by name or phone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-border-default rounded-xl text-sm text-text-primary focus:ring-2 focus:ring-[var(--color-gold)] outline-none bg-surface-input"
-        />
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <input
+            type="text"
+            placeholder="Search by name or phone..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setPage(0);
+                setSearch(searchInput.trim());
+              }
+            }}
+            className="w-full pl-10 pr-4 py-2.5 border border-border-default rounded-xl text-sm text-text-primary focus:ring-2 focus:ring-[var(--color-gold)] outline-none bg-surface-input"
+          />
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setPage(0);
+            setSearch(searchInput.trim());
+          }}
+        >
+          Search
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setPage(0);
+            setSearchInput('');
+            setSearch('');
+          }}
+        >
+          Clear
+        </Button>
       </div>
 
       {/* Desktop Table */}
@@ -422,20 +680,20 @@ export default function OwnerCustomersPage() {
                         ref={el => { if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected; }}
                       />
                     </th>
-                    <SortableHeader col="name" sort={custSort} onToggle={toggle}>Name</SortableHeader>
-                    <SortableHeader col="status" sort={custSort} onToggle={toggle}>Status</SortableHeader>
-                    <SortableHeader col="phone" sort={custSort} onToggle={toggle}>Phone</SortableHeader>
-                    <SortableHeader col="birthday" sort={custSort} onToggle={toggle}>Birthday</SortableHeader>
-                    <SortableHeader col="visitCount" sort={custSort} onToggle={toggle} align="right">Visits</SortableHeader>
-                    <SortableHeader col="loyaltyPoints" sort={custSort} onToggle={toggle} align="right">Points</SortableHeader>
-                    <SortableHeader col="totalDiscount" sort={custSort} onToggle={toggle} align="right">Discounts</SortableHeader>
-                    <SortableHeader col="totalSpend" sort={custSort} onToggle={toggle} align="right">Total Spent</SortableHeader>
-                    <SortableHeader col="lastSeenAt" sort={custSort} onToggle={toggle}>Last Visit</SortableHeader>
+                    <SortableHeader col="name" sort={sort} onToggle={toggleSort}>Name</SortableHeader>
+                    <SortableHeader col="status" sort={sort} onToggle={toggleSort}>Status</SortableHeader>
+                    <SortableHeader col="phone" sort={sort} onToggle={toggleSort}>Phone</SortableHeader>
+                    <SortableHeader col="birthday" sort={sort} onToggle={toggleSort}>Birthday</SortableHeader>
+                    <SortableHeader col="visitCount" sort={sort} onToggle={toggleSort} align="right">Visits</SortableHeader>
+                    <SortableHeader col="loyaltyPoints" sort={sort} onToggle={toggleSort} align="right">Points</SortableHeader>
+                    <SortableHeader col="totalDiscount" sort={sort} onToggle={toggleSort} align="right">Discounts</SortableHeader>
+                    <SortableHeader col="totalSpend" sort={sort} onToggle={toggleSort} align="right">Total Spent</SortableHeader>
+                    <SortableHeader col="lastSeenAt" sort={sort} onToggle={toggleSort}>Last Visit</SortableHeader>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((c) => (
+                  {customers.map((c) => (
                     <tr key={c.id} className={`border-b last:border-0 hover:bg-surface-elevated/50 transition-colors ${selectedIds.has(c.id) ? 'bg-warning-muted/30' : ''}`}>
                       <td className="px-4 py-3">
                         <input
@@ -465,7 +723,14 @@ export default function OwnerCustomersPage() {
                       <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalDiscount || 0))}</td>
                       <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalSpend))}</td>
                       <td className="px-4 py-3 text-text-tertiary">{c.lastSeenAt ? formatDate(c.lastSeenAt) : '—'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <button
+                          onClick={() => loadCustomerInsights(c.id)}
+                          className="rounded-full px-3 py-2 text-xs font-semibold border border-border-subtle text-text-secondary hover:border-[var(--color-gold)] hover:text-text-primary transition-colors"
+                          title="View insights"
+                        >
+                          Insights
+                        </button>
                         <button
                           onClick={() => openEdit(c)}
                           className="p-1.5 rounded-lg hover:bg-surface-elevated text-text-tertiary hover:text-text-primary transition-colors"
@@ -476,7 +741,7 @@ export default function OwnerCustomersPage() {
                       </td>
                     </tr>
                   ))}
-                  {sorted.length === 0 && (
+                  {customers.length === 0 && (
             <tr><td colSpan={11} className="px-4 py-12 text-center text-sm text-text-tertiary">No customers found</td></tr>
           )}
                 </tbody>
@@ -487,7 +752,7 @@ export default function OwnerCustomersPage() {
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-2">
-        {sorted.map((c) => (
+        {customers.map((c) => (
           <div key={c.id} className={`rounded-2xl border border-border-subtle p-4 shadow-sm transition-colors ${selectedIds.has(c.id) ? 'bg-warning-muted/30' : 'bg-surface-raised'}`}>
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-start gap-2.5">
@@ -505,6 +770,12 @@ export default function OwnerCustomersPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-sm font-bold text-[var(--color-gold)]">{formatCurrency(Number(c.totalSpend))}</span>
+                <button
+                  onClick={() => loadCustomerInsights(c.id)}
+                  className="rounded-full px-3 py-2 text-xs font-semibold border border-border-subtle text-text-secondary hover:border-[var(--color-gold)] hover:text-text-primary transition-colors"
+                >
+                  Insights
+                </button>
                 <button
                   onClick={() => openEdit(c)}
                   className="p-1.5 rounded-lg hover:bg-surface-elevated text-text-tertiary hover:text-text-primary transition-colors"
@@ -531,18 +802,215 @@ export default function OwnerCustomersPage() {
             </div>
           </div>
         ))}
-        {sorted.length === 0 && (
+        {customers.length === 0 && (
           <div className="text-center py-12 text-text-tertiary text-sm">No customers found</div>
         )}
       </div>
 
-      <PaginationControls
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onLimitChange={(value) => { setLimit(value); setPage(0); }}
-        hasMore={customers.length === limit}
-      />
+      {/* Insights Modal */}
+      <Modal
+        open={Boolean(insightsCustomerId)}
+        onClose={closeInsights}
+        title="Customer insights"
+        description="Order pattern, preferences, and engagement recommendation."
+        size="2xl"
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={closeInsights}>Close</Button>
+            <Button
+              onClick={sendInsightSms}
+              loading={insightsSmsSending}
+              disabled={!insightsSmsMessage.trim()}
+            >
+              Send SMS
+            </Button>
+          </div>
+        }
+      >
+        {insightsLoading ? (
+          <div className="flex min-h-[240px] items-center justify-center text-text-secondary">Loading insights…</div>
+        ) : insightsError ? (
+          <div className="rounded-3xl border border-error/20 bg-error-muted p-4 text-sm text-error">{insightsError}</div>
+        ) : insights ? (
+          <div className="space-y-6">
+            <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+              <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Customer</p>
+                    <h3 className="mt-3 text-2xl font-semibold text-text-primary">{insights.customerName}</h3>
+                    <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-surface-subtle px-3 py-2 text-text-secondary">Status: <span className="font-semibold text-text-primary">{insights.customerStatus}</span></span>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-surface-subtle px-3 py-2 text-text-secondary">Preferred: <span className="font-semibold text-text-primary">{insights.preferredContact === 'sms' ? 'SMS' : insights.preferredContact === 'email' ? 'Email' : 'None'}</span></span>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-[var(--color-gold)]/10 p-4 text-[var(--color-gold)] self-start sm:self-auto">
+                    <TrendingUp size={28} />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <InsightStat label="Total orders" value={String(insights.totalOrders)} note="Order history summary" />
+                  <InsightStat label="Average order" value={formatCurrency(insights.averageOrderValue)} note="Average spend per visit" />
+                  <InsightStat label="Last order" value={insights.lastOrderAt ? formatDate(insights.lastOrderAt) : 'None'} note="Most recent purchase" />
+                  <InsightStat label="Days since" value={insights.daysSinceLastOrder !== null ? String(insights.daysSinceLastOrder) : '—'} note="How long since their last visit" />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+                <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Engagement note</p>
+                <div className="rounded-3xl border border-border-default bg-white p-4 shadow-sm">
+                  <p className="text-sm leading-7 text-text-primary">{insights.recommendedMessage}</p>
+                </div>
+                <div className="mt-5 rounded-3xl bg-[var(--color-gold)]/10 p-4">
+                  <p className="text-sm text-text-secondary">Best channel: <span className="font-semibold text-text-primary">{insights.preferredContact === 'sms' ? 'SMS' : insights.preferredContact === 'email' ? 'Email' : 'Any available channel'}</span></p>
+                  <p className="mt-2 text-xs text-text-tertiary">Use this note to personalise your outreach, especially on their next order.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Send SMS</p>
+                  <p className="mt-2 text-sm text-text-secondary">Send a personal message directly from this insight panel.</p>
+                </div>
+                <div className="rounded-full bg-surface-subtle px-3 py-1 text-xs text-text-secondary">Sends to: {insights.customerName}</div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {getCustomerSmsTemplates(insights).map((template) => (
+                  <button
+                    key={template.label}
+                    type="button"
+                    onClick={() => setInsightsSmsMessage(template.message)}
+                    className="rounded-3xl border border-border-default bg-white p-4 text-left hover:border-[var(--color-gold)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)]"
+                  >
+                    <p className="text-sm font-semibold text-text-primary">{template.label}</p>
+                    <p className="mt-2 text-sm text-text-secondary">{template.reason}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="rounded-3xl border border-border-subtle bg-surface-base p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Message preview</p>
+                      <p className="text-sm text-text-secondary mt-1">Personalization token: <span className="font-mono text-[var(--color-gold)]">{'{name}'}</span></p>
+                    </div>
+                    <span className={`text-xs ${insightsSmsMessage.length > 160 ? 'text-warning font-semibold' : 'text-text-secondary'}`}>{insightsSmsMessage.length} / 160</span>
+                  </div>
+                </div>
+                <textarea
+                  rows={5}
+                  value={insightsSmsMessage}
+                  onChange={(e) => setInsightsSmsMessage(e.target.value)}
+                  placeholder="Select a suggested message or write your own…"
+                  className="w-full rounded-3xl border border-border-default bg-white px-4 py-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] resize-none"
+                />
+                {insightsSmsResult && (
+                  <div className={`rounded-3xl p-4 text-sm ${insightsSmsResult.sent > 0 ? 'bg-success-muted text-success border border-success/20' : 'bg-error-muted text-error border border-error/20'}`}>
+                    {insightsSmsResult.sent > 0
+                      ? `SMS sent successfully.`
+                      : insightsSmsResult.error || 'Failed to send SMS.'}
+                    {insightsSmsResult.noPhone.length > 0 ? ` ${insightsSmsResult.noPhone.length} phone number missing.` : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+              <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Order momentum</p>
+                  <p className="text-sm text-text-secondary">Recent activity breakdown</p>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  <InsightStat label="30-day orders" value={String(insights.ordersLast30Days)} />
+                  <InsightStat label="60-day orders" value={String(insights.ordersLast60Days)} />
+                  <InsightStat label="90-day orders" value={String(insights.ordersLast90Days)} />
+                </div>
+                <div className="mt-5 rounded-3xl border border-border-subtle bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Order momentum</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={orderMomentumData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} />
+                        <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                        <Tooltip formatter={(value: any) => [value, 'Orders']} />
+                        <Bar dataKey="orders" fill="#2563eb" radius={[8, 8, 0, 0]} barSize={32} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+                <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Preferred category</p>
+                <p className="text-lg font-semibold text-text-primary">{insights.favoriteCategory || 'Unknown'}</p>
+                <p className="mt-3 text-sm text-text-secondary">Top ordered items in the last 90 days.</p>
+                <div className="mt-4 space-y-3">
+                  {insights.topItems.map((item) => (
+                    <div key={item.name} className="rounded-3xl border border-border-subtle bg-white p-3">
+                      <div className="flex items-center justify-between gap-3 text-sm text-text-primary">
+                        <span>{item.name}</span>
+                        <span className="font-semibold text-text-secondary">{item.quantity}×</span>
+                      </div>
+                      <p className="mt-1 text-xs text-text-secondary">{formatCurrency(item.spend)} total</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.28em] text-text-secondary">Channel mix</p>
+                  <p className="mt-2 text-sm text-text-secondary">How this customer orders most often.</p>
+                </div>
+                <div className="rounded-full bg-surface-subtle px-3 py-1 text-xs text-text-secondary">Total {insights.channelBreakdown.reduce((acc, item) => acc + item.count, 0)} orders</div>
+              </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+                <div className="space-y-3">
+                  {insights.channelBreakdown.map((entry) => (
+                    <InsightProgress key={entry.channel} label={entry.channel} value={entry.sharePercent} />
+                  ))}
+                </div>
+                <div className="rounded-3xl border border-border-subtle bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.28em] text-text-secondary mb-3">Channel share</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={orderChannelData}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={44}
+                          outerRadius={80}
+                          paddingAngle={4}
+                          stroke="none"
+                        >
+                          {orderChannelData.map((entry, index) => (
+                            <Cell key={entry.name} fill={channelChartColors[index % channelChartColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: any) => [value, 'Orders']} />
+                        <Legend verticalAlign="bottom" height={28} wrapperStyle={{ fontSize: 12, lineHeight: '14px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-text-secondary py-12">Select a customer to view insights.</div>
+        )}
+      </Modal>
+
 
       {/* ── Add Customer Modal ── */}
       {showNew && (
@@ -658,7 +1126,7 @@ export default function OwnerCustomersPage() {
                   <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-4">
                     <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">Recipients</p>
                     <div className="flex flex-wrap gap-2">
-                      {sorted.filter(c => selectedIds.has(c.id)).map(c => (
+                      {customers.filter(c => selectedIds.has(c.id)).map(c => (
                         <span key={c.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ${c.phone ? 'bg-success-muted border-success/20 text-success' : 'bg-error-muted border-error/20 text-error'}`}>
                           {c.phone ? <Phone size={10} /> : null}
                           {c.name}
@@ -666,7 +1134,7 @@ export default function OwnerCustomersPage() {
                         </span>
                       ))}
                       {(() => {
-                        const offPage = selectedIds.size - sorted.filter(c => selectedIds.has(c.id)).length;
+                        const offPage = selectedIds.size - customers.filter(c => selectedIds.has(c.id)).length;
                         return offPage > 0 ? (
                           <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-surface-raised border border-border-subtle text-text-tertiary">
                             +{offPage} more
@@ -674,7 +1142,7 @@ export default function OwnerCustomersPage() {
                         ) : null;
                       })()}
                     </div>
-                    {sorted.some(c => selectedIds.has(c.id) && !c.phone) && (
+                    {customers.some(c => selectedIds.has(c.id) && !c.phone) && (
                       <p className="text-xs text-warning mt-2">⚠ Customers without a phone number will be skipped.</p>
                     )}
                   </div>
