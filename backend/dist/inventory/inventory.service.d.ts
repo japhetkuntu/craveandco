@@ -50,7 +50,7 @@ export declare class InventoryService {
             name: string;
             unit: string;
             currentCost: number;
-            reorderLevel: Prisma.Decimal;
+            reorderLevel: number;
             onHand: number;
             belowReorder: boolean;
             supplier: {

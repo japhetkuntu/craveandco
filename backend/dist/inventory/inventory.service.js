@@ -58,7 +58,7 @@ let InventoryService = class InventoryService {
                 name: dto.name.trim(),
                 unit: dto.unit.trim(),
                 currentCost: dto.currentCost ?? 0,
-                reorderLevel: dto.reorderLevel ?? 0,
+                reorderLevel: dto.reorderLevel ?? 5,
             },
         });
     }
@@ -112,19 +112,21 @@ let InventoryService = class InventoryService {
         });
         const lowStockCount = allIngredients.reduce((count, ingredient) => {
             const onHand = Number(movementMap.get(ingredient.id) ?? 0);
-            return count + (onHand < Number(ingredient.reorderLevel) ? 1 : 0);
+            const reorderLevel = Number(ingredient.reorderLevel ?? 5);
+            return count + (onHand < reorderLevel ? 1 : 0);
         }, 0);
         const items = ingredients.map((ing) => {
             const quantity = movementMap.get(ing.id) ?? 0;
             const onHand = Number(quantity);
+            const reorderLevel = Number(ing.reorderLevel ?? 5);
             return {
                 id: ing.id,
                 name: ing.name,
                 unit: ing.unit,
                 currentCost: Number(ing.currentCost),
-                reorderLevel: ing.reorderLevel,
+                reorderLevel,
                 onHand,
-                belowReorder: onHand < Number(ing.reorderLevel),
+                belowReorder: onHand < reorderLevel,
                 supplier: ing.supplier,
             };
         });

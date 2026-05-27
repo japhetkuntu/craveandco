@@ -46,7 +46,7 @@ export declare class InventoryController {
             name: string;
             unit: string;
             currentCost: number;
-            reorderLevel: import("@prisma/client/runtime/library").Decimal;
+            reorderLevel: number;
             onHand: number;
             belowReorder: boolean;
             supplier: {

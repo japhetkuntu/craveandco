@@ -7,6 +7,7 @@ import { buildQueryString, formatCurrency, formatDate } from '@/lib/utils';
 import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PaginationControls } from '@/components/ui/pagination';
 import { Modal } from '@/components/ui/modal';
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, MessageSquare, CheckSquare } from 'lucide-react';
@@ -254,7 +255,8 @@ export default function OwnerCustomersPage() {
   const [insightsError, setInsightsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
+  const [hasMore, setHasMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showLegend, setShowLegend] = useState(false);
@@ -301,12 +303,15 @@ export default function OwnerCustomersPage() {
 
   const fetchData = useCallback(async () => {
     if (!token) return;
+    const requestLimit = limit + 1;
     try {
       const [c, d] = await Promise.all([
-        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit, search, sortBy: sort?.key, sortDir: sort?.dir })}`, token),
+        get(`${API_PATHS.customers.list}${buildQueryString({ page, limit: requestLimit, search, sortBy: sort?.key, sortDir: sort?.dir })}`, token),
         get(API_PATHS.customers.dashboard, token),
       ]);
-      setCustomers(c);
+      const customerItems = Array.isArray(c) ? c : [];
+      setHasMore(customerItems.length > limit);
+      setCustomers(customerItems.slice(0, limit));
       setDashboard(d);
     } catch (err) {
       console.error(err);
@@ -806,6 +811,14 @@ export default function OwnerCustomersPage() {
           <div className="text-center py-12 text-text-tertiary text-sm">No customers found</div>
         )}
       </div>
+
+      <PaginationControls
+        page={page}
+        limit={limit}
+        onPageChange={setPage}
+        onLimitChange={(value) => { setLimit(value); setPage(0); }}
+        hasMore={hasMore}
+      />
 
       {/* Insights Modal */}
       <Modal

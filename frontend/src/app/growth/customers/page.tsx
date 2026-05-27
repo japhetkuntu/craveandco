@@ -86,6 +86,7 @@ export default function GrowthCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
+  const [hasMore, setHasMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showLegend, setShowLegend] = useState(false);
@@ -108,12 +109,15 @@ export default function GrowthCustomersPage() {
 
   const fetchData = async () => {
     if (!token) return;
+    const requestLimit = limit + 1;
     try {
       const [c, d] = await Promise.all([
-        get(`/api/v1/customers${buildQueryString({ page, limit, search: search.trim() || undefined })}`, token),
+        get(`/api/v1/customers${buildQueryString({ page, limit: requestLimit, search: search.trim() || undefined })}`, token),
         get('/api/v1/customers/dashboard', token),
       ]);
-      setCustomers(c);
+      const customerItems = Array.isArray(c) ? c : [];
+      setHasMore(customerItems.length > limit);
+      setCustomers(customerItems.slice(0, limit));
       setDashboard(d);
     } catch (err) {
       console.error(err);
@@ -264,7 +268,7 @@ export default function GrowthCustomersPage() {
           type="text"
           placeholder="Search by name or phone..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
           className="w-full pl-10 pr-4 py-2.5 border border-border-default rounded-xl text-sm text-text-primary focus:ring-2 focus:ring-[var(--color-gold)] outline-none bg-surface-input"
         />
       </div>
@@ -379,7 +383,7 @@ export default function GrowthCustomersPage() {
         limit={limit}
         onPageChange={setPage}
         onLimitChange={(value) => { setLimit(value); setPage(0); }}
-        hasMore={customers.length === limit}
+        hasMore={hasMore}
       />
 
       {/* ── Add Customer Modal ── */}
