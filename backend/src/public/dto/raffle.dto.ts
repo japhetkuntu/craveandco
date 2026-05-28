@@ -5,9 +5,9 @@ export class RaffleRequestOtpDto {
   @IsNotEmpty()
   phone!: string;
 
-  @IsOptional()
   @IsString()
-  name?: string;
+  @IsNotEmpty()
+  name!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -41,5 +41,5 @@ export class RaffleVerifyDto {
 export class RaffleSpinDto {
   @IsString()
   @IsNotEmpty()
-  accessCode: string;
+  accessCode!: string;
 }

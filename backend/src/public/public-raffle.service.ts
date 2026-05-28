@@ -19,14 +19,14 @@ interface RaffleReward {
 }
 
 const REWARDS: RaffleReward[] = [
-  { type: 'FIVE_PERCENT',            label: '5% discount',        description: 'Enjoy 5% off your next order. Valid at the point of sale within 24 hours.',               weight: 45 },
+  { type: 'FIVE_PERCENT',            label: '5% discount',        description: 'Enjoy 5% off one meal dish only (not drinks or other items). Valid at the point of sale within 24 hours.',               weight: 45 },
   { type: 'FREE_WATER',              label: 'Free water',          description: 'Receive a complimentary water with your next order. Valid within 24 hours.',               weight: 25 },
-  { type: 'TEN_PERCENT',             label: '10% discount',        description: 'Save 10% on your next order. Valid at the point of sale within 24 hours.',                 weight: 20 },
-  { type: 'FREE_DELIVERY',           label: '12% discount',        description: 'Save 12% on your next order. Valid at the point of sale within 24 hours.',                 weight:  8 },
-  { type: 'FIFTY_PERCENT_FIRST_MEAL',label: '50% off one meal',    description: 'Half price on one meal item (max GHS 25). Valid at the point of sale within 24 hours.',   weight:  2 },
+  { type: 'TEN_PERCENT',             label: '10% discount',        description: 'Save 10% on one meal dish only (not drinks or other items). Valid at the point of sale within 24 hours.',                 weight: 20 },
+  { type: 'FREE_DELIVERY',           label: '12% discount',        description: 'Save 12% on one meal dish only (not drinks or other items). Valid at the point of sale within 24 hours.',                 weight:  8 },
+  { type: 'FIFTY_PERCENT_FIRST_MEAL',label: '50% off one meal',    description: 'Half price on one meal dish only (max GHS 25, not drinks or other items). Valid at the point of sale within 24 hours.',   weight:  2 },
 ];
 
-const NON_JACKPOT_REWARDS = REWARDS.filter((r) => r.type !== 'FIFTY_PERCENT_FIRST_MEAL');
+const BASE_SPIN_REWARDS = REWARDS.filter((r) => r.type === 'FIVE_PERCENT' || r.type === 'FREE_WATER');
 
 const TOTAL_WEIGHT = REWARDS.reduce((s, r) => s + r.weight, 0); // must be 100
 
@@ -34,8 +34,11 @@ const DAILY_SPIN_LIMIT          = 3;
 const REWARD_EXPIRY_HOURS       = 24;
 const MAX_VERIFY_ATTEMPTS       = 3;
 const CODE_REFRESH_INTERVAL_DAYS = 7;
-const DAILY_FIFTY_MIN_SPIN      = 3501; // must be > 3500
-const DAILY_FIFTY_SLOT_TOTAL_SPINS = 5000;
+const PREMIUM_REWARD_START_SPIN = 3501; // must be > 3500
+const PREMIUM_REWARD_END_SPIN = 5000;
+const DAILY_TEN_PERCENT_WINNERS = 5;
+const DAILY_TWELVE_PERCENT_WINNERS = 2;
+const DAILY_FIFTY_PERCENT_WINNERS = 1;
 
 @Injectable()
 export class PublicRaffleService {
@@ -55,11 +58,12 @@ export class PublicRaffleService {
       return c;
     };
     const phone    = rawPhone ? normalizePhone(rawPhone) : rawPhone;
-    const name     = dto.name?.trim() || 'Crave friend';
+    const name     = dto.name?.trim();
     const deviceId = dto.deviceId?.trim();
     const wantsRefresh = dto.refreshCode === true;
 
     if (!phone)    throw new BadRequestException('Phone number is required.');
+    if (!name)     throw new BadRequestException('Name is required.');
     if (!deviceId) throw new BadRequestException('Device ID is required.');
 
     // Device guard: one registration per device per calendar day
@@ -250,11 +254,12 @@ export class PublicRaffleService {
       };
     }
 
-    // Pick reward with strict daily jackpot control:
-    // exactly one randomly selected spin slot in [3501..5000] gets 50% reward.
+    // Pick reward with strict daily premium control (refreshes every day):
+    // in slots [3501..5000], exactly 5x10%, 2x12%, and 1x50% winners.
     const today = this.todayUtc();
-    let reward = this.pickNonJackpotReward();
+    let reward = this.pickBaseReward();
     let spinId = '';
+    const premiumSlots = this.getDailyPremiumSlots(today);
 
     await this.prisma.$transaction(async (tx) => {
       const control = await tx.raffleDailyControl.upsert({
@@ -262,7 +267,8 @@ export class PublicRaffleService {
         update: {},
         create: {
           date: today,
-          fiftyRewardSpinSlot: this.randomInt(DAILY_FIFTY_MIN_SPIN, DAILY_FIFTY_SLOT_TOTAL_SPINS),
+          // Legacy column retained for compatibility with existing schema.
+          fiftyRewardSpinSlot: this.randomInt(PREMIUM_REWARD_START_SPIN, PREMIUM_REWARD_END_SPIN),
         },
       });
 
@@ -271,17 +277,13 @@ export class PublicRaffleService {
         data: { spinCount: { increment: 1 } },
       });
 
-      const shouldAwardFifty =
-        !updatedControl.fiftyRewardAwarded &&
-        updatedControl.spinCount >= DAILY_FIFTY_MIN_SPIN &&
-        updatedControl.spinCount === updatedControl.fiftyRewardSpinSlot;
-
-      if (shouldAwardFifty) {
+      const currentSlot = updatedControl.spinCount;
+      if (premiumSlots.fifty.has(currentSlot)) {
         reward = REWARDS.find((r) => r.type === 'FIFTY_PERCENT_FIRST_MEAL')!;
-        await tx.raffleDailyControl.update({
-          where: { id: updatedControl.id },
-          data: { fiftyRewardAwarded: true },
-        });
+      } else if (premiumSlots.twelve.has(currentSlot)) {
+        reward = REWARDS.find((r) => r.type === 'FREE_DELIVERY')!;
+      } else if (premiumSlots.ten.has(currentSlot)) {
+        reward = REWARDS.find((r) => r.type === 'TEN_PERCENT')!;
       }
 
       const createdSpin = await tx.customerRaffleSpin.create({
@@ -333,15 +335,57 @@ export class PublicRaffleService {
     return REWARDS[REWARDS.length - 1];
   }
 
-  private pickNonJackpotReward(): RaffleReward {
-    const total = NON_JACKPOT_REWARDS.reduce((sum, reward) => sum + reward.weight, 0);
+  private pickBaseReward(): RaffleReward {
+    const total = BASE_SPIN_REWARDS.reduce((sum, reward) => sum + reward.weight, 0);
     const roll = Math.floor(Math.random() * total);
     let cumulative = 0;
-    for (const reward of NON_JACKPOT_REWARDS) {
+    for (const reward of BASE_SPIN_REWARDS) {
       cumulative += reward.weight;
       if (roll < cumulative) return reward;
     }
-    return NON_JACKPOT_REWARDS[NON_JACKPOT_REWARDS.length - 1];
+    return BASE_SPIN_REWARDS[BASE_SPIN_REWARDS.length - 1];
+  }
+
+  private getDailyPremiumSlots(dateKey: string): {
+    ten: Set<number>;
+    twelve: Set<number>;
+    fifty: Set<number>;
+  } {
+    const slots: number[] = [];
+    for (let i = PREMIUM_REWARD_START_SPIN; i <= PREMIUM_REWARD_END_SPIN; i++) {
+      slots.push(i);
+    }
+
+    const rand = this.seededRng(`spin-premium-${dateKey}`);
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [slots[i], slots[j]] = [slots[j], slots[i]];
+    }
+
+    const fifty = new Set(slots.slice(0, DAILY_FIFTY_PERCENT_WINNERS));
+    const twelveStart = DAILY_FIFTY_PERCENT_WINNERS;
+    const tenStart = twelveStart + DAILY_TWELVE_PERCENT_WINNERS;
+    const twelve = new Set(slots.slice(twelveStart, tenStart));
+    const ten = new Set(slots.slice(tenStart, tenStart + DAILY_TEN_PERCENT_WINNERS));
+
+    return { ten, twelve, fifty };
+  }
+
+  private seededRng(seedText: string): () => number {
+    // FNV-1a hash to derive a stable daily seed.
+    let seed = 2166136261;
+    for (let i = 0; i < seedText.length; i++) {
+      seed ^= seedText.charCodeAt(i);
+      seed = Math.imul(seed, 16777619);
+    }
+    let state = seed >>> 0;
+    return () => {
+      // xorshift32
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      return (state >>> 0) / 4294967296;
+    };
   }
 
   // ─── SMS helper ────────────────────────────────────────────────────────────

@@ -21,6 +21,16 @@ let CustomersService = class CustomersService {
         this.prisma = prisma;
         this.config = config;
     }
+    normalizePhone(phone) {
+        const cleaned = phone.replace(/[\s\-().+]/g, '');
+        if (cleaned.startsWith('233'))
+            return '0' + cleaned.slice(3);
+        if (cleaned.startsWith('0'))
+            return cleaned;
+        if (cleaned.length === 9)
+            return '0' + cleaned;
+        return cleaned;
+    }
     parseBirthday(birthday) {
         if (birthday === undefined)
             return undefined;
@@ -33,12 +43,18 @@ let CustomersService = class CustomersService {
         return parsed;
     }
     async create(dto) {
+        const phone = dto.phone ? this.normalizePhone(dto.phone) : undefined;
+        if (phone) {
+            const existing = await this.prisma.customer.findFirst({ where: { phone } });
+            if (existing)
+                throw new common_1.BadRequestException('A customer with that phone number already exists.');
+        }
         const birthday = this.parseBirthday(dto.birthday);
         try {
             return await this.prisma.customer.create({
                 data: {
                     name: dto.name,
-                    phone: dto.phone,
+                    phone,
                     email: dto.email,
                     ...(birthday !== undefined ? { birthday } : {}),
                 },
@@ -52,13 +68,15 @@ let CustomersService = class CustomersService {
         }
     }
     async update(id, dto) {
-        const { birthday, ...rest } = dto;
+        const { birthday, phone: rawPhone, ...rest } = dto;
+        const phone = rawPhone ? this.normalizePhone(rawPhone) : rawPhone;
         const parsedBirthday = this.parseBirthday(birthday);
         try {
             return await this.prisma.customer.update({
                 where: { id },
                 data: {
                     ...rest,
+                    ...(phone !== undefined ? { phone } : {}),
                     ...(parsedBirthday !== undefined ? { birthday: parsedBirthday } : {}),
                 },
             });
@@ -69,6 +87,13 @@ let CustomersService = class CustomersService {
             }
             throw error;
         }
+    }
+    async delete(id) {
+        const customer = await this.prisma.customer.findUnique({ where: { id } });
+        if (!customer)
+            throw new common_1.NotFoundException('Customer not found.');
+        await this.prisma.customer.delete({ where: { id } });
+        return { success: true };
     }
     async findAll(params) {
         const take = Math.min(Math.max(params?.limit ?? 50, 1), 100);

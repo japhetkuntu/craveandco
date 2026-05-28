@@ -62,6 +62,9 @@ let CustomersController = class CustomersController {
     update(id, dto) {
         return this.customers.update(id, dto);
     }
+    delete(id) {
+        return this.customers.delete(id);
+    }
     sendSms(dto) {
         return this.customers.sendSms(dto);
     }
@@ -128,6 +131,15 @@ __decorate([
     __metadata("design:paramtypes", [String, customers_dto_1.UpdateCustomerDto]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, roles_decorator_1.Roles)('OWNER'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "delete", null);
 __decorate([
     (0, common_1.Post)('sms'),
     (0, roles_decorator_1.Roles)('OWNER'),

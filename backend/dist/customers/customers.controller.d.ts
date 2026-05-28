@@ -157,6 +157,9 @@ export declare class CustomersController {
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
     }>;
+    delete(id: string): Promise<{
+        success: boolean;
+    }>;
     sendSms(dto: SendSmsDto): Promise<{
         sent: number;
         failed: number;

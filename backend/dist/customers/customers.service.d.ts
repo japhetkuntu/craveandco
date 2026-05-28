@@ -6,6 +6,7 @@ export declare class CustomersService {
     private prisma;
     private config;
     constructor(prisma: PrismaService, config: ConfigService);
+    private normalizePhone;
     private parseBirthday;
     create(dto: CreateCustomerDto): Promise<{
         email: string | null;
@@ -32,6 +33,9 @@ export declare class CustomersService {
         lastSeenAt: Date;
         totalSpend: Prisma.Decimal;
         visitCount: number;
+    }>;
+    delete(id: string): Promise<{
+        success: boolean;
     }>;
     findAll(params?: {
         segment?: string;

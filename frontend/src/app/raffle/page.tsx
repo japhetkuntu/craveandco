@@ -96,13 +96,15 @@ export default function SpinWinPage() {
   const requestOtp = async (inputPhone: string, inputName: string, refreshCode = false) => {
     setErrorMsg(null);
     const cleanPhone = inputPhone.trim();
+    const cleanName = inputName.trim();
     if (!cleanPhone) { setErrorMsg('Enter your phone number.'); return; }
+    if (!cleanName) { setErrorMsg('Enter your first name.'); return; }
 
     setSubmitting(true);
     try {
       const r = await postPublic<OtpResponse>(API_PATHS.raffle.requestOtp, {
         phone: cleanPhone,
-        name: inputName.trim() || undefined,
+        name: cleanName,
         deviceId: getDeviceId(),
         ...(refreshCode ? { refreshCode: true } : {}),
       });
@@ -276,6 +278,7 @@ function PhoneStep({
     setLocalError(null);
     onClearError();
     if (!phone.trim()) { setLocalError('Enter your phone number.'); return; }
+    if (!name.trim()) { setLocalError('Enter your first name.'); return; }
     await onRequestCode(phone, name, false);
   };
 
@@ -291,6 +294,7 @@ function PhoneStep({
     setLocalError(null);
     onClearError();
     if (!phone.trim()) { setLocalError('Enter your phone number.'); return; }
+    if (!name.trim()) { setLocalError('Enter your first name.'); return; }
     await onRequestCode(phone, name, true);
   };
 
@@ -337,8 +341,8 @@ function PhoneStep({
             <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => onPhoneChange(e.target.value)} placeholder="+233 20 123 4567" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
           </div>
           <div>
-            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>First name <span style={{ color:'rgba(255,255,255,0.2)', fontWeight:400 }}>(optional)</span></label>
-            <input value={name} onChange={e => onNameChange(e.target.value)} placeholder="e.g. Ama" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
+            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>First name</label>
+            <input value={name} onChange={e => onNameChange(e.target.value)} required placeholder="e.g. Ama" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
           </div>
           {error && <ErrorBox msg={error} />}
           <button type="submit" disabled={submitting} className="spin-btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background: submitting ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #b5451b 0%, #e8803a 100%)', border:'none', color:'#fff', fontSize:'15px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', animation: submitting ? 'none' : 'glow-pulse 2.5s ease-in-out infinite', marginTop:4 }}>
@@ -368,8 +372,8 @@ function PhoneStep({
             <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => onPhoneChange(e.target.value)} placeholder="+233 20 123 4567" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
           </div>
           <div>
-            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>First name <span style={{ color:'rgba(255,255,255,0.2)', fontWeight:400 }}>(optional)</span></label>
-            <input value={name} onChange={e => onNameChange(e.target.value)} placeholder="e.g. Ama" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
+            <label style={{ display:'block', fontSize:'11px', fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>First name</label>
+            <input value={name} onChange={e => onNameChange(e.target.value)} required placeholder="e.g. Ama" className="input-dark" style={{ width:'100%', padding:'14px 18px', fontSize:'16px', boxSizing:'border-box' }} />
           </div>
           {error && <ErrorBox msg={error} />}
           <button type="submit" disabled={submitting} className="spin-btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background: submitting ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.75)', border:'1px solid rgba(59,130,246,0.4)', color:'#fff', fontSize:'15px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', marginTop:4 }}>
