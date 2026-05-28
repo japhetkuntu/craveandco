@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { get, post, patch } from '@/lib/api';
+import { get, post, patch, del } from '@/lib/api';
 import { buildQueryString, formatCurrency, formatDate } from '@/lib/utils';
 import { API_PATHS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { PaginationControls } from '@/components/ui/pagination';
 import { Modal } from '@/components/ui/modal';
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
-import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, MessageSquare, CheckSquare } from 'lucide-react';
+import { Users, UserPlus, Search, Plus, Phone, DollarSign, TrendingUp, Cake, Pencil, Info, MessageSquare, CheckSquare, Trash2 } from 'lucide-react';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { ExportButton } from '@/components/ui/export-button';
 import { SortableHeader, type SortState } from '@/components/ui/sortable-header';
@@ -288,6 +288,26 @@ export default function OwnerCustomersPage() {
   const [insightsSmsMessage, setInsightsSmsMessage] = useState('');
   const [insightsSmsSending, setInsightsSmsSending] = useState(false);
   const [insightsSmsResult, setInsightsSmsResult] = useState<{ sent: number; failed: number; noPhone: string[]; error?: string } | null>(null);
+
+  // Delete state
+  const [deleteCustomer, setDeleteCustomer] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!token || !deleteCustomer) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await del(`/api/v1/customers/${deleteCustomer.id}`, token);
+      setDeleteCustomer(null);
+      await fetchData();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete customer'));
+      setDeleteCustomer(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Create modal
   const [showNew, setShowNew] = useState(false);
@@ -822,6 +842,13 @@ export default function OwnerCustomersPage() {
                         >
                           <Pencil size={14} />
                         </button>
+                        <button
+                          onClick={() => setDeleteCustomer(c)}
+                          className="p-1.5 rounded-lg hover:bg-error-muted text-text-tertiary hover:text-error transition-colors"
+                          title="Delete customer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -865,6 +892,12 @@ export default function OwnerCustomersPage() {
                   className="p-1.5 rounded-lg hover:bg-surface-elevated text-text-tertiary hover:text-text-primary transition-colors"
                 >
                   <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => setDeleteCustomer(c)}
+                  className="p-1.5 rounded-lg hover:bg-error-muted text-text-tertiary hover:text-error transition-colors"
+                >
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
@@ -1155,6 +1188,37 @@ export default function OwnerCustomersPage() {
             <div className="sticky bottom-0 border-t border-border-subtle bg-white px-6 py-4 flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={closeEdit}>Cancel</Button>
               <Button variant="primary" className="flex-1" type="submit" form="edit-customer-form" loading={saving}>Save Changes</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {!!deleteCustomer && (
+        <div className="fixed inset-0 [height:var(--viewport-height,100dvh)] z-50 flex items-center justify-center overflow-hidden bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-[24px] bg-white shadow-2xl p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-error-muted flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-error" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-text-primary">Delete Customer</h2>
+                <p className="text-sm text-text-secondary mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-text-secondary">
+              Are you sure you want to delete <span className="font-semibold text-text-primary">{deleteCustomer.name}</span>
+              {deleteCustomer.phone ? ` (${deleteCustomer.phone})` : ''}? All associated data will be removed.
+            </p>
+            <div className="flex gap-3 pt-1">
+              <Button variant="secondary" className="flex-1" onClick={() => setDeleteCustomer(null)} disabled={deleting}>Cancel</Button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-3 rounded-2xl bg-error text-white font-semibold text-sm hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center"
+              >
+                {deleting ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : 'Delete'}
+              </button>
             </div>
           </div>
         </div>

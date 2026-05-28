@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto, SendSmsDto, UpdateCustomerDto } from './dto/customers.dto';
@@ -7,6 +7,15 @@ import { LoyaltyTxType, OrderStatus, Prisma } from '@prisma/client';
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService, private config: ConfigService) {}
+
+  /** Normalise any Ghana phone format to 0XXXXXXXXX (10 digits). */
+  private normalizePhone(phone: string): string {
+    const cleaned = phone.replace(/[\s\-().+]/g, '');
+    if (cleaned.startsWith('233')) return '0' + cleaned.slice(3);
+    if (cleaned.startsWith('0')) return cleaned;
+    if (cleaned.length === 9) return '0' + cleaned;
+    return cleaned;
+  }
 
   private parseBirthday(birthday?: string | null) {
     if (birthday === undefined) return undefined;
@@ -19,12 +28,17 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto) {
+    const phone = dto.phone ? this.normalizePhone(dto.phone) : undefined;
+    if (phone) {
+      const existing = await this.prisma.customer.findFirst({ where: { phone } });
+      if (existing) throw new BadRequestException('A customer with that phone number already exists.');
+    }
     const birthday = this.parseBirthday(dto.birthday);
     try {
       return await this.prisma.customer.create({
         data: {
           name: dto.name,
-          phone: dto.phone,
+          phone,
           email: dto.email,
           ...(birthday !== undefined ? { birthday } : {}),
         },
@@ -38,13 +52,15 @@ export class CustomersService {
   }
 
   async update(id: string, dto: UpdateCustomerDto) {
-    const { birthday, ...rest } = dto;
+    const { birthday, phone: rawPhone, ...rest } = dto;
+    const phone = rawPhone ? this.normalizePhone(rawPhone) : rawPhone;
     const parsedBirthday = this.parseBirthday(birthday);
     try {
       return await this.prisma.customer.update({
         where: { id },
         data: {
           ...rest,
+          ...(phone !== undefined ? { phone } : {}),
           ...(parsedBirthday !== undefined ? { birthday: parsedBirthday } : {}),
         },
       });
@@ -54,6 +70,13 @@ export class CustomersService {
       }
       throw error;
     }
+  }
+
+  async delete(id: string) {
+    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundException('Customer not found.');
+    await this.prisma.customer.delete({ where: { id } });
+    return { success: true };
   }
 
   async findAll(params?: {

@@ -46,7 +46,15 @@ export class PublicRaffleService {
 
   // ─── Step 1: Request OTP ───────────────────────────────────────────────────
   async requestOtp(dto: RaffleRequestOtpDto) {
-    const phone    = dto.phone?.trim();
+    const rawPhone = dto.phone?.trim();
+    const normalizePhone = (p: string) => {
+      const c = p.replace(/[\s\-().+]/g, '');
+      if (c.startsWith('233')) return '0' + c.slice(3);
+      if (c.startsWith('0')) return c;
+      if (c.length === 9) return '0' + c;
+      return c;
+    };
+    const phone    = rawPhone ? normalizePhone(rawPhone) : rawPhone;
     const name     = dto.name?.trim() || 'Crave friend';
     const deviceId = dto.deviceId?.trim();
     const wantsRefresh = dto.refreshCode === true;
@@ -184,12 +192,19 @@ export class PublicRaffleService {
     // ── Correct — verify, auto-create customer, record device ─────────────────
     let customerId = entry.customerId;
     if (!customerId) {
-      const existing = await this.prisma.customer.findUnique({ where: { phone } });
+      const normalizedPhone = (() => {
+        const c = phone.replace(/[\s\-().+]/g, '');
+        if (c.startsWith('233')) return '0' + c.slice(3);
+        if (c.startsWith('0')) return c;
+        if (c.length === 9) return '0' + c;
+        return c;
+      })();
+      const existing = await this.prisma.customer.findUnique({ where: { phone: normalizedPhone } });
       if (existing) {
         customerId = existing.id;
       } else {
         const created = await this.prisma.customer.create({
-          data: { phone, name: entry.name },
+          data: { phone: normalizedPhone, name: entry.name },
         });
         customerId = created.id;
       }

@@ -105,14 +105,22 @@ export class SalesService {
     let customerId: string | undefined;
 
     if (dto.type === 'INDIVIDUAL' && dto.customerPhone) {
+      const normalizePhone = (p: string) => {
+        const c = p.replace(/[\s\-().+]/g, '');
+        if (c.startsWith('233')) return '0' + c.slice(3);
+        if (c.startsWith('0')) return c;
+        if (c.length === 9) return '0' + c;
+        return c;
+      };
+      const phone = normalizePhone(dto.customerPhone);
       let customer = await this.prisma.customer.findFirst({
-        where: { phone: dto.customerPhone },
+        where: { phone },
       });
       if (!customer) {
         customer = await this.prisma.customer.create({
           data: {
-            name: dto.customerName ?? dto.customerPhone,
-            phone: dto.customerPhone,
+            name: dto.customerName ?? phone,
+            phone,
           },
         });
       }

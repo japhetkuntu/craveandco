@@ -16,7 +16,15 @@ export class CustomerAuthService {
 
   async register(dto: CustomerRegisterDto) {
     const email = dto.email.trim().toLowerCase();
-    const phone = dto.phone?.trim();
+    const rawPhone = dto.phone?.trim();
+    const normalizePhone = (p: string) => {
+      const c = p.replace(/[\s\-().+]/g, '');
+      if (c.startsWith('233')) return '0' + c.slice(3);
+      if (c.startsWith('0')) return c;
+      if (c.length === 9) return '0' + c;
+      return c;
+    };
+    const phone = rawPhone ? normalizePhone(rawPhone) : undefined;
 
     try {
       const customer = await this.prisma.customer.create({
