@@ -8,8 +8,34 @@ const USER_SELECT = { select: { id: true, name: true } };
 export class SpecialOrdersService {
   constructor(private prisma: PrismaService) {}
 
+  private computePricingMetrics(items: Array<{ quantity: number; costPrice: number; sellPrice: number }>) {
+    const revenue = items.reduce((sum, item) => sum + Number(item.sellPrice) * Number(item.quantity), 0);
+    const cost = items.reduce((sum, item) => sum + Number(item.costPrice) * Number(item.quantity), 0);
+    const profit = revenue - cost;
+    const marginPercent = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return {
+      revenue,
+      cost,
+      profit,
+      marginPercent,
+      isProfitable: profit >= 0,
+    };
+  }
+
+  previewPricing(items: Array<{ quantity: number; costPrice: number; sellPrice: number }>) {
+    if (!items.length) {
+      throw new BadRequestException('At least one item is required to preview pricing.');
+    }
+    return this.computePricingMetrics(items);
+  }
+
   // Ops / Owner: create with prices immediately
   async create(dto: CreateSpecialOrderDto, branchId: string, userId: string) {
+    const metrics = this.computePricingMetrics(dto.items);
+    if (!metrics.isProfitable) {
+      throw new BadRequestException('Special order cannot be created at a loss. Update pricing first.');
+    }
+
     return this.prisma.specialOrder.create({
       data: {
         branchId,
@@ -131,6 +157,17 @@ export class SpecialOrdersService {
     if (order.status !== 'DRAFT') throw new BadRequestException('Only DRAFT orders can be approved');
     const allPriced = order.items.every((i) => Number(i.sellPrice) > 0);
     if (!allPriced) throw new BadRequestException('All items must have a sell price before approving');
+    const metrics = this.computePricingMetrics(
+      order.items.map((item) => ({
+        quantity: Number(item.quantity),
+        costPrice: Number(item.costPrice),
+        sellPrice: Number(item.sellPrice),
+      })),
+    );
+    if (!metrics.isProfitable) {
+      throw new BadRequestException('Special order cannot be approved at a loss. Update item pricing first.');
+    }
+
     return this.prisma.specialOrder.update({
       where: { id },
       data: { status: 'PENDING' },

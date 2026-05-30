@@ -18,6 +18,15 @@ interface RaffleReward {
   weight: number;
 }
 
+export interface ActiveRewardPayload {
+  type: string;
+  label: string;
+  description: string;
+  expiresAt: string;
+  isExpired: boolean;
+  remainingMs: number;
+}
+
 const REWARDS: RaffleReward[] = [
   { type: 'FIVE_PERCENT',            label: '5% discount',        description: 'Enjoy 5% off one meal dish only (not drinks or other items). Valid at the point of sale within 24 hours.',               weight: 45 },
   { type: 'FREE_WATER',              label: 'Free water',          description: 'Receive a complimentary water with your next order. Valid within 24 hours.',               weight: 25 },
@@ -46,6 +55,11 @@ export class PublicRaffleService {
     private prisma: PrismaService,
     private config: ConfigService,
   ) {}
+
+  private isActiveRaffleSpin(spin: { createdAt: Date; redeemedAt: Date | null }, now = new Date()) {
+    if (spin.redeemedAt) return false;
+    return now.getTime() - spin.createdAt.getTime() < REWARD_EXPIRY_HOURS * 60 * 60 * 1000;
+  }
 
   // ─── Step 1: Request OTP ───────────────────────────────────────────────────
   async requestOtp(dto: RaffleRequestOtpDto) {
@@ -162,7 +176,7 @@ export class PublicRaffleService {
     if (entry.verified) {
       const sameDay = this.isSameDay(entry.lastSpinAt, new Date());
       const remaining = sameDay ? Math.max(0, DAILY_SPIN_LIMIT - entry.dailySpinCount) : DAILY_SPIN_LIMIT;
-      return this.buildSession(entry.accessCode, entry.phone, remaining);
+      return this.buildSession(entry.id, entry.accessCode, entry.phone, remaining);
     }
 
     // Locked (hit max attempts today)
@@ -229,7 +243,7 @@ export class PublicRaffleService {
 
     const sameDay  = this.isSameDay(entry.lastSpinAt, new Date());
     const remaining = sameDay ? Math.max(0, DAILY_SPIN_LIMIT - entry.dailySpinCount) : DAILY_SPIN_LIMIT;
-    return this.buildSession(entry.accessCode, entry.phone, remaining, "You're in! Tap Spin to reveal your reward.");
+    return this.buildSession(entry.id, entry.accessCode, entry.phone, remaining, "You're in! Tap Spin to reveal your reward.");
   }
 
   // ─── Step 3: Spin ─────────────────────────────────────────────────────────
@@ -307,18 +321,19 @@ export class PublicRaffleService {
     });
 
     const remainingSpins = Math.max(0, DAILY_SPIN_LIMIT - updated.dailySpinCount);
+    const activeReward = this.toActiveRewardPayload({
+      rewardType: reward.type,
+      rewardLabel: reward.label,
+      createdAt: now,
+    });
     return {
       eligibleToSpin: remainingSpins > 0,
       remainingSpins,
       message: `Congratulations! ${reward.label}`,
-      reward: {
-        type:      reward.type,
-        label:     reward.label,
-        description: reward.description,
-        expiresAt: this.getRewardExpiry(now).toISOString(),
-      },
+      reward: activeReward,
       spinId,
       nextEligibleAt: this.getNextDayStart(now).toISOString(),
+      serverTime: new Date().toISOString(),
     };
   }
 
@@ -429,13 +444,67 @@ export class PublicRaffleService {
   }
 
   // ─── Utilities ─────────────────────────────────────────────────────────────
-  private buildSession(
+  private async buildSession(
+    entryId: string,
     accessCode: string,
     phone: string,
     remainingSpins: number,
     message = 'Welcome back! Ready to spin.',
   ) {
-    return { accessCode, phone, remainingSpins, eligibleToSpin: remainingSpins > 0, message };
+    const activeReward = await this.getActiveReward(entryId);
+    return {
+      accessCode,
+      phone,
+      remainingSpins,
+      eligibleToSpin: remainingSpins > 0,
+      message,
+      reward: activeReward,
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  private async getActiveReward(entryId: string): Promise<ActiveRewardPayload | null> {
+    const latest = await this.prisma.customerRaffleSpin.findFirst({
+      where: {
+        raffleEntryId: entryId,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        rewardType: true,
+        rewardLabel: true,
+        createdAt: true,
+        redeemedAt: true,
+      },
+    });
+
+    if (!latest || !this.isActiveRaffleSpin(latest)) return null;
+
+    return this.toActiveRewardPayload({
+      rewardType: latest.rewardType,
+      rewardLabel: latest.rewardLabel,
+      createdAt: latest.createdAt,
+    });
+  }
+
+  private toActiveRewardPayload(params: {
+    rewardType: string;
+    rewardLabel: string;
+    createdAt: Date;
+  }): ActiveRewardPayload {
+    const rewardMeta = REWARDS.find((r) => r.type === params.rewardType);
+    const expiresAtDate = this.getRewardExpiry(params.createdAt);
+    const remainingMs = Math.max(0, expiresAtDate.getTime() - Date.now());
+    const isExpired = remainingMs <= 0;
+
+    return {
+      type: params.rewardType,
+      label: params.rewardLabel,
+      description: rewardMeta?.description ?? params.rewardLabel,
+      expiresAt: expiresAtDate.toISOString(),
+      isExpired,
+      remainingMs,
+    };
   }
 
   private generateAccessCode(): string {

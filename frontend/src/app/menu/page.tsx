@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Phone, Menu, X, MessageCircle, ChevronLeft, Search, MapPin, Truck, Store } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { API_BASE } from '@/lib/constants';
 import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
@@ -35,6 +36,7 @@ interface MenuItem {
 }
 
 export default function MenuPage() {
+  const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -126,6 +128,12 @@ export default function MenuPage() {
     () => items.reduce((s, item) => s + (cart[item.id] ?? 0) * Number(item.price), 0),
     [cart, items],
   );
+  const raffleCode = useMemo(() => {
+    const raw = (searchParams.get('raffle') ?? '').trim().toUpperCase();
+    const normalized = raw.replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    return normalized.length === 8 ? normalized : null;
+  }, [searchParams]);
+
   const buildWhatsAppOrder = () => {
     const lines = items
       .filter((item) => (cart[item.id] ?? 0) > 0)
@@ -134,7 +142,10 @@ export default function MenuPage() {
     const deliveryLine = deliveryType === 'delivery'
       ? `\nDelivery to: ${deliveryLocation.trim() || '(location to be shared in chat)'}`
       : '\nPickup from Crave & Co. (Ashongman Estate, Accra)';
-    const msg = `Hi! I\u2019d like to place an order from Crave & Co. \uD83C\uDF7D\uFE0F\n\n${lines}\n\nSubtotal: ${formatCurrency(cartTotal)}${deliveryLine}\n\nPlease confirm. Thank you! \uD83D\uDE4F`;
+    const raffleLine = raffleCode
+      ? `\nRaffle Code: ${raffleCode}`
+      : '';
+    const msg = `Hi! I\u2019d like to place an order from Crave & Co. \uD83C\uDF7D\uFE0F\n\n${lines}\n\nSubtotal: ${formatCurrency(cartTotal)}${deliveryLine}${raffleLine}\n\nPlease confirm. Thank you! \uD83D\uDE4F`;
     return `https://wa.me/233540951665?text=${encodeURIComponent(msg)}`;
   };
 

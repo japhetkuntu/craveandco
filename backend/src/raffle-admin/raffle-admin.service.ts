@@ -10,7 +10,14 @@ interface ListEntriesParams {
 
 @Injectable()
 export class RaffleAdminService {
+  private readonly rewardExpiryMs = 24 * 60 * 60 * 1000;
+
   constructor(private prisma: PrismaService) {}
+
+  private isActiveRaffleSpin(spin: { createdAt: Date; redeemedAt: Date | null }, now = new Date()) {
+    if (spin.redeemedAt) return false;
+    return now.getTime() - spin.createdAt.getTime() < this.rewardExpiryMs;
+  }
 
   async listEntries({ page, limit, search }: ListEntriesParams) {
     const skip = (page - 1) * limit;
@@ -67,7 +74,7 @@ export class RaffleAdminService {
     const data = entries.map((entry) => {
       const orderInfo = ordersByCode.get(entry.accessCode) ?? { count: 0, total: 0 };
       const latestSpin = entry.spins[0];
-      const pendingRewards = entry.spins.filter((s) => !s.redeemedAt).length;
+      const pendingRewards = latestSpin && this.isActiveRaffleSpin(latestSpin) ? 1 : 0;
       return {
         id: entry.id,
         phone: entry.phone,
@@ -136,7 +143,6 @@ export class RaffleAdminService {
       entriesToday,
       ordersWithCode,
       rewardsRedeemed,
-      pendingRewards,
       redeemedToday,
       rewardBreakdown,
     ] = await this.prisma.$transaction([
@@ -146,7 +152,6 @@ export class RaffleAdminService {
       this.prisma.customerRaffleEntry.count({ where: { createdAt: { gte: startOfDay } } }),
       this.prisma.order.count({ where: { raffleAccessCode: { not: null } } }),
       this.prisma.customerRaffleSpin.count({ where: { redeemedAt: { not: null } } }),
-      this.prisma.customerRaffleSpin.count({ where: { redeemedAt: null } }),
       this.prisma.customerRaffleSpin.count({ where: { redeemedAt: { gte: startOfDay } } }),
       this.prisma.customerRaffleSpin.groupBy({
         by: ['rewardType'],
@@ -154,6 +159,20 @@ export class RaffleAdminService {
         orderBy: { rewardType: 'asc' },
       }),
     ]);
+
+    const activePendingRewards = await this.prisma.customerRaffleEntry.findMany({
+      select: {
+        spins: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true, redeemedAt: true },
+        },
+      },
+    });
+    const pendingRewards = activePendingRewards.reduce(
+      (count, entry) => count + (entry.spins[0] && this.isActiveRaffleSpin(entry.spins[0]) ? 1 : 0),
+      0,
+    );
 
     const conversionRate = totalEntries > 0 ? (ordersWithCode / totalEntries) * 100 : 0;
     const redemptionRate = totalSpins > 0 ? (rewardsRedeemed / totalSpins) * 100 : 0;
@@ -184,6 +203,17 @@ export class RaffleAdminService {
     if (!spin) throw new NotFoundException('Raffle spin not found.');
     if (spin.redeemedAt) {
       throw new BadRequestException('This reward has already been redeemed.');
+    }
+    const latestSpin = await this.prisma.customerRaffleSpin.findFirst({
+      where: { raffleEntryId: spin.raffleEntryId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true, redeemedAt: true },
+    });
+    if (!latestSpin || latestSpin.id !== spin.id) {
+      throw new BadRequestException('Only the latest reward can be redeemed.');
+    }
+    if (!this.isActiveRaffleSpin(latestSpin)) {
+      throw new BadRequestException('This reward has expired or is no longer active.');
     }
 
     let orderId: string | undefined;
@@ -245,15 +275,22 @@ export class RaffleAdminService {
         customer: { select: { id: true, name: true, phone: true } },
         spins: {
           orderBy: { createdAt: 'desc' },
-          take: 10,
+          take: 1,
+          select: {
+            id: true,
+            rewardType: true,
+            rewardLabel: true,
+            createdAt: true,
+            redeemedAt: true,
+          },
         },
       },
     });
 
     if (!entry) throw new NotFoundException('No raffle entry found for this access code.');
 
-    const latestPendingSpin = entry.spins.find((s) => !s.redeemedAt) ?? null;
-    if (!latestPendingSpin) {
+    const latestSpin = entry.spins[0] ?? null;
+    if (!latestSpin || !this.isActiveRaffleSpin(latestSpin)) {
       return {
         entry: {
           id: entry.id,
@@ -271,7 +308,7 @@ export class RaffleAdminService {
     const promotion = await this.prisma.promotion.findFirst({
       where: {
         branchId,
-        raffleRewardType: latestPendingSpin.rewardType,
+        raffleRewardType: latestSpin.rewardType,
         status: 'ACTIVE',
         OR: [{ startDate: null }, { startDate: { lte: now } }],
         AND: [{ OR: [{ endDate: null }, { endDate: { gte: now } }] }],
@@ -287,10 +324,10 @@ export class RaffleAdminService {
         customer: entry.customer,
       },
       spin: {
-        id: latestPendingSpin.id,
-        rewardType: latestPendingSpin.rewardType,
-        rewardLabel: latestPendingSpin.rewardLabel,
-        wonAt: latestPendingSpin.createdAt.toISOString(),
+        id: latestSpin.id,
+        rewardType: latestSpin.rewardType,
+        rewardLabel: latestSpin.rewardLabel,
+        wonAt: latestSpin.createdAt.toISOString(),
       },
       promotion: promotion
         ? {

@@ -47,6 +47,14 @@ interface PriceEntry {
   sellPrice: string;
 }
 
+interface PricingPreview {
+  revenue: number;
+  cost: number;
+  profit: number;
+  marginPercent: number;
+  isProfitable: boolean;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: 'Awaiting Review',
   PENDING: 'In Progress',
@@ -80,6 +88,8 @@ export default function SpecialOrdersPage() {
   const [reviewOrder, setReviewOrder] = useState<SpecialOrder | null>(null);
   const [priceEntries, setPriceEntries] = useState<PriceEntry[]>([]);
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [createPricingPreview, setCreatePricingPreview] = useState<PricingPreview | null>(null);
+  const [reviewPricingPreview, setReviewPricingPreview] = useState<PricingPreview | null>(null);
 
   const loadOrders = useCallback(async () => {
     if (!token) return;
@@ -186,15 +196,58 @@ export default function SpecialOrdersPage() {
   const previewItems = newItems
     .filter((i) => i.name && i.quantity && i.costPrice && i.sellPrice)
     .map((i) => ({ ...i, quantity: Number(i.quantity), costPrice: Number(i.costPrice), sellPrice: Number(i.sellPrice) }));
-  const preview = calcMargin(previewItems as any);
+
+  useEffect(() => {
+    if (!token || previewItems.length === 0) {
+      setCreatePricingPreview(null);
+      return;
+    }
+    const id = window.setTimeout(async () => {
+      try {
+        const metrics = await post<PricingPreview>('/api/v1/special-orders/pricing/preview', {
+          items: previewItems.map((item) => ({
+            quantity: item.quantity,
+            costPrice: item.costPrice,
+            sellPrice: item.sellPrice,
+          })),
+        }, token);
+        setCreatePricingPreview(metrics);
+      } catch {
+        setCreatePricingPreview(null);
+      }
+    }, 180);
+    return () => window.clearTimeout(id);
+  }, [token, previewItems]);
 
   const previewReview = priceEntries
     .filter((e) => e.sellPrice && e.costPrice)
     .map((e) => ({ sellPrice: Number(e.sellPrice), costPrice: Number(e.costPrice), quantity: e.quantity }));
-  const reviewProfit = previewReview.reduce((s, i) => s + (i.sellPrice - i.costPrice) * i.quantity, 0);
-  const reviewRevenue = previewReview.reduce((s, i) => s + i.sellPrice * i.quantity, 0);
-  const reviewMargin = reviewRevenue > 0 ? (reviewProfit / reviewRevenue) * 100 : 0;
-  const canApprove = priceEntries.every((e) => Number(e.sellPrice) > 0);
+
+  useEffect(() => {
+    if (!token || previewReview.length === 0) {
+      setReviewPricingPreview(null);
+      return;
+    }
+    const id = window.setTimeout(async () => {
+      try {
+        const metrics = await post<PricingPreview>('/api/v1/special-orders/pricing/preview', {
+          items: previewReview.map((item) => ({
+            quantity: item.quantity,
+            costPrice: item.costPrice,
+            sellPrice: item.sellPrice,
+          })),
+        }, token);
+        setReviewPricingPreview(metrics);
+      } catch {
+        setReviewPricingPreview(null);
+      }
+    }, 180);
+    return () => window.clearTimeout(id);
+  }, [token, previewReview]);
+
+  const canApprove =
+    priceEntries.every((e) => Number(e.sellPrice) > 0) &&
+    !!reviewPricingPreview?.isProfitable;
 
   const drafts = orders.filter((o) => o.status === 'DRAFT');
 
@@ -305,9 +358,9 @@ export default function SpecialOrdersPage() {
                 </div>
                 {previewItems.length > 0 && (
                   <div className="rounded-2xl bg-surface-elevated border border-border-subtle p-3 grid grid-cols-3 gap-3 text-center">
-                    <div><p className="text-xs text-text-tertiary">Revenue</p><p className="font-bold text-text-primary">{formatCurrency(preview.revenue)}</p></div>
-                    <div><p className="text-xs text-text-tertiary">Cost</p><p className="font-bold text-text-primary">{formatCurrency(preview.cost)}</p></div>
-                    <div><p className="text-xs text-text-tertiary">Gross Profit</p><p className={`font-bold ${preview.profit >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(preview.profit)} <span className="font-normal text-xs">({preview.margin.toFixed(1)}%)</span></p></div>
+                    <div><p className="text-xs text-text-tertiary">Revenue</p><p className="font-bold text-text-primary">{formatCurrency(createPricingPreview?.revenue ?? 0)}</p></div>
+                    <div><p className="text-xs text-text-tertiary">Cost</p><p className="font-bold text-text-primary">{formatCurrency(createPricingPreview?.cost ?? 0)}</p></div>
+                    <div><p className="text-xs text-text-tertiary">Gross Profit</p><p className={`font-bold ${(createPricingPreview?.profit ?? 0) >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(createPricingPreview?.profit ?? 0)} <span className="font-normal text-xs">({(createPricingPreview?.marginPercent ?? 0).toFixed(1)}%)</span></p></div>
                   </div>
                 )}
               </form>
@@ -401,11 +454,11 @@ export default function SpecialOrdersPage() {
               </div>
 
               {/* Margin preview */}
-              {reviewRevenue > 0 && (
+              {(reviewPricingPreview?.revenue ?? 0) > 0 && (
                 <div className="rounded-2xl bg-surface-elevated border border-border-default p-3 grid grid-cols-3 gap-3 text-center">
-                  <div><p className="text-xs text-text-tertiary">Revenue</p><p className="font-bold text-text-primary">{formatCurrency(reviewRevenue)}</p></div>
-                  <div><p className="text-xs text-text-tertiary">Profit</p><p className={`font-bold ${reviewProfit >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(reviewProfit)}</p></div>
-                  <div><p className="text-xs text-text-tertiary">Margin</p><p className={`font-bold ${reviewMargin >= 30 ? 'text-success' : reviewMargin >= 10 ? 'text-warning' : 'text-error'}`}>{reviewMargin.toFixed(1)}%</p></div>
+                  <div><p className="text-xs text-text-tertiary">Revenue</p><p className="font-bold text-text-primary">{formatCurrency(reviewPricingPreview?.revenue ?? 0)}</p></div>
+                  <div><p className="text-xs text-text-tertiary">Profit</p><p className={`font-bold ${(reviewPricingPreview?.profit ?? 0) >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(reviewPricingPreview?.profit ?? 0)}</p></div>
+                  <div><p className="text-xs text-text-tertiary">Margin</p><p className={`font-bold ${(reviewPricingPreview?.marginPercent ?? 0) >= 30 ? 'text-success' : (reviewPricingPreview?.marginPercent ?? 0) >= 10 ? 'text-warning' : 'text-error'}`}>{(reviewPricingPreview?.marginPercent ?? 0).toFixed(1)}%</p></div>
                 </div>
               )}
             </div>

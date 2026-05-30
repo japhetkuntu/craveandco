@@ -7,6 +7,8 @@ import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class OrdersService {
+  private readonly rewardExpiryMs = 24 * 60 * 60 * 1000;
+
   constructor(
     private prisma: PrismaService,
     private promotions: PromotionsService,
@@ -25,6 +27,11 @@ export class OrdersService {
   };
 
   private readonly groupedComponentsOptionId = '__meta_grouped_menu_components';
+
+  private isActiveRaffleSpin(spin: { createdAt: Date; redeemedAt: Date | null }, now = new Date()) {
+    if (spin.redeemedAt) return false;
+    return now.getTime() - spin.createdAt.getTime() < this.rewardExpiryMs;
+  }
 
   private attachImageUrl(menuItem: any) {
     if (!menuItem) return menuItem;
@@ -567,15 +574,23 @@ export class OrdersService {
         where: { accessCode: code },
         include: {
           spins: {
-            where: { redeemedAt: null },
             orderBy: { createdAt: 'desc' },
             take: 1,
+            select: {
+              id: true,
+              rewardType: true,
+              rewardLabel: true,
+              createdAt: true,
+              redeemedAt: true,
+            },
           },
         },
       });
       if (!raffleEntry) throw new BadRequestException('No raffle entry found for this access code.');
       const spin = raffleEntry.spins[0];
-      if (!spin) throw new BadRequestException('No unredeemed reward found for this raffle code.');
+      if (!spin || !this.isActiveRaffleSpin(spin)) {
+        throw new BadRequestException('No active reward found for this raffle code.');
+      }
 
       const now = new Date();
       const promotion = await this.prisma.promotion.findFirst({

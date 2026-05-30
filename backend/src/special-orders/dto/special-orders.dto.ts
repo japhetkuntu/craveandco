@@ -99,3 +99,26 @@ export class UpdateSpecialOrderStatusDto {
   @IsNotEmpty()
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
 }
+
+// ── Pricing preview (backend-authoritative metrics) ─────────────────────────
+
+export class SpecialOrderPricingItemDto {
+  @IsNumber()
+  @Min(0.001)
+  quantity: number;
+
+  @IsNumber()
+  @Min(0)
+  costPrice: number;
+
+  @IsNumber()
+  @Min(0)
+  sellPrice: number;
+}
+
+export class PreviewSpecialOrderPricingDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SpecialOrderPricingItemDto)
+  items: SpecialOrderPricingItemDto[];
+}

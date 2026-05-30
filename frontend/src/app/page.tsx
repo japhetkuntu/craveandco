@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Phone, Clock, Menu, X, MessageCircle, ArrowRight, ChevronLeft, ChevronRight, Utensils, Star, Zap, Truck, Users, Calendar, Gift } from 'lucide-react';
 import Link from 'next/link';
-import { ECOMMERCE_ENABLED } from '@/lib/feature-flags';
+import { ECOMMERCE_ENABLED, SPIN_WIN_EDUCATION_ENABLED } from '@/lib/feature-flags';
 import { ContactOrderModal, CONTACT_WHATSAPP_LINK } from '@/components/ui/contact-order-modal';
 
 const SLIDES = [
@@ -543,6 +543,94 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {SPIN_WIN_EDUCATION_ENABLED && (
+        <section id="spin-win" style={{ background: 'linear-gradient(135deg, #1a1209 0%, #2b1a10 55%, #3a2314 100%)', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+              <span style={{
+                display: 'inline-block', fontFamily: "'Lato',sans-serif", fontWeight: 700,
+                fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase',
+                color: 'rgba(255,209,143,0.95)', background: 'rgba(255,209,143,0.12)',
+                padding: '5px 14px', borderRadius: 999, marginBottom: '1rem',
+              }}>
+                Spin &amp; Win Guide
+              </span>
+              <h2 className="font-display" style={{
+                fontSize: 'clamp(2rem,5vw,3.25rem)', fontWeight: 900, lineHeight: 1.1,
+                color: '#fff', letterSpacing: '-0.02em',
+              }}>
+                Learn It Once. <em>Win Again &amp; Again.</em>
+              </h2>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.95rem', color: 'rgba(255,255,255,0.55)', marginTop: '0.75rem', maxWidth: 640, margin: '0.75rem auto 0' }}>
+                Spin &amp; Win is simple: one customer, one current reward. Every new spin replaces the previous reward, and only the latest valid reward can be used at checkout.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(250px,100%),1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '1.25rem 1.25rem 1.35rem' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(181,69,27,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.8rem' }}>
+                  <Gift size={20} style={{ color: '#ffd08e' }} />
+                </div>
+                <h3 className="font-display" style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.35rem' }}>1 Reward at a Time</h3>
+                <p style={{ fontFamily: "'Lato',sans-serif", color: 'rgba(255,255,255,0.62)', lineHeight: 1.7, fontSize: '0.9rem' }}>
+                  Your newest reward is the only active one. Older rewards are replaced automatically.
+                </p>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '1.25rem 1.25rem 1.35rem' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(181,69,27,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.8rem' }}>
+                  <Clock size={20} style={{ color: '#ffd08e' }} />
+                </div>
+                <h3 className="font-display" style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.35rem' }}>Use It in 24 Hours</h3>
+                <p style={{ fontFamily: "'Lato',sans-serif", color: 'rgba(255,255,255,0.62)', lineHeight: 1.7, fontSize: '0.9rem' }}>
+                  Rewards expire after 24 hours. Expired rewards are not valid for any order.
+                </p>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '1.25rem 1.25rem 1.35rem' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(181,69,27,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.8rem' }}>
+                  <Star size={20} style={{ color: '#ffd08e' }} />
+                </div>
+                <h3 className="font-display" style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.35rem' }}>Single Use Only</h3>
+                <p style={{ fontFamily: "'Lato',sans-serif", color: 'rgba(255,255,255,0.62)', lineHeight: 1.7, fontSize: '0.9rem' }}>
+                  Once a reward is redeemed, it cannot be used for another order.
+                </p>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '1.25rem 1.25rem 1.35rem' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(181,69,27,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.8rem' }}>
+                  <Zap size={20} style={{ color: '#ffd08e' }} />
+                </div>
+                <h3 className="font-display" style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.35rem' }}>Quick Steps</h3>
+                <p style={{ fontFamily: "'Lato',sans-serif", color: 'rgba(255,255,255,0.62)', lineHeight: 1.7, fontSize: '0.9rem' }}>
+                  Register your phone, spin, then share your code at checkout to auto-apply your latest valid reward.
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(181,69,27,0.25) 0%, rgba(232,164,90,0.2) 100%)',
+              border: '1px solid rgba(232,164,90,0.35)', borderRadius: 20,
+              padding: '1rem 1.1rem', display: 'flex', flexWrap: 'wrap', gap: '0.8rem',
+              alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: '0.88rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+                Need the full rules? Open Spin &amp; Win and check Terms for complete details.
+              </p>
+              <Link href="/raffle" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#e8a45a', color: '#1a1209', textDecoration: 'none',
+                fontFamily: "'Lato',sans-serif", fontWeight: 700, fontSize: '0.8rem',
+                letterSpacing: '0.07em', textTransform: 'uppercase',
+                padding: '0.65rem 1.1rem', borderRadius: 999,
+              }}>
+                Try Spin &amp; Win <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── HOW IT WORKS ── */}
       <section id="how-it-works" style={{ background: '#1a1209', padding: 'clamp(4rem,8vw,7rem) clamp(1rem,5vw,2.5rem)' }}>

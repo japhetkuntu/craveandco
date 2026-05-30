@@ -19,6 +19,7 @@ let OrdersService = class OrdersService {
     prisma;
     promotions;
     files;
+    rewardExpiryMs = 24 * 60 * 60 * 1000;
     constructor(prisma, promotions, files) {
         this.prisma = prisma;
         this.promotions = promotions;
@@ -35,6 +36,11 @@ let OrdersService = class OrdersService {
         initiatedBy: { select: { id: true, name: true } },
     };
     groupedComponentsOptionId = '__meta_grouped_menu_components';
+    isActiveRaffleSpin(spin, now = new Date()) {
+        if (spin.redeemedAt)
+            return false;
+        return now.getTime() - spin.createdAt.getTime() < this.rewardExpiryMs;
+    }
     attachImageUrl(menuItem) {
         if (!menuItem)
             return menuItem;
@@ -478,17 +484,24 @@ let OrdersService = class OrdersService {
                 where: { accessCode: code },
                 include: {
                     spins: {
-                        where: { redeemedAt: null },
                         orderBy: { createdAt: 'desc' },
                         take: 1,
+                        select: {
+                            id: true,
+                            rewardType: true,
+                            rewardLabel: true,
+                            createdAt: true,
+                            redeemedAt: true,
+                        },
                     },
                 },
             });
             if (!raffleEntry)
                 throw new common_1.BadRequestException('No raffle entry found for this access code.');
             const spin = raffleEntry.spins[0];
-            if (!spin)
-                throw new common_1.BadRequestException('No unredeemed reward found for this raffle code.');
+            if (!spin || !this.isActiveRaffleSpin(spin)) {
+                throw new common_1.BadRequestException('No active reward found for this raffle code.');
+            }
             const now = new Date();
             const promotion = await this.prisma.promotion.findFirst({
                 where: {

@@ -4,16 +4,16 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight, CheckCircle2, Clock3, Gift,
-  Info, Loader2, RefreshCw, Sparkles, X,
+  Info, Loader2, RefreshCw, Sparkles, X, Share2, Copy, ExternalLink,
 } from 'lucide-react';
 import { API_BASE, API_PATHS } from '@/lib/constants';
 import { friendlyError } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface OtpResponse    { message: string; phone: string }
-interface VerifyResponse { accessCode: string; phone: string; eligibleToSpin: boolean; remainingSpins: number; message: string }
-interface SpinReward     { type: string; label: string; description: string; expiresAt: string }
-interface SpinResponse   { eligibleToSpin: boolean; remainingSpins: number; message: string; reward?: SpinReward; nextEligibleAt?: string }
+interface VerifyResponse { accessCode: string; phone: string; eligibleToSpin: boolean; remainingSpins: number; message: string; reward?: SpinReward | null; serverTime?: string }
+interface SpinReward     { type: string; label: string; description: string; expiresAt: string; isExpired: boolean; remainingMs: number }
+interface SpinResponse   { eligibleToSpin: boolean; remainingSpins: number; message: string; reward?: SpinReward; nextEligibleAt?: string; serverTime?: string }
 interface WheelSegment   { type: string; short: string; emoji: string; fill: string; textColor: string }
 
 const SEGMENTS: WheelSegment[] = [
@@ -65,6 +65,11 @@ interface Stored { accessCode: string; phone: string; remainingSpins: number; re
 const readStored  = (): Stored | null => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : null; } catch { return null; } };
 const writeStored = (s: Stored | null) => { s ? localStorage.setItem(SK, JSON.stringify(s)) : localStorage.removeItem(SK); };
 
+function asActiveReward(reward: SpinReward | null | undefined): SpinReward | null {
+  if (!reward || reward.isExpired || reward.remainingMs <= 0) return null;
+  return reward;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 type Step = 'phone' | 'verify' | 'spin';
 
@@ -82,16 +87,51 @@ export default function SpinWinPage() {
   const [submitting,     setSubmitting]     = useState(false);
   const [spinning,       setSpinning]       = useState(false);
   const [rotation,       setRotation]       = useState(0);
-  const [now,            setNow]            = useState(() => Date.now());
+  const [rewardCountdownMs, setRewardCountdownMs] = useState(0);
   const rotRef = useRef(0);
   const segAngle = 360 / SEGMENTS.length;
 
   useEffect(() => {
     const s = readStored();
-    if (s) { setAccessCode(s.accessCode); setPhone(s.phone); setRemainingSpins(s.remainingSpins); if (s.reward && new Date(s.reward.expiresAt).getTime() > Date.now()) setReward(s.reward); setStep('spin'); }
+    if (s) {
+      setAccessCode(s.accessCode);
+      setPhone(s.phone);
+      setRemainingSpins(s.remainingSpins);
+      setReward(asActiveReward(s.reward));
+      setStep('spin');
+      // Refresh from backend so reward/session is consistent across devices.
+      void (async () => {
+        try {
+          const r = await postPublic<VerifyResponse>(API_PATHS.raffle.verify, {
+            phone: s.phone,
+            accessCode: s.accessCode,
+            deviceId: getDeviceId(),
+          });
+          setRemainingSpins(r.remainingSpins);
+          setReward(asActiveReward(r.reward));
+        } catch {
+          // Keep local session if refresh fails; user can still continue.
+        }
+      })();
+    }
   }, []);
   useEffect(() => { if (accessCode) writeStored({ accessCode, phone, remainingSpins, reward: reward ?? undefined }); }, [accessCode, phone, remainingSpins, reward]);
-  useEffect(() => { if (!reward) return; const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, [reward]);
+  useEffect(() => {
+    setRewardCountdownMs(reward ? Math.max(0, reward.remainingMs) : 0);
+  }, [reward]);
+  useEffect(() => {
+    if (!reward || rewardCountdownMs <= 0) return;
+    const id = setInterval(() => {
+      setRewardCountdownMs((prev) => {
+        const next = Math.max(0, prev - 1000);
+        if (next === 0) {
+          setReward(null);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [reward, rewardCountdownMs]);
 
   const requestOtp = async (inputPhone: string, inputName: string, refreshCode = false) => {
     setErrorMsg(null);
@@ -119,7 +159,7 @@ export default function SpinWinPage() {
     setErrorMsg(null); setSubmitting(true);
     try {
       const r = await postPublic<VerifyResponse>(API_PATHS.raffle.verify, { phone: phone.trim(), accessCode: code.toUpperCase(), deviceId: getDeviceId() });
-      setAccessCode(r.accessCode); setRemainingSpins(r.remainingSpins); setStep('spin');
+      setAccessCode(r.accessCode); setRemainingSpins(r.remainingSpins); setReward(asActiveReward(r.reward)); setStep('spin');
     } catch (e) { setErrorMsg(e instanceof Error ? e.message : 'Verification failed.'); }
     finally { setSubmitting(false); }
   };
@@ -128,7 +168,7 @@ export default function SpinWinPage() {
     setErrorMsg(null); setSubmitting(true);
     try {
       const r = await postPublic<VerifyResponse>(API_PATHS.raffle.verify, { phone: ph.trim(), accessCode: code.toUpperCase(), deviceId: getDeviceId() });
-      setPhone(ph.trim()); setAccessCode(r.accessCode); setRemainingSpins(r.remainingSpins); setStep('spin');
+      setPhone(ph.trim()); setAccessCode(r.accessCode); setRemainingSpins(r.remainingSpins); setReward(asActiveReward(r.reward)); setStep('spin');
     } catch (e) { setErrorMsg(e instanceof Error ? e.message : 'Could not sign in. Check your number and code.'); }
     finally { setSubmitting(false); }
   };
@@ -145,7 +185,7 @@ export default function SpinWinPage() {
       const dm = (360 - tc) % 360;
       const nr = rotRef.current + 6 * 360 + (dm - cm + 360) % 360;
       rotRef.current = nr; setRotation(nr);
-      setTimeout(() => { if (r.reward) { setReward(r.reward); setShowReward(true); } setSpinning(false); }, 5200);
+      setTimeout(() => { const nextReward = asActiveReward(r.reward); if (nextReward) { setReward(nextReward); setShowReward(true); } setSpinning(false); }, 5200);
     } catch (e) { setErrorMsg(e instanceof Error ? e.message : 'Spin failed.'); setSpinning(false); }
   };
 
@@ -155,7 +195,7 @@ export default function SpinWinPage() {
     setRotation(0); rotRef.current = 0; setStep('phone');
   };
 
-  const expiryMs = reward ? new Date(reward.expiresAt).getTime() - now : 0;
+  const expiryMs = reward ? rewardCountdownMs : 0;
 
   return (
     <main style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #0a0502 0%, #150905 40%, #0d0603 100%)', color: '#fff', position: 'relative', overflowX: 'hidden' }}>
@@ -251,7 +291,7 @@ export default function SpinWinPage() {
         </div>
       </div>
 
-      {showReward && reward && (
+      {showReward && reward && !reward.isExpired && (
         <WinModal reward={reward} expiryMs={expiryMs} remainingSpins={remainingSpins} accessCode={accessCode}
           onClose={() => setShowReward(false)}
           onSpinAgain={() => { setShowReward(false); setTimeout(() => handleSpin(), 300); }} />
@@ -515,7 +555,7 @@ function SpinStep({ rotation, spinning, onSpin, remainingSpins, reward, expiryMs
 
       <SpinWheel rotation={rotation} spinning={spinning} />
 
-      {reward && <ActiveTicket reward={reward} expiryMs={expiryMs} />}
+      {reward && <ActiveTicket reward={reward} expiryMs={expiryMs} accessCode={accessCode} />}
       {errorMsg && <ErrorBox msg={errorMsg} />}
 
       <div style={{ marginTop:20, display:'flex', flexDirection:'column', gap:12 }}>
@@ -619,10 +659,10 @@ function DesktopShowcase() {
 }
 
 // ─── Active Ticket ─────────────────────────────────────────────────────────────
-function ActiveTicket({ reward, expiryMs }: { reward: SpinReward; expiryMs: number }) {
+function ActiveTicket({ reward, expiryMs, accessCode }: { reward: SpinReward; expiryMs: number; accessCode: string | null }) {
   const d = REWARD_DISPLAY[reward.type] ?? { emoji:'🎁', color:'#f59e0b' };
   return (
-    <div className="reward-ticket" style={{ marginTop:16, padding:'18px 20px', display:'flex', alignItems:'center', gap:16 }}>
+    <div className="reward-ticket" style={{ marginTop:16, padding:'18px 20px', display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
       <div style={{ width:52, height:52, borderRadius:16, background:`rgba(${d.color === '#f59e0b' ? '245,158,11' : d.color === '#3b82f6' ? '59,130,246' : d.color === '#ea580c' ? '234,88,12' : d.color === '#16a34a' ? '22,163,74' : '220,38,38'},0.15)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
         {d.emoji}
       </div>
@@ -635,6 +675,9 @@ function ActiveTicket({ reward, expiryMs }: { reward: SpinReward; expiryMs: numb
         <div style={{ fontSize:'10px', color:'rgba(255,255,255,0.35)', fontWeight:600, marginBottom:3 }}>expires</div>
         <div style={{ fontFamily:'monospace', fontSize:'14px', fontWeight:800, color: expiryMs < 3600000 ? '#ef4444' : '#f59e0b' }}>{fmt(expiryMs)}</div>
       </div>
+      <div style={{ width:'100%', marginTop:4 }}>
+        <RewardSharePanel reward={reward} accessCode={accessCode} compact />
+      </div>
     </div>
   );
 }
@@ -645,16 +688,16 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
 }) {
   const d = REWARD_DISPLAY[reward.type] ?? { emoji:'🎁', color:'#f59e0b' };
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)', padding:'0 16px 24px' }} role="dialog" aria-modal="true">
+    <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)', padding:'max(8px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom))' }} role="dialog" aria-modal="true">
       <Confetti />
-      <div style={{ width:'100%', maxWidth:440, borderRadius:32, overflow:'hidden', background:'linear-gradient(180deg, #120903 0%, #0d0502 100%)', border:'1px solid rgba(232,164,90,0.2)', boxShadow:'0 40px 100px rgba(0,0,0,0.8)', animation:'slide-up 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
+      <div style={{ width:'100%', maxWidth:440, borderRadius:32, overflow:'hidden', background:'linear-gradient(180deg, #120903 0%, #0d0502 100%)', border:'1px solid rgba(232,164,90,0.2)', boxShadow:'0 40px 100px rgba(0,0,0,0.8)', animation:'slide-up 0.4s cubic-bezier(0.34,1.56,0.64,1)', maxHeight:'calc(var(--viewport-height,100dvh) - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)))', display:'flex', flexDirection:'column' }}>
         {/* Close */}
         <button onClick={onClose} style={{ position:'absolute', right:20, top:20, zIndex:10, width:36, height:36, borderRadius:'50%', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', color:'rgba(255,255,255,0.6)', cursor:'pointer' }}>
           <X size={16} />
         </button>
 
         {/* Win header */}
-        <div style={{ padding:'40px 28px 32px', textAlign:'center', background:'linear-gradient(180deg, rgba(181,69,27,0.2) 0%, transparent 100%)' }}>
+        <div style={{ padding:'clamp(24px, 6vw, 40px) clamp(18px, 5vw, 28px) clamp(20px, 5vw, 32px)', textAlign:'center', background:'linear-gradient(180deg, rgba(181,69,27,0.2) 0%, transparent 100%)' }}>
           <p style={{ fontSize:'10px', fontWeight:700, letterSpacing:'0.4em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', margin:'0 0 16px' }}>🎉 You won</p>
           <div style={{ fontSize:72, lineHeight:1, animation:'pop-in 0.6s cubic-bezier(0.34,1.56,0.64,1)', display:'block' }}>{d.emoji}</div>
           <h2 style={{ fontSize:'clamp(1.75rem,6vw,2.25rem)', fontWeight:900, margin:'16px 0 8px', background:`linear-gradient(135deg, #fff, ${d.color})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{reward.label}</h2>
@@ -662,7 +705,7 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
         </div>
 
         {/* Timer + actions */}
-        <div style={{ padding:'24px 24px 28px', display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ padding:'18px clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))', display:'flex', flexDirection:'column', gap:12, overflowY:'auto' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:16, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
             <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:'13px', fontWeight:700, color:'rgba(255,255,255,0.6)' }}>
               <Clock3 size={15} color="#f59e0b" /> Expires in
@@ -672,6 +715,7 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
           <div style={{ padding:'12px 16px', borderRadius:14, background:'rgba(232,164,90,0.06)', border:'1px solid rgba(232,164,90,0.12)', fontSize:'12px', color:'rgba(255,255,255,0.5)', textAlign:'center', lineHeight:1.6 }}>
             Show this screen to the cashier, or quote your Spin &amp; Win code when you order. Only your latest reward is applied to the order.
           </div>
+          <RewardSharePanel reward={reward} accessCode={accessCode} compact />
           <Link href={accessCode ? `/menu?raffle=${accessCode}` : '/menu'} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'16px', borderRadius:99, background:'linear-gradient(135deg, #b5451b, #e8803a)', textDecoration:'none', color:'#fff', fontSize:'15px', fontWeight:800, boxShadow:'0 12px 32px rgba(181,69,27,0.4)' }}>
             Order now &amp; use reward <ArrowRight size={18} />
           </Link>
@@ -680,6 +724,86 @@ function WinModal({ reward, expiryMs, remainingSpins, accessCode, onClose, onSpi
             {remainingSpins > 0 ? `Spin again — ${remainingSpins} spin${remainingSpins>1?'s':''} left` : 'No spins left today'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RewardSharePanel({ reward, accessCode, compact = false }: { reward: SpinReward; accessCode: string | null; compact?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const rewardKey = reward.type.toLowerCase();
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/raffle/share/${encodeURIComponent(rewardKey)}`
+    : `/raffle/share/${encodeURIComponent(rewardKey)}`;
+  const raffleUrl = typeof window !== 'undefined' ? `${window.location.origin}/raffle` : '/raffle';
+  const orderUrl = typeof window !== 'undefined' ? `${window.location.origin}/menu${accessCode ? `?raffle=${accessCode}` : ''}` : '/menu';
+  const text = `I just won ${reward.label} on Crave & Co Spin & Win! ${reward.description} Join here: ${shareUrl}`;
+
+  const shareNative = async () => {
+    if (typeof navigator === 'undefined' || !navigator.share) return false;
+    try {
+      await navigator.share({
+        title: `I won ${reward.label} at Crave & Co`,
+        text: `I just won ${reward.label} on Crave & Co Spin & Win!`,
+        url: shareUrl,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(`${text}\nUse my code at checkout from: ${orderUrl}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const openShare = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer,width=640,height=720');
+  };
+
+  return (
+    <div style={{ padding: compact ? '10px 12px' : '14px 14px 12px', borderRadius:16, background:'linear-gradient(135deg, rgba(181,69,27,0.14), rgba(245,158,11,0.08))', border:'1px solid rgba(232,164,90,0.24)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom: compact ? 8 : 10 }}>
+        <p style={{ margin:0, fontSize: compact ? '11px' : '12px', fontWeight:800, letterSpacing:'0.16em', textTransform:'uppercase', color:'rgba(255,255,255,0.72)' }}>
+          Share your win
+        </p>
+        <button
+          type="button"
+          onClick={async () => {
+            const nativeShared = await shareNative();
+            if (!nativeShared) await copyText();
+          }}
+          style={{ display:'inline-flex', alignItems:'center', gap:6, border:'1px solid rgba(255,255,255,0.16)', background:'rgba(255,255,255,0.06)', color:'#fff', borderRadius:999, padding:'7px 11px', fontSize:'12px', fontWeight:700, cursor:'pointer' }}
+        >
+          <Share2 size={14} /> Quick Share
+        </button>
+      </div>
+
+      <div style={{ borderRadius:14, padding:'12px 12px', background:'rgba(0,0,0,0.22)', border:'1px solid rgba(255,255,255,0.08)', marginBottom:10 }}>
+        <p style={{ margin:'0 0 4px', fontSize:'10px', letterSpacing:'0.18em', textTransform:'uppercase', color:'rgba(255,255,255,0.46)', fontWeight:700 }}>Crave & Co Spin & Win</p>
+        <p style={{ margin:'0 0 2px', fontSize:'16px', fontWeight:900, color:'#fff' }}>{reward.label}</p>
+        <p style={{ margin:0, fontSize:'12px', color:'rgba(255,255,255,0.62)', lineHeight:1.5 }}>{reward.description}</p>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+        <button type="button" onClick={() => openShare(`https://wa.me/?text=${encodeURIComponent(text)}`)} style={{ border:'1px solid rgba(255,255,255,0.14)', background:'rgba(22,163,74,0.15)', color:'#dcfce7', borderRadius:12, padding:'10px 12px', fontSize:'12px', fontWeight:700, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          WhatsApp <ExternalLink size={13} />
+        </button>
+        <button type="button" onClick={() => openShare(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I just won ${reward.label} on Crave & Co Spin & Win!`)}&url=${encodeURIComponent(shareUrl)}`)} style={{ border:'1px solid rgba(255,255,255,0.14)', background:'rgba(2,132,199,0.18)', color:'#e0f2fe', borderRadius:12, padding:'10px 12px', fontSize:'12px', fontWeight:700, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          X / Twitter <ExternalLink size={13} />
+        </button>
+        <button type="button" onClick={() => openShare(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(`I just won ${reward.label} on Crave & Co Spin & Win!`)}`)} style={{ border:'1px solid rgba(255,255,255,0.14)', background:'rgba(37,99,235,0.18)', color:'#dbeafe', borderRadius:12, padding:'10px 12px', fontSize:'12px', fontWeight:700, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          Facebook <ExternalLink size={13} />
+        </button>
+        <button type="button" onClick={copyText} style={{ border:'1px solid rgba(255,255,255,0.14)', background: copied ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.08)', color: copied ? '#d1fae5' : 'rgba(255,255,255,0.86)', borderRadius:12, padding:'10px 12px', fontSize:'12px', fontWeight:700, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          <Copy size={13} /> {copied ? 'Copied!' : 'Copy Post Text'}
+        </button>
       </div>
     </div>
   );

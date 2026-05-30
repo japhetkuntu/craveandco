@@ -10,12 +10,19 @@ import {
   CreateDraftSpecialOrderDto,
   UpdateSpecialOrderStatusDto,
   UpdateSpecialOrderItemPricesDto,
+  PreviewSpecialOrderPricingDto,
 } from './dto/special-orders.dto';
 
 @Controller('api/v1/special-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SpecialOrdersController {
   constructor(private service: SpecialOrdersService) {}
+
+  @Post('pricing/preview')
+  @Roles('OWNER', 'OPERATIONS_MANAGER', 'GROWTH_LEAD')
+  previewPricing(@Body() dto: PreviewSpecialOrderPricingDto) {
+    return this.service.previewPricing(dto.items);
+  }
 
   // Ops / Owner: create with full prices immediately
   @Post()

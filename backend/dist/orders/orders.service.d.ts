@@ -7,9 +7,11 @@ export declare class OrdersService {
     private prisma;
     private promotions;
     private files;
+    private readonly rewardExpiryMs;
     constructor(prisma: PrismaService, promotions: PromotionsService, files: FilesService);
     private orderInclude;
     private readonly groupedComponentsOptionId;
+    private isActiveRaffleSpin;
     private attachImageUrl;
     private attachImageUrlsToOrder;
     private getGroupedComponentIds;
