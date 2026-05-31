@@ -310,17 +310,28 @@ export default function SalesBusinessesPage() {
 
                   {/* Status update */}
                   <div className="flex flex-wrap gap-2">
-                    {STATUS_OPTIONS.filter((s) => s.value && s.value !== lead.status).map((s) => (
-                      <button
-                        key={s.value}
-                        onClick={() => handleStatusUpdate(lead.id, s.value)}
-                        disabled={updatingId === lead.id}
-                        className="text-xs px-3 py-1 rounded-full border border-border-subtle text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
-                      >
-                        → {s.label}
-                      </button>
-                    ))}
+                    {(lead.status === 'SIGNED' || lead.status === 'LOST') ? (
+                      <span className="text-xs px-3 py-1 rounded-full border border-border-subtle bg-surface-elevated text-text-secondary">
+                        Locked: {lead.status}
+                      </span>
+                    ) : (
+                      STATUS_OPTIONS.filter((s) => s.value && s.value !== lead.status).map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => handleStatusUpdate(lead.id, s.value)}
+                          disabled={updatingId === lead.id}
+                          className="text-xs px-3 py-1 rounded-full border border-border-subtle text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
+                        >
+                          → {s.label}
+                        </button>
+                      ))
+                    )}
                   </div>
+                  {(lead.status === 'SIGNED' || lead.status === 'LOST') ? (
+                    <p className="text-xs text-text-secondary mt-2">This lead is closed and will no longer change status.</p>
+                  ) : (
+                    <p className="text-xs text-text-secondary mt-2">Tap a status to update the pipeline. Signed leads are counted as business conversions.</p>
+                  )}
 
                   {/* Recent interactions */}
                   {lead.interactions.length > 0 && (

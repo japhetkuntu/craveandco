@@ -1,5 +1,22 @@
-import { IsEnum, IsOptional, IsString, IsNumber, IsDateString, Min } from 'class-validator';
-import { AcquisitionType, AcquisitionSource, BusinessLeadStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
+import {
+  AcquisitionType,
+  AcquisitionSource,
+  BusinessLeadStatus,
+  SalesPlanPriority,
+} from '@prisma/client';
 
 export class LogAcquisitionDto {
   @IsEnum(AcquisitionType)
@@ -131,4 +148,44 @@ export class UpsertTargetDto {
   @IsNumber()
   @Min(0)
   businessTarget: number;
+}
+
+export class WeeklyPlanStepDto {
+  @IsEnum(AcquisitionType)
+  type: AcquisitionType;
+
+  @IsString()
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  details?: string;
+
+  @IsEnum(SalesPlanPriority)
+  priority: SalesPlanPriority;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  places: string[];
+}
+
+export class UpsertWeeklySalesPlanDto {
+  @IsDateString()
+  weekStart: string;
+
+  @IsInt()
+  @Min(1)
+  weeklyTarget: number;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => WeeklyPlanStepDto)
+  steps: WeeklyPlanStepDto[];
+}
+
+export class RejectWeeklyPlanDto {
+  @IsString()
+  comment: string;
 }

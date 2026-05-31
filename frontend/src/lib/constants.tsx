@@ -188,6 +188,18 @@ export const API_PATHS = {
     analytics: (from: string, to: string) => `/api/v1/sales/analytics?from=${from}&to=${to}`,
     executives: '/api/v1/sales/executives',
     upsertTarget: '/api/v1/sales/targets',
+    myWeeklyPlan: (weekStart?: string) => weekStart
+      ? `/api/v1/sales/weekly-plan/me?weekStart=${weekStart}`
+      : '/api/v1/sales/weekly-plan/me',
+    upsertWeeklyPlan: '/api/v1/sales/weekly-plan',
+    submitWeeklyPlan: (id: string) => `/api/v1/sales/weekly-plan/${id}/submit`,
+    resubmitWeeklyPlan: (id: string) => `/api/v1/sales/weekly-plan/${id}/resubmit`,
+    myWeeklyTask: (date: string) => `/api/v1/sales/weekly-tasks/me?date=${date}`,
+    pendingWeeklyPlans: (weekStart?: string) => weekStart
+      ? `/api/v1/sales/weekly-plans/pending?weekStart=${weekStart}`
+      : '/api/v1/sales/weekly-plans/pending',
+    approveWeeklyPlan: (id: string) => `/api/v1/sales/weekly-plans/${id}/approve`,
+    rejectWeeklyPlan: (id: string) => `/api/v1/sales/weekly-plans/${id}/reject`,
   },
   promotions: {
     list: '/api/v1/promotions',

@@ -18,6 +18,8 @@ import {
   UpdateBusinessLeadDto,
   AddInteractionDto,
   UpsertTargetDto,
+  UpsertWeeklySalesPlanDto,
+  RejectWeeklyPlanDto,
 } from './dto/sales.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -97,6 +99,43 @@ export class SalesController {
     return this.salesService.getTargetForDate(req.user.userId, today);
   }
 
+  @Get('weekly-plan/me')
+  @Roles('SALES_EXECUTIVE')
+  getMyWeeklyPlan(
+    @Req() req: any,
+    @Query('weekStart') weekStart?: string,
+  ) {
+    return this.salesService.getMyWeeklyPlan(req.user.userId, weekStart);
+  }
+
+  @Post('weekly-plan')
+  @Roles('SALES_EXECUTIVE')
+  upsertWeeklyPlan(@Req() req: any, @Body() dto: UpsertWeeklySalesPlanDto) {
+    return this.salesService.upsertWeeklyPlan(dto, req.user.userId, req.user.branchId);
+  }
+
+  @Post('weekly-plan/:id/submit')
+  @Roles('SALES_EXECUTIVE')
+  submitWeeklyPlan(@Req() req: any, @Param('id') id: string) {
+    return this.salesService.submitWeeklyPlan(id, req.user.userId);
+  }
+
+  @Post('weekly-plan/:id/resubmit')
+  @Roles('SALES_EXECUTIVE')
+  resubmitWeeklyPlan(@Req() req: any, @Param('id') id: string) {
+    return this.salesService.submitWeeklyPlan(id, req.user.userId);
+  }
+
+  @Get('weekly-tasks/me')
+  @Roles('SALES_EXECUTIVE')
+  getMyWeeklyTask(
+    @Req() req: any,
+    @Query('date') date: string,
+  ) {
+    const today = date || new Date().toISOString().slice(0, 10);
+    return this.salesService.getMyDailyTask(req.user.userId, today);
+  }
+
   // ─── OWNER ENDPOINTS ─────────────────────────────────────
 
   @Get('analytics')
@@ -130,5 +169,26 @@ export class SalesController {
   @Roles('OWNER')
   upsertTarget(@Body() dto: UpsertTargetDto) {
     return this.salesService.upsertTarget(dto);
+  }
+
+  @Get('weekly-plans/pending')
+  @Roles('OWNER')
+  getPendingWeeklyPlans(
+    @Req() req: any,
+    @Query('weekStart') weekStart?: string,
+  ) {
+    return this.salesService.getPendingWeeklyPlans(req.user.branchId, weekStart);
+  }
+
+  @Post('weekly-plans/:id/approve')
+  @Roles('OWNER')
+  approveWeeklyPlan(@Req() req: any, @Param('id') id: string) {
+    return this.salesService.approveWeeklyPlan(id, req.user.userId, req.user.branchId);
+  }
+
+  @Post('weekly-plans/:id/reject')
+  @Roles('OWNER')
+  rejectWeeklyPlan(@Req() req: any, @Param('id') id: string, @Body() dto: RejectWeeklyPlanDto) {
+    return this.salesService.rejectWeeklyPlan(id, req.user.userId, req.user.branchId, dto);
   }
 }

@@ -6,8 +6,7 @@ import { API_PATHS } from '@/lib/constants';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { KPICard } from '@/components/ui/kpi-card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { UserPlus, Building2, TrendingUp, Target, Trophy } from 'lucide-react';
+import { UserPlus, Building2, TrendingUp, Trophy, CheckCircle2, XCircle, CalendarDays, ClipboardList } from 'lucide-react';
 import { ExportButton } from '@/components/ui/export-button';
 
 const RANGE_OPTIONS = [
@@ -38,10 +37,23 @@ interface Executive {
   email: string;
 }
 
-interface TargetForm {
-  userId: string;
-  individualTarget: number;
-  businessTarget: number;
+interface WeeklyPlanStep {
+  type: 'INDIVIDUAL' | 'BUSINESS';
+  title: string;
+  details?: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  places: string[];
+}
+
+interface PendingWeeklyPlan {
+  id: string;
+  weekStart: string;
+  weekEnd: string;
+  weeklyTarget: number;
+  status: 'SUBMITTED';
+  submittedAt?: string;
+  executive: Executive;
+  steps: WeeklyPlanStep[];
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -66,57 +78,69 @@ export default function OwnerSalesPage() {
   const [rangeIdx, setRangeIdx] = useState(2); // 7 days default
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [executives, setExecutives] = useState<Executive[]>([]);
+  const [pendingPlans, setPendingPlans] = useState<PendingWeeklyPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [targetForms, setTargetForms] = useState<TargetForm[]>([]);
-  const [savingTargets, setSavingTargets] = useState(false);
-  const [targetDate, setTargetDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [rejectDrafts, setRejectDrafts] = useState<Record<string, string>>({});
+  const [planWeekStart, setPlanWeekStart] = useState(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const offset = (day + 6) % 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - offset);
+    return monday.toISOString().slice(0, 10);
+  });
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const from = offsetDate(RANGE_OPTIONS[rangeIdx].fromBack);
       const to = offsetDate(RANGE_OPTIONS[rangeIdx].toBack);
-      const [analyticsRes, execRes] = await Promise.all([
+      const [analyticsRes, execRes, pendingRes] = await Promise.all([
         get<Analytics>(API_PATHS.sales.analytics(from, to)),
         get<Executive[]>(API_PATHS.sales.executives),
+        get<PendingWeeklyPlan[]>(API_PATHS.sales.pendingWeeklyPlans(planWeekStart)),
       ]);
       setAnalytics(analyticsRes);
       setExecutives(execRes);
+      setPendingPlans(pendingRes);
+      setError('');
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load sales data.');
     } finally {
       setLoading(false);
     }
-  }, [rangeIdx]);
-
-  const loadTargets = useCallback(async () => {
-    if (executives.length === 0) return;
-    try {
-      const targets = await get<{ userId: string; individualTarget: number; businessTarget: number }[]>(
-        API_PATHS.sales.branchTargets(targetDate)
-      );
-      setTargetForms(
-        executives.map((e) => {
-          const t = targets.find((x) => x.userId === e.id);
-          return { userId: e.id, individualTarget: t?.individualTarget ?? 5, businessTarget: t?.businessTarget ?? 2 };
-        })
-      );
-    } catch {
-      setTargetForms(executives.map((e) => ({ userId: e.id, individualTarget: 5, businessTarget: 2 })));
-    }
-  }, [executives, targetDate]);
+  }, [rangeIdx, planWeekStart]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadTargets(); }, [loadTargets]);
 
-  const handleSaveTargets = async () => {
-    setSavingTargets(true);
+  const approvePlan = async (id: string) => {
+    setReviewingId(id);
     try {
-      await Promise.all(
-        targetForms.map((tf) =>
-          post(API_PATHS.sales.upsertTarget, { ...tf, date: targetDate })
-        )
-      );
+      await post(API_PATHS.sales.approveWeeklyPlan(id), {});
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to approve weekly plan.');
     } finally {
-      setSavingTargets(false);
+      setReviewingId(null);
+    }
+  };
+
+  const rejectPlan = async (id: string) => {
+    const comment = (rejectDrafts[id] ?? '').trim();
+    if (!comment) {
+      setError('Rejection comment is required before rejecting a plan.');
+      return;
+    }
+    setReviewingId(id);
+    try {
+      await post(API_PATHS.sales.rejectWeeklyPlan(id), { comment });
+      await load();
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to reject weekly plan.');
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -160,6 +184,12 @@ export default function OwnerSalesPage() {
           ]}
         />
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+          {error}
+        </div>
+      )}
 
       {/* Range selector */}
       <div className="flex gap-2 flex-wrap">
@@ -263,68 +293,92 @@ export default function OwnerSalesPage() {
         )}
       </div>
 
-      {/* Set daily targets */}
-      {executives.length > 0 && (
-        <div className="bg-surface-raised border border-border-subtle rounded-xl p-4 sm:p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Target size={16} className="text-info" />
-            <h2 className="text-sm font-semibold text-text-primary">Set Daily Targets</h2>
+      <div className="bg-surface-raised border border-border-subtle rounded-xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={16} className="text-info" />
+            <h2 className="text-sm font-semibold text-text-primary">Weekly Target Reviews</h2>
           </div>
-          <div className="flex items-center gap-3 mb-4 flex-wrap">
-            <label className="text-xs text-text-secondary whitespace-nowrap">Target date:</label>
+          <div className="flex items-center gap-2">
+            <CalendarDays size={14} className="text-text-secondary" />
             <input
               type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-info"
+              value={planWeekStart}
+              onChange={(e) => setPlanWeekStart(e.target.value)}
+              className="bg-surface-elevated border border-border-subtle rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none"
             />
           </div>
-          <div className="space-y-4">
-            {executives.map((exec, i) => (
-              <div key={exec.id} className="space-y-2">
-                <span className="text-sm font-medium text-text-primary truncate block">{exec.name}</span>
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-text-secondary whitespace-nowrap">Individuals:</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={targetForms[i]?.individualTarget ?? 5}
-                      onChange={(e) => {
-                        const newForms = [...targetForms];
-                        newForms[i] = { ...newForms[i], individualTarget: parseInt(e.target.value) || 0 };
-                        setTargetForms(newForms);
-                      }}
-                      className="w-16 bg-surface-elevated border border-border-subtle rounded-lg px-2 py-1 text-sm text-text-primary text-center focus:outline-none"
-                    />
+        </div>
+
+        {pendingPlans.length === 0 ? (
+          <div className="text-sm text-text-secondary">No submitted weekly plans for this week.</div>
+        ) : (
+          <div className="space-y-3">
+            {pendingPlans.map((plan) => (
+              <div key={plan.id} className="rounded-xl border border-border-subtle p-4 space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">{plan.executive.name}</p>
+                    <p className="text-xs text-text-secondary">{plan.executive.email}</p>
+                    <p className="text-xs text-text-secondary mt-1">
+                      Weekly target: <span className="font-semibold text-text-primary">{plan.weeklyTarget}</span>
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-text-secondary whitespace-nowrap">Businesses:</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={targetForms[i]?.businessTarget ?? 2}
-                      onChange={(e) => {
-                        const newForms = [...targetForms];
-                        newForms[i] = { ...newForms[i], businessTarget: parseInt(e.target.value) || 0 };
-                        setTargetForms(newForms);
-                      }}
-                      className="w-16 bg-surface-elevated border border-border-subtle rounded-lg px-2 py-1 text-sm text-text-primary text-center focus:outline-none"
-                    />
-                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full border border-info/20 bg-info/10 text-info font-semibold">
+                    SUBMITTED
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {plan.steps.map((step, idx) => (
+                    <div key={`${plan.id}-step-${idx}`} className="rounded-lg bg-surface-elevated p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{step.title}</p>
+                          <p className="text-[11px] text-text-secondary">Type: {step.type}</p>
+                        </div>
+                        <span className="text-[11px] rounded-full border border-border-subtle px-2 py-1 text-text-secondary">
+                          {step.priority}
+                        </span>
+                      </div>
+                      {step.details && <p className="text-xs text-text-secondary mt-1">{step.details}</p>}
+                      <p className="text-xs text-text-secondary mt-1">Places: {step.places.join(', ')}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <textarea
+                  rows={2}
+                  value={rejectDrafts[plan.id] ?? ''}
+                  onChange={(e) => setRejectDrafts((prev) => ({ ...prev, [plan.id]: e.target.value }))}
+                  placeholder="Rejection comment (required if rejecting)"
+                  className="w-full bg-surface-elevated border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-primary"
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => approvePlan(plan.id)}
+                    disabled={reviewingId === plan.id}
+                    className="inline-flex items-center gap-2"
+                  >
+                    <CheckCircle2 size={14} />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => rejectPlan(plan.id)}
+                    disabled={reviewingId === plan.id}
+                    className="inline-flex items-center gap-2"
+                  >
+                    <XCircle size={14} />
+                    Reject
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
-          <Button
-            onClick={handleSaveTargets}
-            disabled={savingTargets}
-            className="mt-4 w-full sm:w-auto"
-          >
-            {savingTargets ? 'Saving...' : 'Save Targets'}
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {executives.length === 0 && (
         <div className="bg-surface-raised border border-border-subtle rounded-xl p-5 text-center text-sm text-text-secondary">

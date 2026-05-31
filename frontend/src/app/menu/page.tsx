@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { Phone, Menu, X, MessageCircle, ChevronLeft, Search, MapPin, Truck, Store } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -35,7 +35,7 @@ interface MenuItem {
   categoryId?: string;
 }
 
-export default function MenuPage() {
+function MenuPageContent() {
   const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
@@ -914,5 +914,19 @@ export default function MenuPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function MenuPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fdf8f2] flex items-center justify-center text-sm text-[#7c5c2e]">
+          Loading menu...
+        </div>
+      }
+    >
+      <MenuPageContent />
+    </Suspense>
   );
 }

@@ -154,6 +154,19 @@ enum BusinessLeadStatus {
   LOST
 }
 
+enum SalesPlanStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum SalesPlanPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
 // ─── CORE ───────────────────────────────────────────────
 
 model Branch {
@@ -186,6 +199,7 @@ model Branch {
   acquisitionTargets DailyAcquisitionTarget[]
   acquisitionLogs    AcquisitionLog[]
   businessLeads      BusinessLead[]
+  weeklySalesPlans   WeeklySalesTargetPlan[]
 
   @@map("branches")
 }
@@ -215,6 +229,8 @@ model User {
   acquisitionLogs      AcquisitionLog[]         @relation("ExecutiveAcquisitions")
   businessLeads        BusinessLead[]           @relation("ExecutiveLeads")
   businessInteractions BusinessInteraction[]    @relation("ExecutiveInteractions")
+  weeklySalesPlans     WeeklySalesTargetPlan[]  @relation("ExecutiveWeeklyPlans")
+  approvedSalesPlans   WeeklySalesTargetPlan[]  @relation("WeeklyPlanApprover")
   initiatedOrders      Order[]                  @relation("InitiatedOrders")
   redeemedRaffleSpins  CustomerRaffleSpin[]     @relation("RedeemedRaffleSpins")
 
@@ -960,5 +976,33 @@ model BusinessInteraction {
 
   @@index([businessLeadId])
   @@map("business_interactions")
+}
+
+model WeeklySalesTargetPlan {
+  id            String            @id @default(cuid())
+  branchId      String
+  branch        Branch            @relation(fields: [branchId], references: [id])
+  executiveId   String
+  executive     User              @relation("ExecutiveWeeklyPlans", fields: [executiveId], references: [id])
+  weekStart     DateTime          @db.Date
+  weekEnd       DateTime          @db.Date
+  weeklyTarget  Int
+  status        SalesPlanStatus   @default(DRAFT)
+  steps         Json
+  places        Json
+  dailyTasks    Json
+  ownerComment  String?
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  approvedById  String?
+  approvedBy    User?             @relation("WeeklyPlanApprover", fields: [approvedById], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([executiveId, weekStart])
+  @@index([branchId, weekStart])
+  @@index([branchId, status])
+  @@map("weekly_sales_target_plans")
 }
 
