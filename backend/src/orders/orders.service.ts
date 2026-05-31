@@ -409,6 +409,22 @@ export class OrdersService {
       data: { status: dto.status as OrderStatus },
       include: this.orderInclude,
     });
+
+    // Update customer visit summary when an order becomes completed.
+    if (
+      dto.status === OrderStatus.COMPLETED &&
+      order.status !== OrderStatus.COMPLETED &&
+      updated.customerId
+    ) {
+      await this.prisma.customer.update({
+        where: { id: updated.customerId },
+        data: {
+          lastSeenAt: new Date(),
+          visitCount: { increment: 1 },
+        },
+      });
+    }
+
     // Reverse auto-deductions when an order is cancelled
     if (dto.status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
       await this.reverseInventoryForOrder(id, order.branchId);
@@ -735,7 +751,17 @@ export class OrdersService {
     });
 
     const postPayTasks: Array<Promise<any>> = [...loyaltyTransactions];
-
+    if (customerId) {
+      postPayTasks.push(
+        this.prisma.customer.update({
+          where: { id: customerId },
+          data: {
+            lastSeenAt: new Date(),
+            visitCount: { increment: 1 },
+          },
+        }),
+      );
+    }
     if (appliedPromotionId) {
       const totalDiscountGiven = Number((Number(order.total) - paidTotal).toFixed(2));
       postPayTasks.push(this.promotions.recordUsage(appliedPromotionId, Math.max(totalDiscountGiven, 0)));

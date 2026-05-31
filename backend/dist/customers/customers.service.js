@@ -358,6 +358,11 @@ let CustomersService = class CustomersService {
         const daysSinceLastOrder = lastOrderAt
             ? Math.floor((Date.now() - new Date(lastOrderAt).getTime()) / 86400000)
             : null;
+        const insightsVisitCount = totalOrders;
+        const status = this.getCustomerStatus({
+            visitCount: insightsVisitCount,
+            lastSeenAt: lastOrderAt ? new Date(lastOrderAt) : customer.lastSeenAt,
+        });
         const daysAgo = (days) => {
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - days);
@@ -409,7 +414,6 @@ let CustomersService = class CustomersService {
             count: entry.count,
             sharePercent: totalOrders > 0 ? Number(((entry.count / totalOrders) * 100).toFixed(0)) : 0,
         }));
-        const status = this.getCustomerStatus(customer);
         const preferredContact = customer.phone ? 'sms' : customer.email ? 'email' : 'none';
         const recommendedMessage = totalOrders === 0
             ? 'Send a welcome offer to encourage the first order.'

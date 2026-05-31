@@ -80,6 +80,7 @@ export default function OwnerInventoryPage() {
   const [inventoryError, setInventoryError] = useState('');
   const [showItemModal, setShowItemModal] = useState(false);
   const [stockSearch, setStockSearch] = useState('');
+  const [stockSearchInput, setStockSearchInput] = useState('');
   const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -384,16 +385,35 @@ export default function OwnerInventoryPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Stock Levels</p>
         </div>
         <div className="px-4 pb-3 border-b border-border-subtle">
-          <div className="relative">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
             <input
-              type="search"
+              type="text"
               placeholder="Search ingredients…"
-              value={stockSearch}
-              onChange={(e) => { setStockSearch(e.target.value); setPage(0); }}
+              value={stockSearchInput}
+              onChange={(e) => setStockSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  setStockSearch(stockSearchInput);
+                  setPage(0);
+                }
+              }}
               className="w-full h-10 pl-9 pr-4 rounded-xl border border-border-default bg-surface-input text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
             />
           </div>
+          <Button
+            type="button"
+            onClick={() => {
+              setStockSearch(stockSearchInput);
+              setPage(0);
+            }}
+            className="h-10 px-4"
+          >
+            Search
+          </Button>
+        </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
