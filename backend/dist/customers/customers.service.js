@@ -174,14 +174,34 @@ let CustomersService = class CustomersService {
                 { email: { contains: params.search, mode: 'insensitive' } },
             ];
         }
+        const sortableFields = ['name', 'email', 'phone', 'birthday', 'createdAt'];
+        const orderBy = params?.sortBy && sortableFields.includes(params.sortBy)
+            ? { [params.sortBy]: params.sortDir ?? 'desc' }
+            : { createdAt: 'desc' };
         const customers = await this.prisma.customer.findMany({
             where,
-            orderBy: { createdAt: 'desc' },
+            orderBy,
+            skip,
+            take,
         });
         if (customers.length === 0) {
             return customers;
         }
         const customerIds = customers.map((customer) => customer.id);
+        const acquisitionLogs = await this.prisma.acquisitionLog.findMany({
+            where: { customerId: { in: customerIds } },
+            include: { executive: { select: { name: true } } },
+            orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        });
+        const latestAcquisitionByCustomer = new Map();
+        for (const log of acquisitionLogs) {
+            if (!log.customerId || latestAcquisitionByCustomer.has(log.customerId))
+                continue;
+            latestAcquisitionByCustomer.set(log.customerId, {
+                source: log.source,
+                executiveName: log.executive?.name ?? null,
+            });
+        }
         const customerStats = await this.prisma.order.groupBy({
             by: ['customerId'],
             where: {
@@ -224,13 +244,19 @@ let CustomersService = class CustomersService {
             const current = loyaltyPointsMap.get(transaction.customerId) ?? 0;
             loyaltyPointsMap.set(transaction.customerId, current + (transaction.type === client_1.LoyaltyTxType.EARN ? transaction.points : -Math.abs(transaction.points)));
         });
-        const customersWithStats = customers.map((customer) => ({
-            ...customer,
-            totalSpend: statsMap.get(customer.id)?.totalSpend ?? Number(customer.totalSpend),
-            visitCount: statsMap.get(customer.id)?.visitCount ?? customer.visitCount,
-            loyaltyPoints: Math.max(loyaltyPointsMap.get(customer.id) ?? 0, 0),
-            totalDiscount: Number((discountMap.get(customer.id) || 0).toFixed(2)),
-        }));
+        const customersWithStats = customers.map((customer) => {
+            const latestAcquisition = latestAcquisitionByCustomer.get(customer.id);
+            return {
+                ...customer,
+                totalSpend: statsMap.get(customer.id)?.totalSpend ?? Number(customer.totalSpend),
+                visitCount: statsMap.get(customer.id)?.visitCount ?? customer.visitCount,
+                loyaltyPoints: Math.max(loyaltyPointsMap.get(customer.id) ?? 0, 0),
+                totalDiscount: Number((discountMap.get(customer.id) || 0).toFixed(2)),
+                acquisitionSource: latestAcquisition?.source ?? null,
+                acquisitionExecutive: latestAcquisition?.executiveName ?? null,
+                statusTag: this.getCustomerStatusTag(customer),
+            };
+        });
         const getStatusRank = (customer) => {
             if (!customer.lastSeenAt)
                 return 6;
@@ -299,10 +325,17 @@ let CustomersService = class CustomersService {
             const subtotal = order.items.reduce((orderSum, item) => orderSum + Number(item.unitPrice) * item.quantity, 0);
             return sum + Math.max(subtotal - Number(order.total), 0);
         }, 0);
+        const latestAcquisition = await this.prisma.acquisitionLog.findFirst({
+            where: { customerId: id },
+            include: { executive: { select: { name: true } } },
+            orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        });
         return {
             ...customer,
             loyaltyPoints: Math.max(balance, 0),
             totalDiscount: Number(totalDiscount.toFixed(2)),
+            acquisitionSource: latestAcquisition?.source ?? null,
+            acquisitionExecutive: latestAcquisition?.executive?.name ?? null,
         };
     }
     getCustomerStatus(customer) {
@@ -321,6 +354,16 @@ let CustomersService = class CustomersService {
             return 'at-risk';
         return 'inactive';
     }
+    getCustomerStatusTag(customer) {
+        if (!customer.lastSeenAt)
+            return 'new';
+        const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
+        if (daysSince <= 14)
+            return 'active';
+        if (daysSince <= 60)
+            return 'inactive';
+        return 'churned';
+    }
     async getInsights(customerId) {
         const customer = await this.prisma.customer.findUnique({
             where: { id: customerId },
@@ -337,6 +380,11 @@ let CustomersService = class CustomersService {
         if (!customer) {
             throw new common_1.BadRequestException('Customer not found');
         }
+        const latestAcquisition = await this.prisma.acquisitionLog.findFirst({
+            where: { customerId },
+            include: { executive: { select: { name: true } } },
+            orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        });
         const orders = await this.prisma.order.findMany({
             where: {
                 customerId,
@@ -414,6 +462,36 @@ let CustomersService = class CustomersService {
             count: entry.count,
             sharePercent: totalOrders > 0 ? Number(((entry.count / totalOrders) * 100).toFixed(0)) : 0,
         }));
+        const orderHourCounts = new Array(24).fill(0);
+        orders.forEach((order) => {
+            orderHourCounts[order.createdAt.getHours()] += 1;
+        });
+        const bestHour = orderHourCounts.reduce((best, count, hour) => (count > best.count ? { hour, count } : best), { hour: 12, count: 0 });
+        const formatHourLabel = (hour) => {
+            const suffix = hour < 12 ? 'am' : 'pm';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}${suffix}`;
+        };
+        const bestTimeToReengage = bestHour.count > 0
+            ? `${formatHourLabel(bestHour.hour)} – ${formatHourLabel((bestHour.hour + 1) % 24)}`
+            : 'Any time';
+        const heatmapStart = new Date();
+        heatmapStart.setDate(heatmapStart.getDate() - 13);
+        heatmapStart.setHours(0, 0, 0, 0);
+        const heatmapMap = new Map();
+        orders.forEach((order) => {
+            const key = order.createdAt.toISOString().slice(0, 10);
+            heatmapMap.set(key, (heatmapMap.get(key) || 0) + 1);
+        });
+        const orderFrequencyHeatmap = Array.from({ length: 14 }, (_, index) => {
+            const day = new Date(heatmapStart);
+            day.setDate(heatmapStart.getDate() + index);
+            const dateKey = day.toISOString().slice(0, 10);
+            return { date: dateKey, orders: heatmapMap.get(dateKey) ?? 0 };
+        });
+        const churnScore = totalOrders === 0
+            ? 5
+            : Math.min(5, Math.max(1, Math.ceil((daysSinceLastOrder ?? 1) / 14)));
         const preferredContact = customer.phone ? 'sms' : customer.email ? 'email' : 'none';
         const recommendedMessage = totalOrders === 0
             ? 'Send a welcome offer to encourage the first order.'
@@ -444,6 +522,11 @@ let CustomersService = class CustomersService {
             topItems,
             channelBreakdown,
             customerStatus: status,
+            acquisitionSource: latestAcquisition?.source ?? null,
+            acquisitionExecutive: latestAcquisition?.executive?.name ?? null,
+            bestTimeToReengage,
+            churnScore,
+            orderFrequencyHeatmap,
             preferredContact,
             recommendedMessage,
             birthday: customer.birthday ? customer.birthday.toISOString().split('T')[0] : null,
@@ -487,7 +570,10 @@ let CustomersService = class CustomersService {
         const now = new Date();
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const [total, newThisWeek, activeThisWeek, churnRisk, orderTotals] = await Promise.all([
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+        thirtyDaysAgo.setHours(0, 0, 0, 0);
+        const [total, newThisWeek, activeThisWeek, churnRisk, orderTotals, recentCustomers] = await Promise.all([
             this.prisma.customer.count(),
             this.prisma.customer.count({ where: { firstSeenAt: { gte: sevenDaysAgo } } }),
             this.prisma.customer.count({ where: { lastSeenAt: { gte: sevenDaysAgo } } }),
@@ -499,9 +585,31 @@ let CustomersService = class CustomersService {
                 _sum: { total: true },
                 _count: { _all: true },
             }),
+            this.prisma.customer.findMany({
+                where: { firstSeenAt: { gte: thirtyDaysAgo } },
+                select: { firstSeenAt: true },
+            }),
         ]);
         const totalSpend = Number(orderTotals._sum?.total || 0);
         const totalVisits = orderTotals._count._all;
+        const acquisitionTrend = [];
+        const trendMap = new Map();
+        recentCustomers.forEach((customer) => {
+            const key = customer.firstSeenAt.toISOString().slice(0, 10);
+            trendMap.set(key, (trendMap.get(key) || 0) + 1);
+        });
+        for (let i = 0; i < 30; i += 1) {
+            const date = new Date(thirtyDaysAgo);
+            date.setDate(thirtyDaysAgo.getDate() + i);
+            const key = date.toISOString().slice(0, 10);
+            acquisitionTrend.push({ date: key, customers: trendMap.get(key) ?? 0 });
+        }
+        const averageNewPerDay = recentCustomers.length / 30;
+        const goalTarget = 1000;
+        const progressPercent = total > 0 ? Math.min(Math.round((total / goalTarget) * 100), 100) : 0;
+        const projectedTargetDate = averageNewPerDay > 0 && total < goalTarget
+            ? new Date(now.getTime() + Math.ceil((goalTarget - total) / averageNewPerDay) * 86400000).toISOString().slice(0, 10)
+            : null;
         return {
             total,
             newThisWeek,
@@ -512,6 +620,11 @@ let CustomersService = class CustomersService {
             averageSpend: total > 0 ? Math.round((totalSpend / total) * 100) / 100 : 0,
             totalVisits,
             averageVisits: total > 0 ? Math.round(totalVisits / total) : 0,
+            retentionRate: total > 0 ? Math.round((activeThisWeek / total) * 100) : 0,
+            customerGoal: goalTarget,
+            progressPercent,
+            projectedTargetDate,
+            acquisitionTrend,
         };
     }
     async sendSms(dto) {

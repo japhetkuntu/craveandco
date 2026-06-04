@@ -68,6 +68,9 @@ export declare class CustomersService {
         visitCount: number;
         loyaltyPoints: number;
         totalDiscount: number;
+        acquisitionSource: string | null;
+        acquisitionExecutive: string | null;
+        statusTag: string;
         email: string | null;
         name: string;
         phone: string | null;
@@ -81,6 +84,8 @@ export declare class CustomersService {
     findById(id: string): Promise<{
         loyaltyPoints: number;
         totalDiscount: number;
+        acquisitionSource: import("@prisma/client").$Enums.AcquisitionSource | null;
+        acquisitionExecutive: string | null;
         orders: ({
             items: {
                 quantity: number;
@@ -140,6 +145,7 @@ export declare class CustomersService {
         visitCount: number;
     } | null>;
     private getCustomerStatus;
+    private getCustomerStatusTag;
     getInsights(customerId: string): Promise<{
         customerId: string;
         customerName: string;
@@ -164,6 +170,14 @@ export declare class CustomersService {
             sharePercent: number;
         }[];
         customerStatus: string;
+        acquisitionSource: import("@prisma/client").$Enums.AcquisitionSource | null;
+        acquisitionExecutive: string | null;
+        bestTimeToReengage: string;
+        churnScore: number;
+        orderFrequencyHeatmap: {
+            date: string;
+            orders: number;
+        }[];
         preferredContact: string;
         recommendedMessage: string;
         birthday: string | null;
@@ -192,6 +206,14 @@ export declare class CustomersService {
         averageSpend: number;
         totalVisits: number;
         averageVisits: number;
+        retentionRate: number;
+        customerGoal: number;
+        progressPercent: number;
+        projectedTargetDate: string | null;
+        acquisitionTrend: {
+            date: string;
+            customers: number;
+        }[];
     }>;
     sendSms(dto: SendSmsDto): Promise<{
         sent: number;

@@ -136,6 +136,7 @@ export default function GrowthPOSPage() {
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
@@ -243,7 +244,7 @@ export default function GrowthPOSPage() {
         get('/api/v1/menu/items', token),
         get('/api/v1/menu/categories', token),
         get('/api/v1/growth/payment-types', token),
-        get('/api/v1/customers', token),
+        get('/api/v1/customers?limit=50', token),
         get('/api/v1/orders', token),
       ]);
       setMenuItems(items.filter((i: MenuItem) => i.available));
@@ -268,7 +269,29 @@ export default function GrowthPOSPage() {
     }
   }, [token]);
 
+  const fetchCustomerSearchResults = useCallback(async () => {
+    if (!token || !showCustomerSearch) return;
+    setCustomerSearchLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (customerSearch.trim()) query.append('search', customerSearch.trim());
+      query.append('limit', '50');
+      const custs = await get(`/api/v1/customers?${query.toString()}`, token);
+      setCustomers(Array.isArray(custs) ? custs : []);
+    } catch (err) {
+      console.error('Failed to search customers:', err);
+      setCustomers([]);
+    } finally {
+      setCustomerSearchLoading(false);
+    }
+  }, [customerSearch, showCustomerSearch, token]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!showCustomerSearch) return;
+    fetchCustomerSearchResults();
+  }, [fetchCustomerSearchResults, showCustomerSearch]);
 
   useEffect(() => {
     if (view !== 'pos' || !searchInputRef.current) return;
@@ -735,10 +758,7 @@ export default function GrowthPOSPage() {
     return true;
   });
 
-  const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    (c.phone && c.phone.includes(customerSearch)),
-  );
+  const filteredCustomers = customers;
 
   /* ─── Render ─── */
 

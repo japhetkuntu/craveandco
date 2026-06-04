@@ -498,10 +498,23 @@ export class SalesService {
     });
     const execMap = Object.fromEntries(executives.map((e) => [e.id, e.name]));
 
+    const customerGoal = 1000;
+    const customerCount = (
+      await this.prisma.acquisitionLog.groupBy({
+        by: ['customerId'],
+        where: { branchId, customerId: { not: null } },
+        _count: { customerId: true },
+      })
+    ).length;
+    const progressPercent = customerCount > 0 ? Math.min(Math.round((customerCount / customerGoal) * 100), 100) : 0;
+
     return {
       totalIndividual,
       totalBusiness,
       totalAcquisitions: totalIndividual + totalBusiness,
+      customerCount,
+      customerGoal,
+      progressPercent,
       byExecutive: byExecutive.map((e) => ({
         executiveId: e.executiveId,
         name: execMap[e.executiveId] ?? 'Unknown',

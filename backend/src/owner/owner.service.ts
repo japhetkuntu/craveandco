@@ -120,6 +120,7 @@ export class OwnerService {
 
     const grossProfit = totalSales - totalFoodCost;
     const grossEstimate = totalSales - totalFoodCost - totalExpenses;
+    const netCash = totalSales - totalExpenses;
 
     // ── Category filter (optional) ──
     let filteredSales: number | null = null;
@@ -142,10 +143,14 @@ export class OwnerService {
     const ordersWithoutCustomer = sales._count - customerOrdersToday;
     return {
       date,
+      revenue: totalSales,
       salesToday: totalSales,
+      expenditure: totalExpenses,
+      operatingExpenses,
+      inventoryPurchaseExpense: purchaseOrderExpense,
       ordersToday: sales._count,
       averageTicket: sales._count > 0 ? Math.round((totalSales / sales._count) * 100) / 100 : 0,
-      expensesToday: totalExpenses,
+      netCash,
       foodCostToday: Math.round(totalFoodCost * 100) / 100,
       grossProfit: Math.round(grossProfit * 100) / 100,
       netProfit: Math.round(grossEstimate * 100) / 100,

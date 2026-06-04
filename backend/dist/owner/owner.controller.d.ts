@@ -6,10 +6,14 @@ export declare class OwnerController {
     constructor(owner: OwnerService);
     getDashboard(branchId: string, from?: string, to?: string, date?: string, rawCategoryIds?: string | string[]): Promise<{
         date: string | undefined;
+        revenue: number;
         salesToday: number;
+        expenditure: number;
+        operatingExpenses: number;
+        inventoryPurchaseExpense: number;
         ordersToday: number;
         averageTicket: number;
-        expensesToday: number;
+        netCash: number;
         foodCostToday: number;
         grossProfit: number;
         netProfit: number;

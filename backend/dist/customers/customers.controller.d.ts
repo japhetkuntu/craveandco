@@ -33,6 +33,9 @@ export declare class CustomersController {
         visitCount: number;
         loyaltyPoints: number;
         totalDiscount: number;
+        acquisitionSource: string | null;
+        acquisitionExecutive: string | null;
+        statusTag: string;
         email: string | null;
         name: string;
         phone: string | null;
@@ -54,6 +57,14 @@ export declare class CustomersController {
         averageSpend: number;
         totalVisits: number;
         averageVisits: number;
+        retentionRate: number;
+        customerGoal: number;
+        progressPercent: number;
+        projectedTargetDate: string | null;
+        acquisitionTrend: {
+            date: string;
+            customers: number;
+        }[];
     }>;
     getInsights(id: string): Promise<{
         customerId: string;
@@ -79,6 +90,14 @@ export declare class CustomersController {
             sharePercent: number;
         }[];
         customerStatus: string;
+        acquisitionSource: import("@prisma/client").$Enums.AcquisitionSource | null;
+        acquisitionExecutive: string | null;
+        bestTimeToReengage: string;
+        churnScore: number;
+        orderFrequencyHeatmap: {
+            date: string;
+            orders: number;
+        }[];
         preferredContact: string;
         recommendedMessage: string;
         birthday: string | null;
@@ -86,6 +105,8 @@ export declare class CustomersController {
     findById(id: string): Promise<{
         loyaltyPoints: number;
         totalDiscount: number;
+        acquisitionSource: import("@prisma/client").$Enums.AcquisitionSource | null;
+        acquisitionExecutive: string | null;
         orders: ({
             items: {
                 quantity: number;

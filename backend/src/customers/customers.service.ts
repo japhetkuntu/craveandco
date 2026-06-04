@@ -174,9 +174,17 @@ export class CustomersService {
       ];
     }
 
+    const sortableFields = ['name', 'email', 'phone', 'birthday', 'createdAt'];
+    const orderBy: Prisma.CustomerOrderByWithRelationInput =
+      params?.sortBy && sortableFields.includes(params.sortBy)
+        ? { [params.sortBy]: params.sortDir ?? 'desc' }
+        : { createdAt: 'desc' };
+
     const customers = await this.prisma.customer.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
+      skip,
+      take,
     });
 
     if (customers.length === 0) {
@@ -184,6 +192,21 @@ export class CustomersService {
     }
 
     const customerIds = customers.map((customer) => customer.id);
+
+    const acquisitionLogs = await this.prisma.acquisitionLog.findMany({
+      where: { customerId: { in: customerIds } },
+      include: { executive: { select: { name: true } } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    const latestAcquisitionByCustomer = new Map<string, { source: string; executiveName: string | null }>();
+    for (const log of acquisitionLogs) {
+      if (!log.customerId || latestAcquisitionByCustomer.has(log.customerId)) continue;
+      latestAcquisitionByCustomer.set(log.customerId, {
+        source: log.source,
+        executiveName: log.executive?.name ?? null,
+      });
+    }
 
     const customerStats = await this.prisma.order.groupBy({
       by: ['customerId'],
@@ -245,13 +268,19 @@ export class CustomersService {
       );
     });
 
-    const customersWithStats = customers.map((customer) => ({
-      ...customer,
-      totalSpend: statsMap.get(customer.id)?.totalSpend ?? Number(customer.totalSpend),
-      visitCount: statsMap.get(customer.id)?.visitCount ?? customer.visitCount,
-      loyaltyPoints: Math.max(loyaltyPointsMap.get(customer.id) ?? 0, 0),
-      totalDiscount: Number((discountMap.get(customer.id) || 0).toFixed(2)),
-    }));
+    const customersWithStats = customers.map((customer) => {
+      const latestAcquisition = latestAcquisitionByCustomer.get(customer.id);
+      return {
+        ...customer,
+        totalSpend: statsMap.get(customer.id)?.totalSpend ?? Number(customer.totalSpend),
+        visitCount: statsMap.get(customer.id)?.visitCount ?? customer.visitCount,
+        loyaltyPoints: Math.max(loyaltyPointsMap.get(customer.id) ?? 0, 0),
+        totalDiscount: Number((discountMap.get(customer.id) || 0).toFixed(2)),
+        acquisitionSource: latestAcquisition?.source ?? null,
+        acquisitionExecutive: latestAcquisition?.executiveName ?? null,
+        statusTag: this.getCustomerStatusTag(customer),
+      };
+    });
 
     const getStatusRank = (customer: any) => {
       if (!customer.lastSeenAt) return 6;
@@ -328,10 +357,18 @@ export class CustomersService {
       return sum + Math.max(subtotal - Number(order.total), 0);
     }, 0);
 
+    const latestAcquisition = await this.prisma.acquisitionLog.findFirst({
+      where: { customerId: id },
+      include: { executive: { select: { name: true } } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+
     return {
       ...customer,
       loyaltyPoints: Math.max(balance, 0),
       totalDiscount: Number(totalDiscount.toFixed(2)),
+      acquisitionSource: latestAcquisition?.source ?? null,
+      acquisitionExecutive: latestAcquisition?.executive?.name ?? null,
     };
   }
 
@@ -344,6 +381,14 @@ export class CustomersService {
     if (daysSince <= 14) return 'fading';
     if (daysSince <= 21) return 'at-risk';
     return 'inactive';
+  }
+
+  private getCustomerStatusTag(customer: { lastSeenAt?: Date | null; visitCount: number; firstSeenAt: Date }) {
+    if (!customer.lastSeenAt) return 'new';
+    const daysSince = Math.floor((Date.now() - new Date(customer.lastSeenAt).getTime()) / 86400000);
+    if (daysSince <= 14) return 'active';
+    if (daysSince <= 60) return 'inactive';
+    return 'churned';
   }
 
   async getInsights(customerId: string) {
@@ -363,6 +408,12 @@ export class CustomersService {
     if (!customer) {
       throw new BadRequestException('Customer not found');
     }
+
+    const latestAcquisition = await this.prisma.acquisitionLog.findFirst({
+      where: { customerId },
+      include: { executive: { select: { name: true } } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -453,6 +504,46 @@ export class CustomersService {
         sharePercent: totalOrders > 0 ? Number(((entry.count / totalOrders) * 100).toFixed(0)) : 0,
       }));
 
+    const orderHourCounts = new Array(24).fill(0);
+    orders.forEach((order) => {
+      orderHourCounts[order.createdAt.getHours()] += 1;
+    });
+
+    const bestHour = orderHourCounts.reduce(
+      (best, count, hour) => (count > best.count ? { hour, count } : best),
+      { hour: 12, count: 0 },
+    );
+
+    const formatHourLabel = (hour: number) => {
+      const suffix = hour < 12 ? 'am' : 'pm';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}${suffix}`;
+    };
+
+    const bestTimeToReengage = bestHour.count > 0
+      ? `${formatHourLabel(bestHour.hour)} – ${formatHourLabel((bestHour.hour + 1) % 24)}`
+      : 'Any time';
+
+    const heatmapStart = new Date();
+    heatmapStart.setDate(heatmapStart.getDate() - 13);
+    heatmapStart.setHours(0, 0, 0, 0);
+    const heatmapMap = new Map<string, number>();
+    orders.forEach((order) => {
+      const key = order.createdAt.toISOString().slice(0, 10);
+      heatmapMap.set(key, (heatmapMap.get(key) || 0) + 1);
+    });
+
+    const orderFrequencyHeatmap = Array.from({ length: 14 }, (_, index) => {
+      const day = new Date(heatmapStart);
+      day.setDate(heatmapStart.getDate() + index);
+      const dateKey = day.toISOString().slice(0, 10);
+      return { date: dateKey, orders: heatmapMap.get(dateKey) ?? 0 };
+    });
+
+    const churnScore = totalOrders === 0
+      ? 5
+      : Math.min(5, Math.max(1, Math.ceil((daysSinceLastOrder ?? 1) / 14)));
+
     const preferredContact = customer.phone ? 'sms' : customer.email ? 'email' : 'none';
     const recommendedMessage = totalOrders === 0
       ? 'Send a welcome offer to encourage the first order.'
@@ -484,6 +575,11 @@ export class CustomersService {
       topItems,
       channelBreakdown,
       customerStatus: status,
+      acquisitionSource: latestAcquisition?.source ?? null,
+      acquisitionExecutive: latestAcquisition?.executive?.name ?? null,
+      bestTimeToReengage,
+      churnScore,
+      orderFrequencyHeatmap,
       preferredContact,
       recommendedMessage,
       birthday: customer.birthday ? customer.birthday.toISOString().split('T')[0] : null,
@@ -532,7 +628,11 @@ export class CustomersService {
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const [total, newThisWeek, activeThisWeek, churnRisk, orderTotals] = await Promise.all([
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const [total, newThisWeek, activeThisWeek, churnRisk, orderTotals, recentCustomers] = await Promise.all([
       this.prisma.customer.count(),
       this.prisma.customer.count({ where: { firstSeenAt: { gte: sevenDaysAgo } } }),
       this.prisma.customer.count({ where: { lastSeenAt: { gte: sevenDaysAgo } } }),
@@ -544,10 +644,34 @@ export class CustomersService {
         _sum: { total: true },
         _count: { _all: true },
       }),
+      this.prisma.customer.findMany({
+        where: { firstSeenAt: { gte: thirtyDaysAgo } },
+        select: { firstSeenAt: true },
+      }),
     ]);
 
     const totalSpend = Number(orderTotals._sum?.total || 0);
     const totalVisits = orderTotals._count._all;
+    const acquisitionTrend: Array<{ date: string; customers: number }> = [];
+    const trendMap = new Map<string, number>();
+    recentCustomers.forEach((customer) => {
+      const key = customer.firstSeenAt.toISOString().slice(0, 10);
+      trendMap.set(key, (trendMap.get(key) || 0) + 1);
+    });
+    for (let i = 0; i < 30; i += 1) {
+      const date = new Date(thirtyDaysAgo);
+      date.setDate(thirtyDaysAgo.getDate() + i);
+      const key = date.toISOString().slice(0, 10);
+      acquisitionTrend.push({ date: key, customers: trendMap.get(key) ?? 0 });
+    }
+
+    const averageNewPerDay = recentCustomers.length / 30;
+    const goalTarget = 1000;
+    const progressPercent = total > 0 ? Math.min(Math.round((total / goalTarget) * 100), 100) : 0;
+    const projectedTargetDate = averageNewPerDay > 0 && total < goalTarget
+      ? new Date(now.getTime() + Math.ceil((goalTarget - total) / averageNewPerDay) * 86400000).toISOString().slice(0, 10)
+      : null;
+
     return {
       total,
       newThisWeek,
@@ -558,6 +682,11 @@ export class CustomersService {
       averageSpend: total > 0 ? Math.round((totalSpend / total) * 100) / 100 : 0,
       totalVisits,
       averageVisits: total > 0 ? Math.round(totalVisits / total) : 0,
+      retentionRate: total > 0 ? Math.round((activeThisWeek / total) * 100) : 0,
+      customerGoal: goalTarget,
+      progressPercent,
+      projectedTargetDate,
+      acquisitionTrend,
     };
   }
 

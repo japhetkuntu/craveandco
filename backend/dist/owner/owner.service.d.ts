@@ -9,10 +9,14 @@ export declare class OwnerService {
     private parseRange;
     getDashboard(branchId: string, from?: string, to?: string, date?: string, categoryIds?: string[]): Promise<{
         date: string | undefined;
+        revenue: number;
         salesToday: number;
+        expenditure: number;
+        operatingExpenses: number;
+        inventoryPurchaseExpense: number;
         ordersToday: number;
         averageTicket: number;
-        expensesToday: number;
+        netCash: number;
         foodCostToday: number;
         grossProfit: number;
         netProfit: number;

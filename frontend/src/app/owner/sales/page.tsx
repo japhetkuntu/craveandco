@@ -26,6 +26,9 @@ interface Analytics {
   totalIndividual: number;
   totalBusiness: number;
   totalAcquisitions: number;
+  customerCount: number;
+  customerGoal: number;
+  progressPercent: number;
   byExecutive: { executiveId: string; name: string; count: number }[];
   bySource: { source: string; count: number }[];
   businessByStatus: { status: string; count: number }[];
@@ -210,7 +213,7 @@ export default function OwnerSalesPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <KPICard
           title="Total Acquisitions"
           value={analytics.totalAcquisitions}
@@ -225,6 +228,11 @@ export default function OwnerSalesPage() {
           title="Business Leads"
           value={analytics.totalBusiness}
           icon={<Building2 size={18} className="text-warning" />}
+        />
+        <KPICard
+          title="Customer Goal Progress"
+          value={`${analytics.customerCount} / ${analytics.customerGoal} (${analytics.progressPercent}%)`}
+          icon={<TrendingUp size={18} className="text-info" />}
         />
       </div>
 

@@ -47,6 +47,10 @@ interface GrowthDashboard {
     newThisWeek: number;
     activeThisMonth: number;
     churnRisk: number;
+    retentionRate?: number;
+    customerGoal?: number;
+    progressPercent?: number;
+    projectedTargetDate?: string | null;
   };
   customerVisits: number;
   customerSpend: number;
@@ -302,9 +306,10 @@ export default function GrowthDashboardPage() {
           />
           <StatTile
             icon={<Users size={16} />}
-            label="Active (7 days)"
-            value={data?.customers.activeThisMonth || 0}
-            tone="green"
+            label="Retention Rate"
+            value={`${data?.customers.retentionRate ?? 0}%`}
+            helper="40% target"
+            tone={(data?.customers.retentionRate ?? 0) >= 40 ? 'green' : 'red'}
           />
           <StatTile
             icon={<UserX size={16} />}
@@ -340,6 +345,40 @@ export default function GrowthDashboardPage() {
           />
         </div>
       </section>
+
+      {data?.customers.customerGoal != null && (
+        <section className="space-y-3">
+          <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <SectionTitle>Goal Progress</SectionTitle>
+                <h2 className="text-xl font-semibold text-text-primary">Customer acquisition progress</h2>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-text-secondary">Target:</p>
+                <p className="text-lg font-semibold text-text-primary">{data.customers.customerGoal} customers</p>
+              </div>
+            </div>
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-3 text-sm text-text-secondary mb-2">
+                <span>{data.customers.total} acquired</span>
+                <span>{data.customers.progressPercent ?? 0}%</span>
+              </div>
+              <div className="w-full bg-surface-elevated rounded-full h-3">
+                <div
+                  className="h-3 rounded-full bg-success"
+                  style={{ width: `${data.customers.progressPercent ?? 0}%` }}
+                />
+              </div>
+              {data.customers.projectedTargetDate && (
+                <p className="text-xs text-text-secondary mt-3">
+                  Projected to hit goal by <span className="font-semibold text-text-primary">{new Date(data.customers.projectedTargetDate + 'T12:00:00').toLocaleDateString('en-GH', { dateStyle: 'medium' })}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Growth Trend Graphs */}
       {series.length > 0 && (

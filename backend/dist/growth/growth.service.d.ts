@@ -16,6 +16,14 @@ export declare class GrowthService {
             averageSpend: number;
             totalVisits: number;
             averageVisits: number;
+            retentionRate: number;
+            customerGoal: number;
+            progressPercent: number;
+            projectedTargetDate: string | null;
+            acquisitionTrend: {
+                date: string;
+                customers: number;
+            }[];
         };
         loyalty: {
             totalPointsIssued: number;

@@ -40,7 +40,7 @@ export const API_PATHS = {
     logout: '/api/v1/auth/logout',
   },
   owner: {
-    dashboard: (date: string) => `/api/v1/owner/dashboard?date=${date}`,
+    dashboard: '/api/v1/owner/dashboard',
     approvalsPending: '/api/v1/owner/approvals/pending',
     approve: (id: string) => `/api/v1/owner/approvals/${id}/approve`,
     reject: (id: string) => `/api/v1/owner/approvals/${id}/reject`,

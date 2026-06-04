@@ -22,7 +22,19 @@ interface Customer {
   loyaltyPoints?: number;
   totalDiscount?: number;
   lastSeenAt: string;
+  acquisitionSource?: string;
+  acquisitionExecutive?: string;
 }
+
+const SOURCE_LABELS: Record<string, string> = {
+  COLD_CALL: 'Cold Call',
+  WALK_IN_VISIT: 'Walk-in Visit',
+  REFERRAL: 'Referral',
+  SOCIAL_MEDIA: 'Social Media',
+  EVENT: 'Event',
+  EMAIL_OUTREACH: 'Email Outreach',
+  OTHER: 'Other',
+};
 
 interface CustomerDashboard {
   total: number;
@@ -286,6 +298,8 @@ export default function GrowthCustomersPage() {
                     <th className="px-4 py-3 font-medium">Phone</th>
                     <th className="px-4 py-3 font-medium">Birthday</th>
                     <th className="px-4 py-3 font-medium">Visits</th>
+                    <th className="px-4 py-3 font-medium">Source</th>
+                    <th className="px-4 py-3 font-medium">Sales Exec</th>
                     <th className="px-4 py-3 font-medium">Points</th>
                     <th className="px-4 py-3 font-medium">Discounts</th>
                     <th className="px-4 py-3 font-medium">Total Spent</th>
@@ -311,6 +325,8 @@ export default function GrowthCustomersPage() {
                         })()}
                       </td>
                       <td className="px-4 py-3">{c.visitCount}</td>
+                      <td className="px-4 py-3 text-text-secondary">{SOURCE_LABELS[c.acquisitionSource ?? 'OTHER'] ?? c.acquisitionSource ?? 'Unknown'}</td>
+                      <td className="px-4 py-3 text-text-secondary">{c.acquisitionExecutive || '—'}</td>
                       <td className="px-4 py-3">{c.loyaltyPoints ?? 0}</td>
                       <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalDiscount || 0))}</td>
                       <td className="px-4 py-3 font-medium text-text-primary">{formatCurrency(Number(c.totalSpend))}</td>
@@ -357,6 +373,7 @@ export default function GrowthCustomersPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
               {c.phone && <span className="flex items-center gap-1"><Phone size={10} /> {c.phone}</span>}
+              <span>{SOURCE_LABELS[c.acquisitionSource ?? 'OTHER'] ?? c.acquisitionSource ?? 'Unknown'}</span>
               {(() => {
                 const birthdayDate = parseBirthday(c.birthday);
                 return birthdayDate ? (

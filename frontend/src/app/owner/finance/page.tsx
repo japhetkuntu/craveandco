@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { get, post } from '@/lib/api';
+import { API_PATHS } from '@/lib/constants';
 import { buildQueryString } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -16,8 +17,11 @@ import { ExportButton } from '@/components/ui/export-button';
 
 interface FinanceSummary {
   date: string;
+  revenue: number;
   totalSales: number;
-  totalExpenses: number;
+  expenditure: number;
+  operatingExpenses: number;
+  inventoryPurchaseExpense: number;
   netCash: number;
   reconciliation?: {
     expectedCash: number;
@@ -47,13 +51,62 @@ export default function OwnerFinancePage() {
   const [showCreateExpense, setShowCreateExpense] = useState(false);
   const [creatingExpense, setCreatingExpense] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: '', amount: '', description: '' });
+  const [range, setRange] = useState<'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'custom'>('today');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+  const getDateRange = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    let from = formatDate(now);
+    let to = formatDate(now);
+
+    if (range === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      from = formatDate(yesterday);
+      to = formatDate(yesterday);
+    }
+    if (range === 'thisWeek') {
+      const monday = new Date(now);
+      const day = monday.getDay();
+      monday.setDate(monday.getDate() - ((day + 6) % 7));
+      from = formatDate(monday);
+      to = formatDate(now);
+    }
+    if (range === 'thisMonth') {
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      from = formatDate(firstOfMonth);
+      to = formatDate(now);
+    }
+    if (range === 'thisYear') {
+      const firstOfYear = new Date(now.getFullYear(), 0, 1);
+      from = formatDate(firstOfYear);
+      to = formatDate(now);
+    }
+    if (range === 'custom') {
+      from = customFrom || from;
+      to = customTo || to;
+    }
+
+    return { from, to };
+  };
+
+  const [dateRange, setDateRange] = useState(getDateRange());
+
+  useEffect(() => {
+    setDateRange(getDateRange());
+  }, [range, customFrom, customTo]);
 
   useEffect(() => {
     if (!token) return;
-    const today = new Date().toISOString().split('T')[0];
+    const { from, to } = getDateRange();
+    setLoading(true);
     Promise.all([
-      get(`/api/v1/finance/daily-summary?date=${today}`, token),
-      get(`/api/v1/expenses${buildQueryString({ page, limit })}`, token),
+      get(`${API_PATHS.owner.dashboard}${buildQueryString({ from, to })}`, token),
+      get(`/api/v1/expenses${buildQueryString({ page, limit, from, to })}`, token),
     ])
       .then(([s, e]) => {
         setSummary(s);
@@ -61,7 +114,7 @@ export default function OwnerFinancePage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [token, page, limit]);
+  }, [token, page, limit, range, customFrom, customTo]);
 
   const handleApprove = async (id: string) => {
     if (!token) return;
@@ -99,10 +152,10 @@ export default function OwnerFinancePage() {
       }, token);
       setShowCreateExpense(false);
       setNewExpense({ category: '', amount: '', description: '' });
-      const today = new Date().toISOString().split('T')[0];
+      const { from, to } = getDateRange();
       const [s, e2] = await Promise.all([
-        get(`/api/v1/finance/daily-summary?date=${today}`, token),
-        get(`/api/v1/expenses${buildQueryString({ page, limit })}`, token),
+        get(`${API_PATHS.owner.dashboard}${buildQueryString({ from, to })}`, token),
+        get(`/api/v1/expenses${buildQueryString({ page, limit, from, to })}`, token),
       ]);
       setSummary(s);
       setExpenses(e2);
@@ -118,51 +171,118 @@ export default function OwnerFinancePage() {
     <div className="space-y-6 pb-8">
 
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
-            <Receipt className="text-[var(--color-gold)]" /> Finance
-          </h1>
-          <p className="text-sm text-text-secondary mt-0.5">Today&apos;s cash, expenses and approvals</p>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+              <Receipt className="text-[var(--color-gold)]" /> Finance
+            </h1>
+            <p className="text-sm text-text-secondary mt-0.5">Revenue, expenditure and inventory purchase cost comparison for the selected range.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              filename="finance-expenses"
+              sheets={[{
+                name: 'Expenses',
+                data: expenses,
+                columns: [
+                  { header: 'Date', value: (e) => new Date(e.createdAt).toLocaleDateString('en-GH') },
+                  { header: 'Description', value: (e) => e.description },
+                  { header: 'Category', value: (e) => e.category ?? '' },
+                  { header: 'Amount (GHS)', value: (e) => Number(e.amount) },
+                  { header: 'Status', value: (e) => e.approved === true ? 'Approved' : e.approved === false ? 'Rejected' : 'Pending' },
+                  { header: 'Logged By', value: (e) => e.user?.name ?? '' },
+                ],
+              }]}
+            />
+            <Button onClick={() => setShowCreateExpense(true)}>
+              <Plus size={16} /> Log Expense
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ExportButton
-            filename="finance-expenses"
-            sheets={[{
-              name: 'Expenses',
-              data: expenses,
-              columns: [
-                { header: 'Date', value: (e) => new Date(e.createdAt).toLocaleDateString('en-GH') },
-                { header: 'Description', value: (e) => e.description },
-                { header: 'Category', value: (e) => e.category ?? '' },
-                { header: 'Amount (GHS)', value: (e) => Number(e.amount) },
-                { header: 'Status', value: (e) => e.approved === true ? 'Approved' : e.approved === false ? 'Rejected' : 'Pending' },
-                { header: 'Logged By', value: (e) => e.user?.name ?? '' },
-              ],
-            }]}
-          />
-          <Button onClick={() => setShowCreateExpense(true)}>
-            <Plus size={16} /> Log Expense
-          </Button>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: 'thisWeek', label: 'This Week' },
+              { id: 'thisMonth', label: 'This Month' },
+              { id: 'thisYear', label: 'This Year' },
+              { id: 'custom', label: 'Custom' },
+            ].map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${range === option.id ? 'bg-[var(--color-gold)] text-white' : 'bg-surface-input text-text-primary hover:bg-surface-raised'}`}
+                onClick={() => setRange(option.id as any)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {range === 'custom' && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-text-secondary">From</label>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="rounded-xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-text-secondary">To</label>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="rounded-xl border border-border-default bg-surface-input px-3 py-2 text-sm text-text-primary"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Summary tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-2xl border bg-success-muted border-success/30 p-4 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-success"><TrendingUp size={18} /><span>Today&apos;s Sales</span></div>
-          <p className="text-3xl font-bold font-mono text-success whitespace-normal break-words">{formatCurrency(summary?.totalSales || 0)}</p>
-          <p className="text-xs text-text-secondary">Total revenue collected today</p>
+          <div className="flex items-center gap-2 text-sm font-semibold text-success"><TrendingUp size={18} /><span>Revenue</span></div>
+          <p className="text-3xl font-bold font-mono text-success whitespace-normal break-words">{formatCurrency(summary?.revenue || 0)}</p>
+          <p className="text-xs text-text-secondary">Total incoming sales for the selected period</p>
         </div>
-        <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'bg-error-muted border-error/30' : 'bg-warning-muted border-warning/30'}`}>
-          <div className={`flex items-center gap-2 text-sm font-semibold ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'text-error' : 'text-warning'}`}><TrendingDown size={18} /><span>Today&apos;s Expenses</span></div>
-          <p className={`text-3xl font-bold font-mono whitespace-normal break-words ${(summary?.totalExpenses || 0) > (summary?.totalSales || 0) ? 'text-error' : 'text-warning'}`}>{formatCurrency(summary?.totalExpenses || 0)}</p>
-          <p className="text-xs text-text-secondary">All approved and pending expenses</p>
+        <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(summary?.expenditure || 0) > (summary?.revenue || 0) ? 'bg-error-muted border-error/30' : 'bg-warning-muted border-warning/30'}`}>
+          <div className={`flex items-center gap-2 text-sm font-semibold ${(summary?.expenditure || 0) > (summary?.revenue || 0) ? 'text-error' : 'text-warning'}`}><TrendingDown size={18} /><span>Expenditure</span></div>
+          <p className={`text-3xl font-bold font-mono whitespace-normal break-words ${(summary?.expenditure || 0) > (summary?.revenue || 0) ? 'text-error' : 'text-warning'}`}>{formatCurrency(summary?.expenditure || 0)}</p>
+          <p className="text-xs text-text-secondary">Includes operating expenses and inventory purchase cost</p>
         </div>
         <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${(summary?.netCash || 0) >= 0 ? 'bg-success-muted border-success/30' : 'bg-error-muted border-error/30'}`}>
           <div className={`flex items-center gap-2 text-sm font-semibold ${(summary?.netCash || 0) >= 0 ? 'text-success' : 'text-error'}`}><DollarSign size={18} /><span>Net Cash</span></div>
           <p className={`text-3xl font-bold font-mono whitespace-normal break-words ${(summary?.netCash || 0) >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(summary?.netCash || 0)}</p>
-          <p className="text-xs text-text-secondary">Sales minus expenses</p>
+          <p className="text-xs text-text-secondary">Revenue minus expenditure</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-border-default bg-surface-raised p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Expense Breakdown</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-surface-base border border-border-subtle p-3">
+              <p className="text-xs text-text-secondary">Operating Expenses</p>
+              <p className="text-xl font-bold text-text-primary mt-2">{formatCurrency(summary?.operatingExpenses || 0)}</p>
+            </div>
+            <div className="rounded-2xl bg-surface-base border border-border-subtle p-3">
+              <p className="text-xs text-text-secondary">Inventory Purchase Cost</p>
+              <p className="text-xl font-bold text-text-primary mt-2">{formatCurrency(summary?.inventoryPurchaseExpense || 0)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border-default bg-surface-raised p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-tertiary">Range</p>
+          <p className="text-sm text-text-primary">{dateRange.from} to {dateRange.to}</p>
+          <p className="text-xs text-text-secondary">The selected period used for revenue and expenditure comparison.</p>
         </div>
       </div>
 

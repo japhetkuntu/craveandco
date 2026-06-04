@@ -92,6 +92,14 @@ interface DashboardData {
   }[];
 }
 
+interface CustomerDashboardData {
+  total: number;
+  retentionRate?: number;
+  customerGoal?: number;
+  progressPercent?: number;
+  projectedTargetDate?: string | null;
+}
+
 function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
@@ -121,6 +129,7 @@ export default function SalesDashboardPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [date] = useState(today);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [customerData, setCustomerData] = useState<CustomerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -149,8 +158,12 @@ export default function SalesDashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await get<DashboardData>(API_PATHS.sales.dashboard(date));
+      const [res, customerRes] = await Promise.all([
+        get<DashboardData>(API_PATHS.sales.dashboard(date)),
+        get<CustomerDashboardData>(API_PATHS.customers.dashboard),
+      ]);
       setData(res);
+      setCustomerData(customerRes);
       applyPlanToForm(res.plan);
       setError('');
     } catch (e: any) {
@@ -274,6 +287,32 @@ export default function SalesDashboardPage() {
       {error && (
         <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
           {error}
+        </div>
+      )}
+
+      {customerData?.customerGoal != null && (
+        <div className="rounded-3xl border border-border-subtle bg-surface-raised p-5">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-text-secondary">Customer Goal</p>
+              <h2 className="text-xl font-semibold text-text-primary">{customerData.total} / {customerData.customerGoal}</h2>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-text-secondary">Progress</p>
+              <p className="text-lg font-bold text-text-primary">{customerData.progressPercent ?? 0}%</p>
+            </div>
+          </div>
+          <div className="mt-4 w-full bg-surface-elevated rounded-full h-3">
+            <div
+              className="h-3 rounded-full bg-success"
+              style={{ width: `${customerData.progressPercent ?? 0}%` }}
+            />
+          </div>
+          {customerData.projectedTargetDate && (
+            <p className="text-xs text-text-secondary mt-3">
+              Projected target date: <span className="font-semibold text-text-primary">{new Date(customerData.projectedTargetDate + 'T12:00:00').toLocaleDateString('en-GB', { dateStyle: 'medium' })}</span>
+            </p>
+          )}
         </div>
       )}
 
