@@ -28,24 +28,7 @@ export declare class CustomersController {
         lastSeenAt: Date;
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
-    }[] | {
-        totalSpend: number;
-        visitCount: number;
-        loyaltyPoints: number;
-        totalDiscount: number;
-        acquisitionSource: string | null;
-        acquisitionExecutive: string | null;
-        statusTag: string;
-        email: string | null;
-        name: string;
-        phone: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        birthday: Date | null;
-        firstSeenAt: Date;
-        lastSeenAt: Date;
-    }[]>;
+    }[] | undefined>;
     getUpcomingBirthdays(days?: string): Promise<any[]>;
     getDashboard(): Promise<{
         total: number;

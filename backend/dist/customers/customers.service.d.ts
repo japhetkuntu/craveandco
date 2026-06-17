@@ -63,24 +63,7 @@ export declare class CustomersService {
         lastSeenAt: Date;
         totalSpend: Prisma.Decimal;
         visitCount: number;
-    }[] | {
-        totalSpend: number;
-        visitCount: number;
-        loyaltyPoints: number;
-        totalDiscount: number;
-        acquisitionSource: string | null;
-        acquisitionExecutive: string | null;
-        statusTag: string;
-        email: string | null;
-        name: string;
-        phone: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        birthday: Date | null;
-        firstSeenAt: Date;
-        lastSeenAt: Date;
-    }[]>;
+    }[] | undefined>;
     findById(id: string): Promise<{
         loyaltyPoints: number;
         totalDiscount: number;
