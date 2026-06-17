@@ -252,6 +252,18 @@ export default function OwnerCustomersPage() {
   const [phoneFilter, setPhoneFilter] = useState<'all' | 'yes' | 'no'>('all');
   const [emailFilter, setEmailFilter] = useState<'all' | 'yes' | 'no'>('all');
   const [birthdayFilter, setBirthdayFilter] = useState<'all' | 'yes' | 'no'>('all');
+  const [lastSeenAfter, setLastSeenAfter] = useState('');
+  const [lastSeenBefore, setLastSeenBefore] = useState('');
+  const [addedAfter, setAddedAfter] = useState('');
+  const [addedBefore, setAddedBefore] = useState('');
+  const [minVisits, setMinVisits] = useState('');
+  const [maxVisits, setMaxVisits] = useState('');
+  const [minTotalSpend, setMinTotalSpend] = useState('');
+  const [maxTotalSpend, setMaxTotalSpend] = useState('');
+  const [minLoyaltyPoints, setMinLoyaltyPoints] = useState('');
+  const [maxLoyaltyPoints, setMaxLoyaltyPoints] = useState('');
+  const [minTotalDiscount, setMinTotalDiscount] = useState('');
+  const [maxTotalDiscount, setMaxTotalDiscount] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
   const [insights, setInsights] = useState<CustomerInsights | null>(null);
   const [insightsCustomerId, setInsightsCustomerId] = useState<string | null>(null);
@@ -327,25 +339,38 @@ export default function OwnerCustomersPage() {
 
   const fetchData = useCallback(async () => {
     if (!token) return;
-    const requestLimit = limit + 1;
     try {
       const [c, d] = await Promise.all([
         get(`${API_PATHS.customers.list}${buildQueryString({
           page,
-          limit: requestLimit,
+          limit,
           search,
           status: statusFilter !== 'all' ? statusFilter : undefined,
           hasPhone: phoneFilter === 'all' ? undefined : phoneFilter === 'yes' ? 'true' : 'false',
           hasEmail: emailFilter === 'all' ? undefined : emailFilter === 'yes' ? 'true' : 'false',
           hasBirthday: birthdayFilter === 'all' ? undefined : birthdayFilter === 'yes' ? 'true' : 'false',
+          lastSeenAfter: lastSeenAfter || undefined,
+          lastSeenBefore: lastSeenBefore || undefined,
+          addedAfter: addedAfter || undefined,
+          addedBefore: addedBefore || undefined,
+          minVisits: minVisits || undefined,
+          maxVisits: maxVisits || undefined,
+          minTotalSpend: minTotalSpend || undefined,
+          maxTotalSpend: maxTotalSpend || undefined,
+          minLoyaltyPoints: minLoyaltyPoints || undefined,
+          maxLoyaltyPoints: maxLoyaltyPoints || undefined,
+          minTotalDiscount: minTotalDiscount || undefined,
+          maxTotalDiscount: maxTotalDiscount || undefined,
           sortBy: sort?.key,
           sortDir: sort?.dir,
         })}`, token),
         get(API_PATHS.customers.dashboard, token),
       ]);
-      const customerItems = Array.isArray(c) ? c : [];
-      setHasMore(customerItems.length > limit);
-      setCustomers(customerItems.slice(0, limit));
+      const response = c as any;
+      const customerItems: Customer[] = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+      const pagination = Array.isArray(response) ? null : response?.pagination;
+      setCustomers(customerItems);
+      setHasMore(pagination ? page < pagination.totalPages - 1 : customerItems.length > limit);
       setDashboard(d);
     } catch (err) {
       console.error(err);
@@ -671,7 +696,7 @@ export default function OwnerCustomersPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
           <input
             type="text"
-            placeholder="Search by name or phone..."
+            placeholder="Search by name, phone, or email..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => {
@@ -760,10 +785,163 @@ export default function OwnerCustomersPage() {
               setPhoneFilter('all');
               setEmailFilter('all');
               setBirthdayFilter('all');
+              setLastSeenAfter('');
+              setLastSeenBefore('');
+              setAddedAfter('');
+              setAddedBefore('');
+              setMinVisits('');
+              setMaxVisits('');
+              setMinTotalSpend('');
+              setMaxTotalSpend('');
+              setMinLoyaltyPoints('');
+              setMaxLoyaltyPoints('');
+              setMinTotalDiscount('');
+              setMaxTotalDiscount('');
             }}
           >
             Clear Filters
           </Button>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border-subtle bg-surface-raised p-3">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Last Seen</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="date"
+                  value={lastSeenAfter}
+                  onChange={(e) => { setPage(0); setLastSeenAfter(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="date"
+                  value={lastSeenBefore}
+                  onChange={(e) => { setPage(0); setLastSeenBefore(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Joined</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="date"
+                  value={addedAfter}
+                  onChange={(e) => { setPage(0); setAddedAfter(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="date"
+                  value={addedBefore}
+                  onChange={(e) => { setPage(0); setAddedBefore(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Visits</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Min"
+                  value={minVisits}
+                  onChange={(e) => { setPage(0); setMinVisits(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Max"
+                  value={maxVisits}
+                  onChange={(e) => { setPage(0); setMaxVisits(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Loyalty Points</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Min"
+                  value={minLoyaltyPoints}
+                  onChange={(e) => { setPage(0); setMinLoyaltyPoints(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Max"
+                  value={maxLoyaltyPoints}
+                  onChange={(e) => { setPage(0); setMaxLoyaltyPoints(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Total Spend (GHS)</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Min"
+                  value={minTotalSpend}
+                  onChange={(e) => { setPage(0); setMinTotalSpend(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Max"
+                  value={maxTotalSpend}
+                  onChange={(e) => { setPage(0); setMaxTotalSpend(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-secondary">Total Discount (GHS)</label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Min"
+                  value={minTotalDiscount}
+                  onChange={(e) => { setPage(0); setMinTotalDiscount(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Max"
+                  value={maxTotalDiscount}
+                  onChange={(e) => { setPage(0); setMaxTotalDiscount(e.target.value); }}
+                  className="h-10 w-full rounded-xl border border-border-default bg-surface-input px-3 text-sm text-text-primary outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

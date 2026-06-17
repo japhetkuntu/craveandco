@@ -27,9 +27,9 @@ let CustomersController = class CustomersController {
     create(dto) {
         return this.customers.create(dto);
     }
-    findAll(segment, status, hasPhone, hasEmail, hasBirthday, search, sortBy, sortDir, lastSeenBefore, addedAfter, addedBefore, page = '0', limit = '50') {
-        const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
-        const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    findAll(segment, status, hasPhone, hasEmail, hasBirthday, search, sortBy, sortDir, lastSeenAfter, lastSeenBefore, addedAfter, addedBefore, minVisits, maxVisits, minTotalSpend, maxTotalSpend, minLoyaltyPoints, maxLoyaltyPoints, minTotalDiscount, maxTotalDiscount, page, limit) {
+        const pageNumber = page === undefined ? undefined : Math.max(parseInt(page, 10) || 0, 0);
+        const limitNumber = limit === undefined ? undefined : Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
         return this.customers.findAll({
             segment,
             status,
@@ -39,9 +39,18 @@ let CustomersController = class CustomersController {
             search,
             sortBy,
             sortDir,
+            lastSeenAfter,
             lastSeenBefore,
             addedAfter,
             addedBefore,
+            minVisits,
+            maxVisits,
+            minTotalSpend,
+            maxTotalSpend,
+            minLoyaltyPoints,
+            maxLoyaltyPoints,
+            minTotalDiscount,
+            maxTotalDiscount,
             page: pageNumber,
             limit: limitNumber,
         });
@@ -87,13 +96,22 @@ __decorate([
     __param(5, (0, common_1.Query)('search')),
     __param(6, (0, common_1.Query)('sortBy')),
     __param(7, (0, common_1.Query)('sortDir')),
-    __param(8, (0, common_1.Query)('lastSeenBefore')),
-    __param(9, (0, common_1.Query)('addedAfter')),
-    __param(10, (0, common_1.Query)('addedBefore')),
-    __param(11, (0, common_1.Query)('page')),
-    __param(12, (0, common_1.Query)('limit')),
+    __param(8, (0, common_1.Query)('lastSeenAfter')),
+    __param(9, (0, common_1.Query)('lastSeenBefore')),
+    __param(10, (0, common_1.Query)('addedAfter')),
+    __param(11, (0, common_1.Query)('addedBefore')),
+    __param(12, (0, common_1.Query)('minVisits')),
+    __param(13, (0, common_1.Query)('maxVisits')),
+    __param(14, (0, common_1.Query)('minTotalSpend')),
+    __param(15, (0, common_1.Query)('maxTotalSpend')),
+    __param(16, (0, common_1.Query)('minLoyaltyPoints')),
+    __param(17, (0, common_1.Query)('maxLoyaltyPoints')),
+    __param(18, (0, common_1.Query)('minTotalDiscount')),
+    __param(19, (0, common_1.Query)('maxTotalDiscount')),
+    __param(20, (0, common_1.Query)('page')),
+    __param(21, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, String, String, String, Object, Object]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findAll", null);
 __decorate([

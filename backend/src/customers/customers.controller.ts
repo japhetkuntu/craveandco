@@ -26,14 +26,23 @@ export class CustomersController {
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortDir') sortDir?: 'asc' | 'desc',
+    @Query('lastSeenAfter') lastSeenAfter?: string,
     @Query('lastSeenBefore') lastSeenBefore?: string,
     @Query('addedAfter') addedAfter?: string,
     @Query('addedBefore') addedBefore?: string,
-    @Query('page') page = '0',
-    @Query('limit') limit = '50',
+    @Query('minVisits') minVisits?: string,
+    @Query('maxVisits') maxVisits?: string,
+    @Query('minTotalSpend') minTotalSpend?: string,
+    @Query('maxTotalSpend') maxTotalSpend?: string,
+    @Query('minLoyaltyPoints') minLoyaltyPoints?: string,
+    @Query('maxLoyaltyPoints') maxLoyaltyPoints?: string,
+    @Query('minTotalDiscount') minTotalDiscount?: string,
+    @Query('maxTotalDiscount') maxTotalDiscount?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    const pageNumber = Math.max(parseInt(page, 10) || 0, 0);
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    const pageNumber = page === undefined ? undefined : Math.max(parseInt(page, 10) || 0, 0);
+    const limitNumber = limit === undefined ? undefined : Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
     return this.customers.findAll({
       segment,
       status,
@@ -43,9 +52,18 @@ export class CustomersController {
       search,
       sortBy,
       sortDir,
+      lastSeenAfter,
       lastSeenBefore,
       addedAfter,
       addedBefore,
+      minVisits,
+      maxVisits,
+      minTotalSpend,
+      maxTotalSpend,
+      minLoyaltyPoints,
+      maxLoyaltyPoints,
+      minTotalDiscount,
+      maxTotalDiscount,
       page: pageNumber,
       limit: limitNumber,
     });

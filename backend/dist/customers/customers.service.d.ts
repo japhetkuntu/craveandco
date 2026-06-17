@@ -46,24 +46,29 @@ export declare class CustomersService {
         search?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
+        lastSeenAfter?: string;
         lastSeenBefore?: string;
         addedAfter?: string;
         addedBefore?: string;
+        minVisits?: string;
+        maxVisits?: string;
+        minTotalSpend?: string;
+        maxTotalSpend?: string;
+        minLoyaltyPoints?: string;
+        maxLoyaltyPoints?: string;
+        minTotalDiscount?: string;
+        maxTotalDiscount?: string;
         page?: number;
         limit?: number;
-    }): Promise<{
-        email: string | null;
-        name: string;
-        phone: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        birthday: Date | null;
-        firstSeenAt: Date;
-        lastSeenAt: Date;
-        totalSpend: Prisma.Decimal;
-        visitCount: number;
-    }[] | undefined>;
+    }): Promise<any[] | {
+        data: any[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
     findById(id: string): Promise<{
         loyaltyPoints: number;
         totalDiscount: number;

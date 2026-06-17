@@ -16,19 +16,15 @@ export declare class CustomersController {
         totalSpend: import("@prisma/client/runtime/library").Decimal;
         visitCount: number;
     }>;
-    findAll(segment?: string, status?: string, hasPhone?: string, hasEmail?: string, hasBirthday?: string, search?: string, sortBy?: string, sortDir?: 'asc' | 'desc', lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, page?: string, limit?: string): Promise<{
-        email: string | null;
-        name: string;
-        phone: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        birthday: Date | null;
-        firstSeenAt: Date;
-        lastSeenAt: Date;
-        totalSpend: import("@prisma/client/runtime/library").Decimal;
-        visitCount: number;
-    }[] | undefined>;
+    findAll(segment?: string, status?: string, hasPhone?: string, hasEmail?: string, hasBirthday?: string, search?: string, sortBy?: string, sortDir?: 'asc' | 'desc', lastSeenAfter?: string, lastSeenBefore?: string, addedAfter?: string, addedBefore?: string, minVisits?: string, maxVisits?: string, minTotalSpend?: string, maxTotalSpend?: string, minLoyaltyPoints?: string, maxLoyaltyPoints?: string, minTotalDiscount?: string, maxTotalDiscount?: string, page?: string, limit?: string): Promise<any[] | {
+        data: any[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
     getUpcomingBirthdays(days?: string): Promise<any[]>;
     getDashboard(): Promise<{
         total: number;

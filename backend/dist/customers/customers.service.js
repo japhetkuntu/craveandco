@@ -108,6 +108,20 @@ let CustomersService = class CustomersService {
                 return false;
             return undefined;
         };
+        const parseNumber = (value) => {
+            if (value === undefined || value === '')
+                return undefined;
+            const parsed = Number(value);
+            return Number.isNaN(parsed) ? undefined : parsed;
+        };
+        const minVisits = parseNumber(params?.minVisits);
+        const maxVisits = parseNumber(params?.maxVisits);
+        const minTotalSpend = parseNumber(params?.minTotalSpend);
+        const maxTotalSpend = parseNumber(params?.maxTotalSpend);
+        const minLoyaltyPoints = parseNumber(params?.minLoyaltyPoints);
+        const maxLoyaltyPoints = parseNumber(params?.maxLoyaltyPoints);
+        const minTotalDiscount = parseNumber(params?.minTotalDiscount);
+        const maxTotalDiscount = parseNumber(params?.maxTotalDiscount);
         const hasPhone = parseBool(params?.hasPhone);
         if (hasPhone === true)
             where.phone = { not: null };
@@ -158,13 +172,29 @@ let CustomersService = class CustomersService {
                     break;
             }
         }
-        if (params?.lastSeenBefore) {
-            where.lastSeenAt = { lt: new Date(params.lastSeenBefore) };
+        if (params?.lastSeenBefore && where.lastSeenAt !== null) {
+            where.lastSeenAt = { ...(typeof where.lastSeenAt === 'object' && where.lastSeenAt ? where.lastSeenAt : {}), lt: new Date(params.lastSeenBefore) };
+        }
+        if (params?.lastSeenAfter && where.lastSeenAt !== null) {
+            where.lastSeenAt = { ...(typeof where.lastSeenAt === 'object' && where.lastSeenAt ? where.lastSeenAt : {}), gte: new Date(params.lastSeenAfter) };
         }
         if (params?.addedAfter || params?.addedBefore) {
             where.createdAt = {
                 ...(params.addedAfter && { gte: new Date(params.addedAfter) }),
                 ...(params.addedBefore && { lte: new Date(params.addedBefore) }),
+            };
+        }
+        if (minVisits !== undefined || maxVisits !== undefined) {
+            where.visitCount = {
+                ...(minVisits !== undefined ? { gte: minVisits } : {}),
+                ...(maxVisits !== undefined ? { lte: maxVisits } : {}),
+                ...(where.visitCount ?? {}),
+            };
+        }
+        if (minTotalSpend !== undefined || maxTotalSpend !== undefined) {
+            where.totalSpend = {
+                ...(minTotalSpend !== undefined ? { gte: minTotalSpend } : {}),
+                ...(maxTotalSpend !== undefined ? { lte: maxTotalSpend } : {}),
             };
         }
         if (params?.search) {
@@ -174,19 +204,135 @@ let CustomersService = class CustomersService {
                 { email: { contains: params.search, mode: 'insensitive' } },
             ];
         }
-        const sortableFields = ['name', 'email', 'phone', 'birthday', 'createdAt'];
-        const orderBy = params?.sortBy && sortableFields.includes(params.sortBy)
+        const scalarSortableFields = ['name', 'email', 'phone', 'birthday', 'createdAt', 'visitCount', 'totalSpend', 'lastSeenAt'];
+        const orderBy = params?.sortBy && scalarSortableFields.includes(params.sortBy)
             ? { [params.sortBy]: params.sortDir ?? 'desc' }
             : { createdAt: 'desc' };
+        const computeCustomerMetrics = (customer) => {
+            const loyaltyPoints = (customer.loyaltyTransactions || []).reduce((sum, tx) => sum + (tx.type === client_1.LoyaltyTxType.EARN ? tx.points : -Math.abs(tx.points)), 0);
+            const totalDiscount = (customer.orders || []).reduce((sum, order) => {
+                const subtotal = (order.items || []).reduce((orderSum, item) => orderSum + Number(item.unitPrice) * item.quantity, 0);
+                return sum + Math.max(subtotal - Number(order.total), 0);
+            }, 0);
+            return {
+                ...customer,
+                loyaltyPoints: Math.max(loyaltyPoints, 0),
+                totalDiscount: Number(totalDiscount.toFixed(2)),
+            };
+        };
+        const shouldApplyDerivedFiltersOrSort = minLoyaltyPoints !== undefined ||
+            maxLoyaltyPoints !== undefined ||
+            minTotalDiscount !== undefined ||
+            maxTotalDiscount !== undefined ||
+            params?.sortBy === 'loyaltyPoints' ||
+            params?.sortBy === 'totalDiscount' ||
+            params?.sortBy === 'status';
+        const sortBy = params?.sortBy;
+        const sortCustomers = (items) => {
+            if (!sortBy)
+                return items;
+            const direction = params?.sortDir === 'asc' ? 1 : -1;
+            return [...items].sort((a, b) => {
+                if (sortBy === 'status') {
+                    const order = ['new', 'loyal', 'active', 'fading', 'at-risk', 'inactive', 'never'];
+                    return direction * (order.indexOf(this.getCustomerStatus(a)) - order.indexOf(this.getCustomerStatus(b)));
+                }
+                const aValue = a[sortBy];
+                const bValue = b[sortBy];
+                if (aValue === bValue)
+                    return 0;
+                if (aValue === null || aValue === undefined)
+                    return 1;
+                if (bValue === null || bValue === undefined)
+                    return -1;
+                if (aValue instanceof Date || bValue instanceof Date) {
+                    return direction * (new Date(aValue).getTime() - new Date(bValue).getTime());
+                }
+                return direction * (aValue > bValue ? 1 : -1);
+            });
+        };
+        const enrichResults = (customers) => customers.map((customer) => computeCustomerMetrics(customer));
+        if (shouldApplyDerivedFiltersOrSort) {
+            const allCustomers = await this.prisma.customer.findMany({
+                where,
+                include: {
+                    loyaltyTransactions: true,
+                    orders: {
+                        include: {
+                            items: {
+                                select: { quantity: true, unitPrice: true },
+                            },
+                        },
+                    },
+                },
+            });
+            let results = enrichResults(allCustomers);
+            if (minLoyaltyPoints !== undefined || maxLoyaltyPoints !== undefined) {
+                results = results.filter((customer) => {
+                    const value = customer.loyaltyPoints ?? 0;
+                    if (minLoyaltyPoints !== undefined && value < minLoyaltyPoints)
+                        return false;
+                    if (maxLoyaltyPoints !== undefined && value > maxLoyaltyPoints)
+                        return false;
+                    return true;
+                });
+            }
+            if (minTotalDiscount !== undefined || maxTotalDiscount !== undefined) {
+                results = results.filter((customer) => {
+                    const value = customer.totalDiscount ?? 0;
+                    if (minTotalDiscount !== undefined && value < minTotalDiscount)
+                        return false;
+                    if (maxTotalDiscount !== undefined && value > maxTotalDiscount)
+                        return false;
+                    return true;
+                });
+            }
+            results = sortCustomers(results);
+            const total = results.length;
+            const data = params?.page === undefined ? results : results.slice(skip, skip + take);
+            if (params?.page === undefined) {
+                return data;
+            }
+            return {
+                data,
+                pagination: {
+                    page: params.page,
+                    limit: take,
+                    total,
+                    totalPages: Math.max(1, Math.ceil(total / take)),
+                },
+            };
+        }
         const customers = await this.prisma.customer.findMany({
             where,
             orderBy,
             skip,
             take,
+            include: {
+                loyaltyTransactions: true,
+                orders: {
+                    include: {
+                        items: {
+                            select: { quantity: true, unitPrice: true },
+                        },
+                    },
+                },
+            },
         });
-        if (customers.length === 0) {
-            return customers;
+        const enrichedCustomers = enrichResults(customers);
+        if (params?.page === undefined) {
+            return enrichedCustomers;
         }
+        const total = await this.prisma.customer.count({ where });
+        return {
+            data: enrichedCustomers,
+            pagination: {
+                page: params.page,
+                limit: take,
+                total,
+                totalPages: Math.max(1, Math.ceil(total / take)),
+            },
+        };
     }
     async findById(id) {
         const customer = await this.prisma.customer.findUnique({

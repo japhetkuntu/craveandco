@@ -121,15 +121,16 @@ export default function GrowthCustomersPage() {
 
   const fetchData = async () => {
     if (!token) return;
-    const requestLimit = limit + 1;
     try {
       const [c, d] = await Promise.all([
-        get(`/api/v1/customers${buildQueryString({ page, limit: requestLimit, search: search.trim() || undefined })}`, token),
+        get(`/api/v1/customers${buildQueryString({ page, limit, search: search.trim() || undefined })}`, token),
         get('/api/v1/customers/dashboard', token),
       ]);
-      const customerItems = Array.isArray(c) ? c : [];
-      setHasMore(customerItems.length > limit);
-      setCustomers(customerItems.slice(0, limit));
+      const response = c as any;
+      const customerItems: Customer[] = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+      const pagination = Array.isArray(response) ? null : response?.pagination;
+      setHasMore(pagination ? page < pagination.totalPages - 1 : customerItems.length > limit);
+      setCustomers(customerItems);
       setDashboard(d);
     } catch (err) {
       console.error(err);
